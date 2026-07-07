@@ -61,6 +61,7 @@ create table if not exists user_tag (
   id bigint primary key auto_increment,
   name varchar(50) not null unique,
   type varchar(20) not null,
+  color varchar(20) null,
   user_count int not null default 0,
   status tinyint not null default 1,
   updater varchar(50) null,
@@ -170,11 +171,30 @@ create table if not exists staff (
   password_hash varchar(255) not null,
   role_id bigint not null,
   remark varchar(200) null,
+  avatar_url varchar(255) null,
   status tinyint not null default 1,
   updater varchar(50) null,
   updated_at datetime not null default current_timestamp on update current_timestamp,
   created_at datetime not null default current_timestamp
 ) default charset = utf8mb4;
+
+set @add_user_tag_color = if(
+  (select count(*) from information_schema.columns where table_schema = database() and table_name = 'user_tag' and column_name = 'color') = 0,
+  'alter table user_tag add column color varchar(20) null after type',
+  'select 1'
+);
+prepare stmt from @add_user_tag_color;
+execute stmt;
+deallocate prepare stmt;
+
+set @add_staff_avatar = if(
+  (select count(*) from information_schema.columns where table_schema = database() and table_name = 'staff' and column_name = 'avatar_url') = 0,
+  'alter table staff add column avatar_url varchar(255) null after remark',
+  'select 1'
+);
+prepare stmt from @add_staff_avatar;
+execute stmt;
+deallocate prepare stmt;
 
 create table if not exists role (
   id bigint primary key auto_increment,

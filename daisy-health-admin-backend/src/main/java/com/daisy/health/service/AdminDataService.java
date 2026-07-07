@@ -10,6 +10,8 @@ public interface AdminDataService {
 
     Map<String, Object> profile();
 
+    Map<String, Object> updateProfile(Map<String, Object> payload);
+
     Map<String, Object> dashboard();
 
     List<Map<String, Object>> appointments();
@@ -23,6 +25,16 @@ public interface AdminDataService {
     Map<String, Object> deleteUser(Long id);
 
     Map<String, Object> user(Long id);
+
+    PageResult<Map<String, Object>> tags();
+
+    Map<String, Object> createTag(Map<String, Object> payload);
+
+    Map<String, Object> updateTag(Long id, Map<String, Object> payload);
+
+    Map<String, Object> deleteTag(Long id);
+
+    Map<String, Object> updateUserTags(Long userId, Map<String, Object> payload);
 
     PageResult<Map<String, Object>> resource(String name);
 

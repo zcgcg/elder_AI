@@ -37,11 +37,12 @@ public class JdbcAdminDataService implements AdminDataService {
             throw new IllegalArgumentException("账号或密码不能为空");
         }
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select s.id, s.name, s.phone, r.name as role from staff s left join role r on s.role_id = r.id where s.phone = ? and s.status = 1 limit 1",
+                "select s.id, s.staff_no as staffNo, s.name, s.phone, s.avatar_url as avatarUrl, s.remark, r.name as role " +
+                        "from staff s left join role r on s.role_id = r.id where s.phone = ? and s.status = 1 limit 1",
                 phone
         );
         Map<String, Object> user = rows.isEmpty()
-                ? record("id", 1, "name", "系统管理员", "phone", phone, "role", "超级管理员")
+                ? record("id", 1, "staffNo", "S0001", "name", "系统管理员", "phone", phone, "role", "超级管理员", "avatarUrl", "", "remark", "初始化管理员")
                 : rows.get(0);
         return record("token", "db-token-admin", "user", user);
     }
@@ -49,12 +50,25 @@ public class JdbcAdminDataService implements AdminDataService {
     @Override
     public Map<String, Object> profile() {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select s.id, s.name, s.phone, r.name as role from staff s left join role r on s.role_id = r.id where s.status = 1 order by s.id limit 1"
+                "select s.id, s.staff_no as staffNo, s.name, s.phone, s.avatar_url as avatarUrl, s.remark, r.name as role, date_format(s.updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt " +
+                        "from staff s left join role r on s.role_id = r.id where s.status = 1 order by s.id limit 1"
         );
         if (rows.isEmpty()) {
-            return record("id", 1, "name", "系统管理员", "phone", "13800000000", "role", "超级管理员");
+            return record("id", 1, "staffNo", "S0001", "name", "系统管理员", "phone", "13800000000", "role", "超级管理员", "avatarUrl", "", "remark", "初始化管理员");
         }
         return rows.get(0);
+    }
+
+    @Override
+    public Map<String, Object> updateProfile(Map<String, Object> payload) {
+        Long id = longValue(payload, "id", firstId("staff"));
+        Map<String, Object> values = new LinkedHashMap<String, Object>();
+        putIfPresent(values, "remark", payload, "remark");
+        putIfPresent(values, "avatar_url", payload, "avatarUrl");
+        values.put("updater", "系统管理员");
+        updateById("staff", id, values);
+        accepted("updateProfile:" + id);
+        return profile();
     }
 
     @Override
@@ -88,15 +102,17 @@ public class JdbcAdminDataService implements AdminDataService {
     public PageResult<Map<String, Object>> users(String keyword) {
         String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select u.id, u.nickname, u.real_name as realName, concat(substr(u.phone, 1, 3), '****', substr(u.phone, 8)) as phone, date_format(u.created_at, '%Y-%m-%d') as createdAt, group_concat(t.name order by t.id separator ',') as tags " +
+                "select u.id, u.nickname, u.real_name as realName, u.phone, u.avatar_url as avatarUrl, date_format(u.created_at, '%Y-%m-%d %H:%i:%s') as createdAt, " +
+                        "group_concat(t.id order by t.id separator ',') as tagIds, group_concat(t.name order by t.id separator ',') as tags " +
                         "from `user` u " +
                         "left join user_tag_rel rel on u.id = rel.user_id " +
                         "left join user_tag t on rel.tag_id = t.id " +
                         "where (? = '%%' or u.nickname like ? or u.real_name like ? or u.phone like ?) " +
-                        "group by u.id, u.nickname, u.real_name, u.phone, u.created_at order by u.created_at desc",
+                        "group by u.id, u.nickname, u.real_name, u.phone, u.avatar_url, u.created_at order by u.created_at desc",
                 like, like, like, like
         );
         normalizeTags(rows);
+        normalizeTagIds(rows);
         return new PageResult<Map<String, Object>>(rows.size(), rows);
     }
 
@@ -126,6 +142,7 @@ public class JdbcAdminDataService implements AdminDataService {
                 "drinking_freq", text(payload, "drinkingFreq", "不饮酒"),
                 "exercise_freq", text(payload, "exerciseFreq", "每周2次"),
                 "diet_preference", text(payload, "dietPreference", "清淡"),
+                "avatar_url", text(payload, "avatarUrl", ""),
                 "last_login_time", null,
                 "last_buy_time", null,
                 "status", 1
@@ -134,6 +151,7 @@ public class JdbcAdminDataService implements AdminDataService {
         Object tagsValue = payload.get("tags");
         if (tagsValue != null) {
             attachTags(id.longValue(), stringValue(tagsValue));
+            updateAllTagCounts();
         }
         accepted("createUser:" + id);
         return record("accepted", true, "id", id.longValue(), "resource", "users");
@@ -144,6 +162,8 @@ public class JdbcAdminDataService implements AdminDataService {
         Map<String, Object> values = new LinkedHashMap<String, Object>();
         putIfPresent(values, "nickname", payload, "nickname");
         putIfPresent(values, "real_name", payload, "realName");
+        putIfPresent(values, "phone", payload, "phone");
+        putIfPresent(values, "avatar_url", payload, "avatarUrl");
         if (payload.containsKey("gender")) {
             values.put("gender", genderCode(text(payload, "gender", "未知")));
         }
@@ -162,6 +182,7 @@ public class JdbcAdminDataService implements AdminDataService {
         if (payload.containsKey("tags")) {
             jdbcTemplate.update("delete from user_tag_rel where user_id = ?", id);
             attachTags(id, stringValue(payload.get("tags")));
+            updateAllTagCounts();
         }
         accepted("updateUser:" + id);
         return record("accepted", true, "id", id, "resource", "users");
@@ -173,6 +194,7 @@ public class JdbcAdminDataService implements AdminDataService {
         jdbcTemplate.update("delete from health_data where user_id = ?", id);
         jdbcTemplate.update("delete from medication_record where user_id = ?", id);
         jdbcTemplate.update("delete from `user` where id = ?", id);
+        updateAllTagCounts();
         accepted("deleteUser:" + id);
         return record("accepted", true, "id", id, "resource", "users");
     }
@@ -206,6 +228,68 @@ public class JdbcAdminDataService implements AdminDataService {
                 id
         ));
         return row;
+    }
+
+    @Override
+    public PageResult<Map<String, Object>> tags() {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select id, name, type, color, user_count as userCount, if(status = 1, '启用', '禁用') as status, date_format(updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt " +
+                        "from user_tag order by id"
+        );
+        return new PageResult<Map<String, Object>>(rows.size(), rows);
+    }
+
+    @Override
+    public Map<String, Object> createTag(Map<String, Object> payload) {
+        require(payload, "name", "标签名称不能为空");
+        Number id = insert("user_tag", record(
+                "name", text(payload, "name", ""),
+                "type", text(payload, "type", "manual"),
+                "color", text(payload, "color", "green"),
+                "user_count", 0,
+                "status", statusCode(text(payload, "status", "启用")),
+                "updater", "系统管理员"
+        ));
+        accepted("createTag:" + id);
+        return record("accepted", true, "id", id.longValue(), "resource", "tags");
+    }
+
+    @Override
+    public Map<String, Object> updateTag(Long id, Map<String, Object> payload) {
+        Map<String, Object> values = new LinkedHashMap<String, Object>();
+        putIfPresent(values, "name", payload, "name");
+        putIfPresent(values, "type", payload, "type");
+        putIfPresent(values, "color", payload, "color");
+        if (payload.containsKey("status")) values.put("status", statusCode(text(payload, "status", "启用")));
+        values.put("updater", "系统管理员");
+        updateById("user_tag", id, values);
+        accepted("updateTag:" + id);
+        return record("accepted", true, "id", id, "resource", "tags");
+    }
+
+    @Override
+    public Map<String, Object> deleteTag(Long id) {
+        jdbcTemplate.update("delete from user_tag_rel where tag_id = ?", id);
+        jdbcTemplate.update("delete from user_tag where id = ?", id);
+        updateAllTagCounts();
+        accepted("deleteTag:" + id);
+        return record("accepted", true, "id", id, "resource", "tags");
+    }
+
+    @Override
+    public Map<String, Object> updateUserTags(Long userId, Map<String, Object> payload) {
+        jdbcTemplate.update("delete from user_tag_rel where user_id = ?", userId);
+        List<Long> tagIds = toLongList(payload == null ? null : payload.get("tagIds"));
+        if (tagIds.isEmpty() && payload != null && payload.containsKey("tags")) {
+            attachTags(userId, stringValue(payload.get("tags")));
+        } else {
+            for (Long tagId : tagIds) {
+                jdbcTemplate.update("insert ignore into user_tag_rel(user_id, tag_id) values(?, ?)", userId, tagId);
+            }
+        }
+        updateAllTagCounts();
+        accepted("updateUserTags:" + userId);
+        return record("accepted", true, "id", userId, "resource", "userTags");
     }
 
     @Override
@@ -530,6 +614,10 @@ public class JdbcAdminDataService implements AdminDataService {
         }
     }
 
+    private void updateAllTagCounts() {
+        jdbcTemplate.update("update user_tag t set user_count = (select count(*) from user_tag_rel r where r.tag_id = t.id)");
+    }
+
     private void updateById(String tableName, Long id, Map<String, Object> values) {
         if (values == null || values.isEmpty()) {
             return;
@@ -627,6 +715,53 @@ public class JdbcAdminDataService implements AdminDataService {
             } else {
                 row.put("tags", Arrays.asList(stringValue(tags).split(",")));
             }
+        }
+    }
+
+    private void normalizeTagIds(List<Map<String, Object>> rows) {
+        for (Map<String, Object> row : rows) {
+            Object value = row.get("tagIds");
+            row.put("tagIds", toLongList(value));
+        }
+    }
+
+    private List<Long> toLongList(Object value) {
+        List<Long> ids = new ArrayList<Long>();
+        if (value == null) {
+            return ids;
+        }
+        if (value instanceof Iterable) {
+            for (Object item : (Iterable<?>) value) {
+                Long parsed = parseLong(item);
+                if (parsed != null) {
+                    ids.add(parsed);
+                }
+            }
+            return ids;
+        }
+        String text = stringValue(value);
+        if (text.trim().length() == 0) {
+            return ids;
+        }
+        String[] parts = text.split("[,，]");
+        for (String part : parts) {
+            Long parsed = parseLong(part);
+            if (parsed != null) {
+                ids.add(parsed);
+            }
+        }
+        return ids;
+    }
+
+    private Long parseLong(Object value) {
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        try {
+            String text = stringValue(value).trim();
+            return text.length() == 0 ? null : Long.parseLong(text);
+        } catch (Exception ex) {
+            return null;
         }
     }
 

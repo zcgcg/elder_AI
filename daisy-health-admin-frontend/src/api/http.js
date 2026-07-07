@@ -22,14 +22,21 @@ service.interceptors.response.use(
 
 export const login = (payload) => service.post('/auth/login', payload)
 export const profile = () => service.get('/auth/profile')
+export const updateProfile = (payload) => service.put('/auth/profile', payload)
 export const getDashboard = () => service.get('/dashboard')
 export const getAppointments = (params) => service.get('/appointments', { params })
 export const createAppointment = (payload) => service.post('/appointments', payload)
+export const deleteAppointment = (id) => service.delete(`/appointments/${id}`)
 export const getUsers = (params) => service.get('/users', { params })
 export const createUser = (payload) => service.post('/users', payload)
 export const updateUser = (id, payload) => service.put(`/users/${id}`, payload)
 export const deleteUser = (id) => service.delete(`/users/${id}`)
 export const getUser = (id) => service.get(`/users/${id}`)
+export const getTags = () => service.get('/tags')
+export const createTag = (payload) => service.post('/tags', payload)
+export const updateTag = (id, payload) => service.put(`/tags/${id}`, payload)
+export const deleteTag = (id) => service.delete(`/tags/${id}`)
+export const updateUserTags = (id, payload) => service.put(`/users/${id}/tags`, payload)
 const resourcePaths = {
   workOrders: 'work-orders',
   afterSales: 'after-sales'

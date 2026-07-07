@@ -50,13 +50,13 @@
           <el-button :icon="ChatDotRound" circle />
           <el-dropdown>
             <div class="profile">
-              <el-avatar :size="34">黛</el-avatar>
+              <el-avatar :size="34" :src="auth.user?.avatarUrl">{{ auth.user?.name?.slice(0, 1) || '黛' }}</el-avatar>
               <span>{{ auth.user?.name || '系统管理员' }}</span>
               <el-icon><ArrowDown /></el-icon>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item>个人资料</el-dropdown-item>
+                <el-dropdown-item @click="openProfile">个人资料</el-dropdown-item>
                 <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -68,18 +68,88 @@
       </el-main>
     </el-container>
   </el-container>
+
+  <el-dialog v-model="profileVisible" title="个人资料" width="520px">
+    <div class="admin-profile">
+      <el-avatar :size="76" :src="profileForm.avatarUrl">{{ profileForm.name?.slice(0, 1) || '管' }}</el-avatar>
+      <dl>
+        <dt>姓名</dt><dd>{{ profileForm.name }}</dd>
+        <dt>员工编号</dt><dd>{{ profileForm.staffNo }}</dd>
+        <dt>手机号码</dt><dd>{{ profileForm.phone }}</dd>
+        <dt>角色</dt><dd>{{ profileForm.role }}</dd>
+      </dl>
+    </div>
+    <el-form label-width="72px">
+      <el-form-item label="头像">
+        <el-input v-model="profileForm.avatarUrl" placeholder="头像 URL" />
+      </el-form-item>
+      <el-form-item label="备注">
+        <el-input v-model="profileForm.remark" type="textarea" :rows="4" maxlength="200" show-word-limit />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="profileVisible = false">取消</el-button>
+      <el-button type="primary" :loading="profileSaving" @click="saveProfile">保存</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { Bell, ChatDotRound } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const auth = useAuthStore()
+const profileVisible = ref(false)
+const profileSaving = ref(false)
+const profileForm = reactive({ id: '', name: '', staffNo: '', phone: '', avatarUrl: '', role: '', remark: '' })
+
+function syncProfile(user = auth.user || {}) {
+  Object.assign(profileForm, {
+    id: user.id || '',
+    name: user.name || '系统管理员',
+    staffNo: user.staffNo || 'S0001',
+    phone: user.phone || '',
+    avatarUrl: user.avatarUrl || '',
+    role: user.role || '超级管理员',
+    remark: user.remark || ''
+  })
+}
+
+async function openProfile() {
+  try {
+    const user = await auth.loadProfile()
+    syncProfile(user)
+  } catch (error) {
+    syncProfile()
+  }
+  profileVisible.value = true
+}
+
+async function saveProfile() {
+  profileSaving.value = true
+  try {
+    await auth.saveProfile({ id: profileForm.id, avatarUrl: profileForm.avatarUrl, remark: profileForm.remark })
+    syncProfile(auth.user)
+    ElMessage.success('个人资料已保存')
+    profileVisible.value = false
+  } catch (error) {
+    ElMessage.error('保存失败，请确认后端和数据库已启动')
+  } finally {
+    profileSaving.value = false
+  }
+}
 
 function logout() {
   auth.signOut()
   router.push('/login')
 }
+
+onMounted(() => {
+  syncProfile()
+  auth.loadProfile().then(syncProfile).catch(() => {})
+})
 </script>

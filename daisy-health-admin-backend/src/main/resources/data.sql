@@ -19,7 +19,28 @@ insert ignore into user_tag(id, name, type, user_count, status, updater, created
 (2, '重点关怀', 'manual', 1, 1, '系统管理员', now()),
 (3, '康复护理', 'manual', 1, 1, '系统管理员', now()),
 (4, '独居老人', 'manual', 1, 1, '系统管理员', now()),
-(5, '糖尿病', 'manual', 1, 1, '系统管理员', now());
+(5, '糖尿病', 'manual', 1, 1, '系统管理员', now()),
+(6, '潜在客户', 'manual', 0, 1, '系统管理员', now()),
+(7, '普通客户', 'manual', 0, 1, '系统管理员', now()),
+(8, '多次消费客户', 'manual', 0, 1, '系统管理员', now()),
+(9, '高血糖', 'manual', 0, 1, '系统管理员', now()),
+(10, '高血脂', 'manual', 0, 1, '系统管理员', now());
+
+update staff set avatar_url = 'https://api.dicebear.com/7.x/initials/svg?seed=DAISY', remark = coalesce(remark, '初始化管理员') where id = 1;
+
+update user_tag set color = case name
+  when '高血压' then 'green'
+  when '糖尿病' then 'red'
+  when '多次消费客户' then 'purple'
+  when '重点关怀' then 'green'
+  when '康复护理' then 'blue'
+  when '独居老人' then 'orange'
+  when '潜在客户' then 'gray'
+  when '普通客户' then 'blue'
+  when '高血糖' then 'orange'
+  when '高血脂' then 'purple'
+  else 'green'
+end;
 
 insert ignore into user_tag_rel(id, user_id, tag_id) values
 (1, 10001, 1),

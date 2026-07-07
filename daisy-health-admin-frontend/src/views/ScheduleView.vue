@@ -19,7 +19,10 @@
           <article v-for="item in appointmentsByHour(hour)" :key="item.id" class="appointment-card">
             <strong>{{ item.serviceName }}</strong>
             <span>{{ item.timeRange }} · {{ item.userName }}</span>
-            <el-tag :type="tagType(item.status)">{{ item.status }}</el-tag>
+            <div class="appointment-card-footer">
+              <el-tag :type="tagType(item.status)">{{ item.status }}</el-tag>
+              <el-button link type="danger" @click="removeAppointment(item)">删除</el-button>
+            </div>
           </article>
         </div>
       </div>
@@ -46,8 +49,8 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
-import { createAppointment, getAppointments } from '../api/http'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { createAppointment, deleteAppointment, getAppointments } from '../api/http'
 
 const filters = reactive({ date: new Date(), serviceType: '' })
 const hours = Array.from({ length: 10 }, (_, index) => index + 9)
@@ -100,6 +103,16 @@ async function submitCreate() {
     ElMessage.error('创建失败，请确认后端和数据库已启动')
   } finally {
     saving.value = false
+  }
+}
+async function removeAppointment(item) {
+  try {
+    await ElMessageBox.confirm(`确认删除预约「${item.serviceName}」？`, '删除确认', { type: 'warning' })
+    await deleteAppointment(item.id)
+    ElMessage.success('预约已删除')
+    await load()
+  } catch (error) {
+    if (error !== 'cancel') ElMessage.error('删除失败')
   }
 }
 

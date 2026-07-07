@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { login, profile } from '../api/http'
+import { login, profile, updateProfile } from '../api/http'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -30,6 +30,12 @@ export const useAuthStore = defineStore('auth', {
     async loadProfile() {
       if (!this.token) return null
       const res = await profile()
+      this.user = res
+      localStorage.setItem('daisy_user', JSON.stringify(res))
+      return res
+    },
+    async saveProfile(payload) {
+      const res = await updateProfile(payload)
       this.user = res
       localStorage.setItem('daisy_user', JSON.stringify(res))
       return res

@@ -26,7 +26,11 @@ public class MockDataService implements AdminDataService {
     }
 
     public Map<String, Object> profile() {
-        return record("id", 1, "name", "系统管理员", "phone", "13800000000", "role", "超级管理员");
+        return record("id", 1, "staffNo", "S0001", "name", "系统管理员", "phone", "13800000000", "avatarUrl", "", "role", "超级管理员", "remark", "初始化管理员");
+    }
+
+    public Map<String, Object> updateProfile(Map<String, Object> payload) {
+        return record("id", 1, "staffNo", "S0001", "name", "系统管理员", "phone", "13800000000", "avatarUrl", "", "role", "超级管理员", "remark", payload.get("remark"));
     }
 
     public Map<String, Object> dashboard() {
@@ -116,6 +120,36 @@ public class MockDataService implements AdminDataService {
         row.put("medications", medications());
         row.put("healthData", healthData());
         return row;
+    }
+
+    public PageResult<Map<String, Object>> tags() {
+        List<Map<String, Object>> rows = list(
+                record("id", 1, "name", "潜在客户", "type", "manual", "color", "gray", "userCount", 0, "status", "启用"),
+                record("id", 2, "name", "重点客户", "type", "manual", "color", "green", "userCount", 1, "status", "启用"),
+                record("id", 3, "name", "普通客户", "type", "manual", "color", "blue", "userCount", 1, "status", "启用"),
+                record("id", 4, "name", "多次消费客户", "type", "manual", "color", "purple", "userCount", 1, "status", "启用"),
+                record("id", 5, "name", "高血压", "type", "manual", "color", "green", "userCount", 1, "status", "启用"),
+                record("id", 6, "name", "高血糖", "type", "manual", "color", "orange", "userCount", 1, "status", "启用"),
+                record("id", 7, "name", "高血脂", "type", "manual", "color", "purple", "userCount", 1, "status", "启用"),
+                record("id", 8, "name", "慢性病", "type", "manual", "color", "red", "userCount", 1, "status", "启用")
+        );
+        return new PageResult<Map<String, Object>>(rows.size(), rows);
+    }
+
+    public Map<String, Object> createTag(Map<String, Object> payload) {
+        return record("accepted", true, "id", 99999, "resource", "tags");
+    }
+
+    public Map<String, Object> updateTag(Long id, Map<String, Object> payload) {
+        return record("accepted", true, "id", id, "resource", "tags");
+    }
+
+    public Map<String, Object> deleteTag(Long id) {
+        return record("accepted", true, "id", id, "resource", "tags");
+    }
+
+    public Map<String, Object> updateUserTags(Long userId, Map<String, Object> payload) {
+        return record("accepted", true, "id", userId, "resource", "userTags");
     }
 
     public PageResult<Map<String, Object>> resource(String name) {

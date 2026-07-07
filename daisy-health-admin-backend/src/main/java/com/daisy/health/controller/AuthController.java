@@ -35,6 +35,11 @@ public class AuthController {
         return ApiResponse.success(dataService.profile());
     }
 
+    @PutMapping("/profile")
+    public ApiResponse<Map<String, Object>> updateProfile(@RequestBody Map<String, Object> payload) {
+        return ApiResponse.success(dataService.updateProfile(payload));
+    }
+
     @PutMapping("/password")
     public ApiResponse<Map<String, Object>> updatePassword() {
         return ApiResponse.success(dataService.accepted("updatePassword"));
