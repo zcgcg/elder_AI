@@ -30,7 +30,15 @@ public class MockDataService implements AdminDataService {
     }
 
     public Map<String, Object> updateProfile(Map<String, Object> payload) {
-        return record("id", 1, "staffNo", "S0001", "name", "系统管理员", "phone", "13800000000", "avatarUrl", "", "role", "超级管理员", "remark", payload.get("remark"));
+        return record(
+                "id", 1,
+                "staffNo", payload.containsKey("staffNo") ? payload.get("staffNo") : "S0001",
+                "name", payload.containsKey("name") ? payload.get("name") : "系统管理员",
+                "phone", payload.containsKey("phone") ? payload.get("phone") : "13800000000",
+                "avatarUrl", payload.containsKey("avatarUrl") ? payload.get("avatarUrl") : "",
+                "role", payload.containsKey("role") ? payload.get("role") : "超级管理员",
+                "remark", payload.get("remark")
+        );
     }
 
     public Map<String, Object> dashboard() {

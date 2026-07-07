@@ -204,3 +204,96 @@ insert ignore into operation_log(id, operator, action_type, target, content, ip_
 (5, '运营专员', '新增', '活动管理', '发布社区义诊日活动', '127.0.0.1', now());
 
 update user_tag t set user_count = (select count(*) from user_tag_rel r where r.tag_id = t.id);
+
+insert ignore into health_settings(id, user_id, heart_rate_upper, heart_rate_lower, blood_pressure_sys_upper, blood_pressure_dias_upper, blood_sugar_upper, blood_sugar_lower, step_goal, sleep_goal, medication_reminder, checkup_interval) values
+(1, 10001, 110, 55, 150, 95, 8.0, 3.9, 6000, 7.0, 1, 180),
+(2, 10003, 105, 55, 145, 90, 7.8, 4.0, 5000, 7.5, 1, 90);
+
+insert ignore into device(id, user_id, device_name, device_type, device_code, bind_time, last_sync_time, status) values
+(1, 10001, '小米手环8', 'band', 'MI-BAND-10001', date_sub(now(), interval 20 day), now(), 1),
+(2, 10003, '智能血糖仪', 'glucometer', 'GLU-10003', date_sub(now(), interval 12 day), date_sub(now(), interval 1 hour), 1);
+
+insert ignore into report(id, user_id, title, report_type, report_date, file_url, summary, doctor_name) values
+(1, 10001, '2026年7月慢病随访报告', '健康评估', curdate(), '', '血压整体稳定，建议继续低盐饮食。', '李医生'),
+(2, 10003, '糖尿病管理月报', '月度总结', date_sub(curdate(), interval 3 day), '', '空腹血糖略高，建议复查。', '王医生');
+
+insert ignore into coupon(id, user_id, coupon_no, name, type, discount, min_amount, status, expire_date) values
+(1, 10001, 'CP202607001', '家政护理满减券', '满减', 30.00, 199.00, '未使用', date_add(curdate(), interval 30 day)),
+(2, null, 'CP202607002', '康复理疗通用券', '折扣', 8.80, 0.00, '可发放', date_add(curdate(), interval 60 day));
+
+insert ignore into user_points(id, user_id, points, total_earned, total_spent, level, growth_value) values
+(1, 10001, 1260, 1800, 540, '银卡', 3200),
+(2, 10003, 860, 900, 40, '普通', 1200);
+
+insert ignore into points_record(id, user_id, change_value, reason, created_at) values
+(1, 10001, 100, '完成服务订单', date_sub(now(), interval 2 day)),
+(2, 10001, -40, '兑换优惠券', date_sub(now(), interval 1 day)),
+(3, 10003, 80, '健康打卡', now());
+
+insert ignore into member_level(id, name, min_growth, max_growth, icon, benefits, status) values
+(1, '普通', 0, 999, '', '基础服务权益', 1),
+(2, '银卡', 1000, 4999, '', '专属客服、优惠券礼包', 1),
+(3, '金卡', 5000, null, '', '优先派单、生日礼遇', 1);
+
+insert ignore into points_rule(id, action_type, description, points, growth, daily_limit, status) values
+(1, 'signin', '每日签到', 5, 5, 1, 1),
+(2, 'order', '完成订单', 100, 120, null, 1),
+(3, 'review', '发布评价', 20, 20, 3, 1);
+
+insert ignore into product_category(id, name, code, description, sort_order, status) values
+(1, '家政护理', 'HK', '居家照护、清洁、助浴', 1, 1),
+(2, '康复理疗', 'RH', '康复训练与理疗服务', 2, 1),
+(3, '上门体检', 'EX', '居家健康检测服务', 3, 1);
+
+insert ignore into service_item(id, product_id, name, description, duration, price, status) values
+(1, 4, '助浴前评估', '上门前基础身体状态评估', 15, 0.00, 1),
+(2, 4, '全程助浴护理', '助浴、擦洗、换衣及安全看护', 75, 199.00, 1),
+(3, 2, '肩颈放松训练', '肩颈肌群康复训练', 45, 99.00, 1);
+
+insert ignore into banner(id, title, image_url, link_url, sort_order, location, status) values
+(1, '夏季慢病管理专题', 'https://example.com/banner-summer.png', '/articles/1', 1, 'home', 1),
+(2, '社区义诊报名', 'https://example.com/banner-clinic.png', '/activities/1', 2, 'home', 1);
+
+insert ignore into activity(id, title, cover_url, location, start_time, end_time, quota, enrolled, status, content) values
+(1, '社区义诊日', '', '黄浦社区服务中心', date_add(now(), interval 5 day), date_add(now(), interval 5 day), 80, 12, 'published', '血压血糖检测与医生问诊。'),
+(2, '银发健康运动会', '', '徐汇体育中心', date_add(now(), interval 8 day), date_add(now(), interval 8 day), 120, 28, 'published', '趣味运动与康复指导。');
+
+insert ignore into activity_enroll(id, activity_id, user_id, status, remark) values
+(1, 1, 10001, 'enrolled', '需要轮椅通道'),
+(2, 1, 10003, 'attended', '已签到');
+
+insert ignore into topic(id, name, description, icon, post_count, status) values
+(1, '健康打卡', '每日健康生活分享', '', 23, 1),
+(2, '康复训练', '康复训练记录与经验交流', '', 12, 1);
+
+insert ignore into recipe(id, name, category, ingredients, steps, calories, suitable_for, cover_url, status) values
+(1, '低盐蒸鱼', '午餐', '鱼,葱姜,低钠盐', '腌制;清蒸;调味', 260, '高血压', '', 1),
+(2, '控糖燕麦粥', '早餐', '燕麦,牛奶,坚果', '熬煮;调味', 320, '糖尿病', '', 1);
+
+insert ignore into article(id, title, summary, content, cover_url, author, category, tags, view_count, status) values
+(1, '夏季老人补水指南', '高温天气下老人补水要点。', '少量多次补水，关注电解质。', '', '运营中心', '养生', '夏季,补水', 1260, 1),
+(2, '高血压用药提醒', '规范用药和监测血压。', '遵医嘱用药，避免自行停药。', '', '健康编辑', '疾病', '高血压', 980, 1);
+
+insert ignore into disease(id, name, category, summary, symptoms, prevention, diet_advice, risk_factors, status) values
+(1, '高血压', '心血管', '常见慢性病，需要长期监测。', '头晕,心悸', '低盐饮食,规律运动', '低盐低脂', '年龄,肥胖,遗传', 1),
+(2, '糖尿病', '内分泌', '血糖代谢异常疾病。', '多饮,多尿', '控糖饮食,定期监测', '低糖高纤维', '肥胖,家族史', 1);
+
+insert ignore into institution(id, name, address, phone, type, rating, capacity, price_range, services, images, status) values
+(1, '浦东康养中心', '上海市浦东新区康养路88号', '021-88880001', '养老院', 4.8, 120, '5000-9000/月', '护理,康复,餐饮', '', 1),
+(2, '静安护理院', '上海市静安区安康路66号', '021-88880002', '护理院', 4.6, 90, '6000-11000/月', '医护,康复', '', 1);
+
+insert ignore into video(id, title, description, cover_url, video_url, duration, lecturer, category, view_count, status) values
+(1, '居家康复训练课', '适合老人每日练习的康复动作。', '', 'https://example.com/video-rehab.mp4', 900, '张康复师', '康复', 560, 1),
+(2, '肩颈放松课程', '肩颈舒缓训练。', '', 'https://example.com/video-neck.mp4', 720, '李康复师', '康复', 430, 1);
+
+insert ignore into food(id, name, category, calories, protein, fat, carbs, fiber, sodium, suitable_for, status) values
+(1, '燕麦', '主食', 338, 10.1, 6.0, 66.9, 10.6, 3.7, '糖尿病,高血脂', 1),
+(2, '鸡蛋', '蛋类', 144, 13.3, 8.8, 2.8, 0.0, 131.5, '康复护理', 1);
+
+insert ignore into assessment(id, title, description, type, questions, scoring_rules, status) values
+(1, '睡眠质量测评', '评估近一周睡眠质量。', 'sleep', '[\"入睡是否困难\",\"夜间醒来次数\"]', '{\"low\":\"良好\",\"high\":\"需关注\"}', 1),
+(2, '跌倒风险测评', '评估居家跌倒风险。', 'fall', '[\"是否独居\",\"是否使用助行器\"]', '{\"high\":\"高风险\"}', 1);
+
+insert ignore into assessment_result(id, assessment_id, user_id, score, result, answers) values
+(1, 1, 10001, 18, '睡眠质量良好', '{}'),
+(2, 2, 10003, 72, '跌倒风险较高', '{}');

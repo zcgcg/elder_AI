@@ -72,7 +72,7 @@ const saving = ref(false)
 const editingId = ref(null)
 const form = reactive({})
 const resource = computed(() => route.meta.resourceFromParam ? route.params.resource : route.meta.resource)
-const title = computed(() => route.meta.title)
+const title = computed(() => titleMap[resource.value] || route.meta.title)
 const descriptor = computed(() => descriptors[resource.value] || '列表筛选、批量操作、状态流转与数据维护')
 const columns = computed(() => columnMap[resource.value] || defaultColumns)
 const createFields = computed(() => createFieldMap[resource.value] || createFieldMap.posts)
@@ -91,7 +91,47 @@ const descriptors = {
   articles: '健康资讯发布与互动数据维护',
   staffs: '后台员工账号和角色分配',
   roles: 'RBAC 角色与模块权限配置',
-  logs: '系统操作审计日志'
+  logs: '系统操作审计日志',
+  devices: '用户绑定设备与同步状态管理',
+  reports: '用户健康报告、体检报告与评估摘要',
+  healthSettings: '健康告警阈值、步数目标与用药提醒设置',
+  coupons: '优惠券发放、状态与过期时间管理',
+  userPoints: '用户积分、等级与成长值管理',
+  memberLevels: '会员等级和成长值区间配置',
+  pointsRules: '签到、订单、评价等积分和成长值规则',
+  productCategories: '家政护理、康复理疗、上门体检分类管理',
+  serviceItems: '商品下属服务项目、时长与价格维护',
+  banners: '首页和活动位轮播图配置',
+  topics: '生活圈话题与动态数量维护',
+  activityEnrolls: '活动报名用户、状态和备注管理',
+  recipes: '健康膳食菜谱管理',
+  diseases: '疾病宝典条目和健康建议',
+  institutions: '养老机构资料维护',
+  videos: '健康讲堂视频内容管理',
+  foods: '食物营养成分维护',
+  assessments: '健康测评题目和规则管理'
+}
+const titleMap = {
+  devices: '设备信息',
+  reports: '报告信息',
+  healthSettings: '健康设置',
+  coupons: '优惠券管理',
+  userPoints: '用户积分',
+  pointsRecords: '积分记录',
+  memberLevels: '等级管理',
+  pointsRules: '积分规则',
+  productCategories: '分类管理',
+  serviceItems: '服务项目管理',
+  banners: '轮播图管理',
+  topics: '话题管理',
+  activityEnrolls: '活动报名',
+  recipes: '食谱管理',
+  diseases: '疾病宝典',
+  institutions: '养老机构',
+  videos: '健康讲堂',
+  foods: '食物管理',
+  assessments: '测评管理',
+  assessmentResults: '测评结果'
 }
 const defaultColumns = [
   { prop: 'id', label: 'ID', width: 80 },
@@ -110,6 +150,28 @@ const columnMap = {
   roles: [{ prop: 'name', label: '角色名称' }, { prop: 'description', label: '描述', width: 220 }, { prop: 'status', label: '状态' }],
   logs: [{ prop: 'operator', label: '操作人' }, { prop: 'actionType', label: '操作类型' }, { prop: 'target', label: '操作对象' }, { prop: 'createdAt', label: '操作时间', width: 170 }]
 }
+Object.assign(columnMap, {
+  devices: [{ prop: 'userName', label: '用户' }, { prop: 'deviceName', label: '设备名称' }, { prop: 'deviceType', label: '类型' }, { prop: 'deviceCode', label: '设备编号' }, { prop: 'status', label: '状态' }],
+  reports: [{ prop: 'userName', label: '用户' }, { prop: 'title', label: '报告标题', width: 220 }, { prop: 'reportType', label: '类型' }, { prop: 'reportDate', label: '报告日期' }, { prop: 'doctorName', label: '医生' }],
+  healthSettings: [{ prop: 'userName', label: '用户' }, { prop: 'stepGoal', label: '步数目标' }, { prop: 'sleepGoal', label: '睡眠目标' }, { prop: 'status', label: '用药提醒' }],
+  coupons: [{ prop: 'couponNo', label: '券编号', width: 170 }, { prop: 'name', label: '名称' }, { prop: 'type', label: '类型' }, { prop: 'discount', label: '优惠' }, { prop: 'status', label: '状态' }, { prop: 'expireDate', label: '过期日' }],
+  userPoints: [{ prop: 'userName', label: '用户' }, { prop: 'points', label: '积分' }, { prop: 'level', label: '等级' }, { prop: 'growthValue', label: '成长值' }],
+  pointsRecords: [{ prop: 'userName', label: '用户' }, { prop: 'changeValue', label: '变动' }, { prop: 'reason', label: '原因' }, { prop: 'createdAt', label: '时间' }],
+  memberLevels: [{ prop: 'name', label: '等级名称' }, { prop: 'minGrowth', label: '成长值下限' }, { prop: 'maxGrowth', label: '成长值上限' }, { prop: 'status', label: '状态' }],
+  pointsRules: [{ prop: 'actionType', label: '行为' }, { prop: 'description', label: '说明' }, { prop: 'points', label: '积分' }, { prop: 'growth', label: '成长值' }, { prop: 'status', label: '状态' }],
+  productCategories: [{ prop: 'name', label: '分类名称' }, { prop: 'code', label: '编码' }, { prop: 'description', label: '描述' }, { prop: 'sortOrder', label: '排序' }, { prop: 'status', label: '状态' }],
+  serviceItems: [{ prop: 'productName', label: '商品' }, { prop: 'name', label: '项目名称' }, { prop: 'duration', label: '时长' }, { prop: 'price', label: '价格' }, { prop: 'status', label: '状态' }],
+  banners: [{ prop: 'title', label: '标题' }, { prop: 'imageUrl', label: '图片' }, { prop: 'location', label: '位置' }, { prop: 'sortOrder', label: '排序' }, { prop: 'status', label: '状态' }],
+  topics: [{ prop: 'name', label: '话题名称' }, { prop: 'description', label: '描述' }, { prop: 'postCount', label: '动态数' }, { prop: 'status', label: '状态' }],
+  activityEnrolls: [{ prop: 'activityTitle', label: '活动' }, { prop: 'userName', label: '用户' }, { prop: 'status', label: '状态' }, { prop: 'remark', label: '备注' }],
+  recipes: [{ prop: 'title', label: '菜谱名称' }, { prop: 'category', label: '分类' }, { prop: 'calories', label: '热量' }, { prop: 'suitableFor', label: '适宜人群' }, { prop: 'status', label: '状态' }],
+  diseases: [{ prop: 'title', label: '疾病名称' }, { prop: 'category', label: '分类' }, { prop: 'summary', label: '简介', width: 220 }, { prop: 'status', label: '状态' }],
+  institutions: [{ prop: 'title', label: '机构名称' }, { prop: 'type', label: '类型' }, { prop: 'address', label: '地址', width: 220 }, { prop: 'rating', label: '评分' }, { prop: 'capacity', label: '床位' }, { prop: 'status', label: '状态' }],
+  videos: [{ prop: 'title', label: '视频标题' }, { prop: 'lecturer', label: '讲师' }, { prop: 'category', label: '分类' }, { prop: 'duration', label: '时长' }, { prop: 'viewCount', label: '播放' }, { prop: 'status', label: '状态' }],
+  foods: [{ prop: 'title', label: '食物名称' }, { prop: 'category', label: '分类' }, { prop: 'calories', label: '热量' }, { prop: 'protein', label: '蛋白质' }, { prop: 'fat', label: '脂肪' }, { prop: 'carbs', label: '碳水' }, { prop: 'status', label: '状态' }],
+  assessments: [{ prop: 'title', label: '测评名称' }, { prop: 'type', label: '类型' }, { prop: 'status', label: '状态' }],
+  assessmentResults: [{ prop: 'assessmentTitle', label: '测评' }, { prop: 'userName', label: '用户' }, { prop: 'score', label: '得分' }, { prop: 'result', label: '结果' }]
+})
 const createFieldMap = {
   personnel: [
     { prop: 'name', label: '姓名', required: true, placeholder: '服务人员姓名' },
@@ -189,6 +251,144 @@ createFieldMap.videos = createFieldMap.articles
 createFieldMap.comments = createFieldMap.posts
 createFieldMap.foods = createFieldMap.articles
 createFieldMap.assessments = createFieldMap.articles
+Object.assign(createFieldMap, {
+  devices: [
+    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'deviceName', label: '设备名称', required: true, placeholder: '如：小米手环8' },
+    { prop: 'deviceType', label: '设备类型', placeholder: 'band/watch/scale' },
+    { prop: 'deviceCode', label: '设备编号', placeholder: '设备编号或 MAC' },
+    { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
+  ],
+  reports: [
+    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'title', label: '报告标题', required: true, placeholder: '报告标题' },
+    { prop: 'reportType', label: '报告类型', placeholder: '体检/健康评估/月度总结' },
+    { prop: 'reportDate', label: '报告日期', placeholder: 'YYYY-MM-DD' },
+    { prop: 'doctorName', label: '医生', placeholder: '医生/评估人' },
+    { prop: 'summary', label: '摘要', type: 'textarea', placeholder: '报告摘要' }
+  ],
+  healthSettings: [
+    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'heartRateUpper', label: '心率上限', type: 'number' },
+    { prop: 'heartRateLower', label: '心率下限', type: 'number' },
+    { prop: 'stepGoal', label: '步数目标', type: 'number' },
+    { prop: 'sleepGoal', label: '睡眠目标', type: 'number' },
+    { prop: 'status', label: '用药提醒', type: 'select', options: ['启用', '禁用'] }
+  ],
+  coupons: [
+    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'couponNo', label: '券编号', placeholder: '不填则自动生成' },
+    { prop: 'name', label: '名称', required: true, placeholder: '优惠券名称' },
+    { prop: 'type', label: '类型', type: 'select', options: ['满减', '折扣', '现金'] },
+    { prop: 'discount', label: '优惠', type: 'number' },
+    { prop: 'minAmount', label: '门槛', type: 'number' },
+    { prop: 'status', label: '状态', type: 'select', options: ['未使用', '已使用', '已过期', '可发放'] },
+    { prop: 'expireDate', label: '过期日', placeholder: 'YYYY-MM-DD' }
+  ],
+  userPoints: [
+    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'points', label: '当前积分', type: 'number' },
+    { prop: 'totalEarned', label: '累计获得', type: 'number' },
+    { prop: 'totalSpent', label: '累计消耗', type: 'number' },
+    { prop: 'level', label: '等级', placeholder: '普通/银卡/金卡' },
+    { prop: 'growthValue', label: '成长值', type: 'number' }
+  ],
+  memberLevels: [
+    { prop: 'name', label: '等级名称', required: true, placeholder: '如：银卡' },
+    { prop: 'minGrowth', label: '成长值下限', type: 'number' },
+    { prop: 'maxGrowth', label: '成长值上限', type: 'number' },
+    { prop: 'benefits', label: '权益', type: 'textarea', placeholder: '权益说明' },
+    { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
+  ],
+  pointsRules: [
+    { prop: 'actionType', label: '行为类型', required: true, placeholder: 'signin/order/review' },
+    { prop: 'description', label: '说明', placeholder: '规则说明' },
+    { prop: 'points', label: '积分', type: 'number' },
+    { prop: 'growth', label: '成长值', type: 'number' },
+    { prop: 'dailyLimit', label: '每日上限', type: 'number' },
+    { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
+  ],
+  productCategories: [
+    { prop: 'name', label: '分类名称', required: true, placeholder: '分类名称' },
+    { prop: 'code', label: '编码', placeholder: '分类编码' },
+    { prop: 'description', label: '描述', placeholder: '描述' },
+    { prop: 'sortOrder', label: '排序', type: 'number' },
+    { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
+  ],
+  serviceItems: [
+    { prop: 'productId', label: '商品ID', type: 'number' },
+    { prop: 'name', label: '项目名称', required: true, placeholder: '服务项目名称' },
+    { prop: 'description', label: '描述', type: 'textarea', placeholder: '服务项目描述' },
+    { prop: 'duration', label: '时长分钟', type: 'number' },
+    { prop: 'price', label: '价格', type: 'number' },
+    { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
+  ],
+  banners: [
+    { prop: 'title', label: '标题', required: true, placeholder: '轮播标题' },
+    { prop: 'imageUrl', label: '图片URL', placeholder: '图片 URL' },
+    { prop: 'linkUrl', label: '跳转URL', placeholder: '跳转链接' },
+    { prop: 'location', label: '位置', placeholder: 'home/activity' },
+    { prop: 'sortOrder', label: '排序', type: 'number' },
+    { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
+  ],
+  topics: [
+    { prop: 'name', label: '话题名称', required: true, placeholder: '话题名称' },
+    { prop: 'description', label: '描述', placeholder: '话题描述' },
+    { prop: 'postCount', label: '动态数', type: 'number' },
+    { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
+  ],
+  activityEnrolls: [
+    { prop: 'activityId', label: '活动ID', type: 'number' },
+    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'status', label: '状态', type: 'select', options: ['enrolled', 'cancelled', 'attended'] },
+    { prop: 'remark', label: '备注', placeholder: '备注' }
+  ],
+  recipes: [
+    { prop: 'title', label: '菜谱名称', required: true, placeholder: '菜谱名称' },
+    { prop: 'category', label: '分类', placeholder: '早餐/午餐/晚餐' },
+    { prop: 'ingredients', label: '食材', type: 'textarea', placeholder: '食材清单' },
+    { prop: 'steps', label: '步骤', type: 'textarea', placeholder: '制作步骤' },
+    { prop: 'calories', label: '热量', type: 'number' },
+    { prop: 'suitableFor', label: '适宜人群', placeholder: '如：高血压' }
+  ],
+  diseases: [
+    { prop: 'title', label: '疾病名称', required: true, placeholder: '疾病名称' },
+    { prop: 'category', label: '分类', placeholder: '心血管/内分泌' },
+    { prop: 'summary', label: '简介', type: 'textarea', placeholder: '简介' },
+    { prop: 'symptoms', label: '症状', type: 'textarea', placeholder: '症状' },
+    { prop: 'prevention', label: '预防', type: 'textarea', placeholder: '预防措施' }
+  ],
+  institutions: [
+    { prop: 'title', label: '机构名称', required: true, placeholder: '机构名称' },
+    { prop: 'type', label: '类型', placeholder: '养老院/护理院' },
+    { prop: 'address', label: '地址', placeholder: '地址' },
+    { prop: 'phone', label: '电话', placeholder: '联系电话' },
+    { prop: 'rating', label: '评分', type: 'number' },
+    { prop: 'capacity', label: '容量', type: 'number' }
+  ],
+  videos: [
+    { prop: 'title', label: '视频标题', required: true, placeholder: '视频标题' },
+    { prop: 'lecturer', label: '讲师', placeholder: '讲师' },
+    { prop: 'category', label: '分类', placeholder: '分类' },
+    { prop: 'videoUrl', label: '视频URL', placeholder: '视频 URL' },
+    { prop: 'duration', label: '时长秒', type: 'number' }
+  ],
+  foods: [
+    { prop: 'title', label: '食物名称', required: true, placeholder: '食物名称' },
+    { prop: 'category', label: '分类', placeholder: '主食/蔬菜/肉类' },
+    { prop: 'calories', label: '热量', type: 'number' },
+    { prop: 'protein', label: '蛋白质', type: 'number' },
+    { prop: 'fat', label: '脂肪', type: 'number' },
+    { prop: 'carbs', label: '碳水', type: 'number' }
+  ],
+  assessments: [
+    { prop: 'title', label: '测评名称', required: true, placeholder: '测评名称' },
+    { prop: 'type', label: '类型', placeholder: 'sleep/fall/custom' },
+    { prop: 'description', label: '说明', type: 'textarea', placeholder: '测评说明' },
+    { prop: 'questions', label: '题目JSON', type: 'textarea', placeholder: '[]' },
+    { prop: 'scoringRules', label: '规则JSON', type: 'textarea', placeholder: '{}' }
+  ]
+})
 
 function isStatusColumn(prop) {
   return ['status', 'auditStatus'].includes(prop)

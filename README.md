@@ -1,161 +1,49 @@
 # 黛西健康智慧养老后台管理系统
 
-本仓库根据 [黛西健康_概要设计报告.md](D:/agent_project/elder_AI/黛西健康_概要设计报告.md) 生成，包含一个前端管理后台项目和一个后端 REST API 项目。当前版本已从早期 mock 数据模式切换为默认连接 MySQL，并在启动时自动建表、写入演示数据。
+当前仓库：`D:\agent_project\elder_AI`
+
+当前 Git 分支：`main`
+
+本项目根据 `黛西健康_概要设计报告.md` 和 `D:\agent_project\elder_AI_opencode\原型对比分析报告.md` 生成并持续补齐，包含前端 Vue 管理后台和后端 Spring Boot API。默认使用 MySQL 数据库，启动后自动执行 `schema.sql` 和 `data.sql`。
 
 ## 项目结构
 
 ```text
 D:\agent_project\elder_AI
-├─ daisy-health-admin-frontend    前端 Vue 3 管理后台
-├─ daisy-health-admin-backend     后端 Spring Boot API 服务
-├─ 黛西健康_概要设计报告.md          概要设计来源文档
-├─ README.md                      当前说明文档
-└─ .gitignore
-```
-
-## 技术栈
-
-前端：
-
-- Vue 3
-- Vite
-- Element Plus
-- Pinia
-- Vue Router
-- Axios
-- ECharts
-
-后端：
-
-- JDK 8
-- Spring Boot 2.7.18
-- Spring MVC
-- MyBatis 风格 Mapper
-- Knife4j / Springfox
-- MySQL 8 DDL 脚本
-- Redis 依赖预留
-
-本机已验证环境：
-
-```text
-JDK: 1.8.0_491
-Maven: 3.6.3
-Node.js: 24.14.0
-npm: 11.9.0
-```
-
-## 当前完成情况
-
-已完成：
-
-- 前后端两个独立项目骨架
-- 后端统一响应结构：`ApiResponse`
-- 后端分页结构：`PageResult`
-- 后端全局异常处理
-- 后端 CORS 跨域配置
-- 后端 `mysql` profile，默认连接 MySQL
-- 后端 `mock` profile 保留，可作为无数据库演示模式
-- 后端核心 REST Controller
-- 后端 MySQL 核心表建表脚本
-- 后端 MySQL 初始化演示数据脚本
-- 前端登录页
-- 前端后台主布局：左侧菜单、顶部导航、主内容区
-- 前端工作台：指标卡、快捷入口、ECharts 图表
-- 前端预约看板
-- 前端用户列表：卡片/列表切换
-- 前端用户详情：10 个 Tab 结构
-- 前端通用列表页：服务、商品、运营、交易、系统设置
-- 前端数据分析页
-- 前端 Axios 请求封装和本地 fallback 数据
-- 新增用户可通过前端表单写入 MySQL
-- 通用列表页支持新增服务人员、商品、订单、工单、售后、评价、运营内容、员工、角色、协议等数据，并写入 MySQL
-
-已验证：
-
-- `mvn -DskipTests compile` 后端编译通过
-- 后端 Java 编译通过
-- 后端数据库服务实现已接入 JDBC/MySQL
-- `POST /api/v1/users` 与 `POST /api/v1/products` 已实际验证可写入 MySQL
-- `GET /api/v1/dashboard` 可返回 JSON
-- 前端 `npm run build` 构建通过
-- 前端页面可登录并进入工作台
-
-注意：当前机器检查不到 MySQL/MariaDB 服务，`localhost:3306` 没有监听。运行数据库模式前，需要先安装并启动 MySQL。
-
-已修复的问题：
-
-- MySQL 驱动坐标改为 `com.mysql:mysql-connector-j`
-- Knife4j/Springfox 与 Spring Boot 2.7 路径匹配兼容问题，已配置：
-
-```yaml
-spring:
-  mvc:
-    pathmatch:
-      matching-strategy: ant_path_matcher
+├─ daisy-health-admin-backend
+│  ├─ src/main/java/com/daisy/health
+│  │  ├─ common          通用响应、分页、异常、跨域配置
+│  │  ├─ controller      REST API 控制器
+│  │  ├─ service         AdminDataService、JdbcAdminDataService、MockDataService
+│  │  ├─ mapper          Mapper 示例
+│  │  └─ model           Model 示例
+│  └─ src/main/resources
+│     ├─ application.yml MySQL/mock profile 配置
+│     ├─ schema.sql      建表和兼容旧库字段扩展
+│     └─ data.sql        演示数据
+├─ daisy-health-admin-frontend
+│  ├─ assets             登录页图片等静态资源
+│  └─ src
+│     ├─ api             Axios API 封装
+│     ├─ layout          后台主布局、个人资料弹窗
+│     ├─ router          路由和登录守卫
+│     ├─ stores          Pinia 登录状态
+│     ├─ views           登录、工作台、用户、通用列表、数据分析
+│     └─ styles.css      全局样式
+├─ README.md
+└─ 黛西健康_概要设计报告.md
 ```
 
 ## 运行方式
 
-建议开两个终端：一个运行后端，一个运行前端。
-
-### 1. 启动后端
+后端：
 
 ```bat
 cd D:\agent_project\elder_AI\daisy-health-admin-backend
 mvn spring-boot:run
 ```
 
-启动成功后控制台应看到：
-
-```text
-Tomcat started on port(s): 8080
-Started DaisyHealthApplication
-```
-
-后端接口测试：
-
-```text
-http://127.0.0.1:8080/api/v1/dashboard
-```
-
-当前默认使用 `mysql` profile，需要本机 MySQL 正在监听：
-
-```text
-localhost:3306
-```
-
-默认数据库配置：
-
-```text
-数据库：daisy_health
-账号：root
-密码：root
-```
-
-首次启动时后端会自动执行：
-
-```text
-daisy-health-admin-backend/src/main/resources/schema.sql
-daisy-health-admin-backend/src/main/resources/data.sql
-```
-
-如果没有 MySQL，只想临时看页面，也可以使用 mock 模式：
-
-```bat
-cd D:\agent_project\elder_AI\daisy-health-admin-backend
-mvn spring-boot:run -Dspring-boot.run.profiles=mock
-```
-
-### 2. 启动前端
-
-如果没有安装过依赖，先执行：
-
-```bat
-cd D:\agent_project\elder_AI\daisy-health-admin-frontend
-cmd /c npm install
-```
-
-启动开发服务器：
+前端：
 
 ```bat
 cd D:\agent_project\elder_AI\daisy-health-admin-frontend
@@ -168,223 +56,78 @@ cmd /c npm run dev
 http://127.0.0.1:5173
 ```
 
-登录信息：
+登录：
 
 ```text
 手机号：13800000000
 密码：admin123
 ```
 
-说明：如果 PowerShell 直接执行 `npm run dev` 报执行策略错误，使用 `cmd /c npm run dev`。
-
-## 用 IntelliJ IDEA 运行后端
-
-1. 打开 `D:\IntelliJ IDEA 2023.1.2\bin\idea64.exe`
-2. 选择 `Open`
-3. 打开目录：
+默认数据库：
 
 ```text
-D:\agent_project\elder_AI\daisy-health-admin-backend
+MySQL: localhost:3306
+database: daisy_health
+username: root
+password: root
 ```
 
-4. 等待 Maven 依赖加载完成
-5. 配置 Project SDK 为：
-
-```text
-D:\Java\jdk1.8.0_491
-```
-
-6. 配置 Maven Home 为：
-
-```text
-D:\apache-maven-3.6.3
-```
-
-7. 打开并运行主类：
-
-```text
-src/main/java/com/daisy/health/DaisyHealthApplication.java
-```
-
-如果 8080 被占用，先查端口：
+无数据库临时演示：
 
 ```bat
-netstat -ano | findstr :8080
+cd D:\agent_project\elder_AI\daisy-health-admin-backend
+mvn spring-boot:run -Dspring-boot.run.profiles=mock
 ```
 
-结束占用进程：
+## 当前完成情况
 
-```bat
-taskkill /PID 进程ID /F
-```
+基础功能：
 
-## 后端架构
+- 登录页已按参考图重做，左侧使用 `daisy-health-admin-frontend/assets/login_picture.png`
+- 工作台、预约看板、用户管理、用户详情、服务、商品、运营、交易、数据、系统设置主结构已完成
+- 后端默认接入 MySQL，保留 `mock` profile
+- 前端新增、编辑、删除多数业务数据会实时写入数据库
+- 已初始化 Git，当前使用 `main` 分支
 
-后端入口：
+近期已完成：
+
+- 用户卡片按原型卡片样式重做，并缩小为更适合后台列表的尺寸
+- 用户标签支持选择、绑定、标签管理、新增、编辑、删除
+- 预约看板支持新建和删除预约
+- 个人资料可编辑并保存：姓名、员工编号、手机号码、头像、角色、备注
+- 用户详情新增真实数据 Tab：设备信息、报告信息、订单信息、资产信息、内容信息、服务记录
+- 健康信息编辑扩展：紧急联系人、紧急联系电话、吸烟/饮酒等后端字段已预留或接入
+
+## 个人资料落库说明
+
+个人资料保存到：
 
 ```text
-daisy-health-admin-backend/src/main/java/com/daisy/health/DaisyHealthApplication.java
+staff
 ```
 
-核心目录：
+字段映射：
 
 ```text
-common       通用响应、分页、异常处理、Web 配置
-controller   REST API 控制器
-service      当前 mock 数据服务
-model        数据模型示例
-mapper       MyBatis Mapper 示例
-resources    配置文件和数据库脚本
+姓名       -> staff.name
+员工编号   -> staff.staff_no
+手机号码   -> staff.phone
+头像       -> staff.avatar_url
+备注       -> staff.remark
+角色       -> staff.role_id
 ```
 
-Controller 划分：
+角色名称显示来自：
 
 ```text
-AuthController        登录、登出、当前用户、密码修改
-DashboardController   工作台、预约看板、数据概览
-UserController        用户、标签、报告、消息
-ServiceController     服务人员、审核、工单
-ProductController     商品
-OperationController   运营内容
-TradeController       订单、售后、评价
-AnalyticsController   数据分析
-SystemController      员工、角色、日志、协议
+role.name
 ```
 
-统一响应格式：
+如果编辑资料时输入了不存在的角色名称，后端会创建一条 `role` 记录并把 `staff.role_id` 指向它。
 
-```json
-{
-  "code": 0,
-  "message": "success",
-  "data": {}
-}
-```
+## 数据库表
 
-分页响应格式：
-
-```json
-{
-  "total": 100,
-  "list": []
-}
-```
-
-## 前端架构
-
-前端入口：
-
-```text
-daisy-health-admin-frontend/src/main.js
-```
-
-核心目录：
-
-```text
-api          Axios 封装和 fallback 数据
-layout       后台主布局
-router       路由配置和登录守卫
-stores       Pinia 状态管理
-views        页面组件
-styles.css   全局样式
-```
-
-页面划分：
-
-```text
-LoginView          登录页
-DashboardView      工作台
-ScheduleView       预约看板
-UsersView          用户列表
-UserDetailView     用户详情
-GenericListView    服务/商品/运营/交易/系统设置通用列表
-AnalyticsView      数据分析
-```
-
-前端请求默认走：
-
-```text
-/api/v1
-```
-
-Vite 开发代理将 `/api` 转发到：
-
-```text
-http://localhost:8080
-```
-
-## 主要接口
-
-认证：
-
-```text
-POST /api/v1/auth/login
-POST /api/v1/auth/logout
-GET  /api/v1/auth/profile
-PUT  /api/v1/auth/password
-```
-
-首页：
-
-```text
-GET /api/v1/dashboard
-GET /api/v1/appointments
-```
-
-用户：
-
-```text
-GET  /api/v1/users
-POST /api/v1/users
-GET  /api/v1/users/{id}
-PUT  /api/v1/users/{id}
-GET  /api/v1/users/{id}/health-data
-GET  /api/v1/users/{id}/medications
-```
-
-服务：
-
-```text
-GET /api/v1/personnel
-GET /api/v1/audits
-GET /api/v1/work-orders
-```
-
-交易：
-
-```text
-GET /api/v1/orders
-GET /api/v1/after-sales
-GET /api/v1/reviews
-```
-
-数据分析：
-
-```text
-GET /api/v1/analytics/overview
-GET /api/v1/analytics/users/overview
-GET /api/v1/analytics/trade/overview
-GET /api/v1/analytics/service/work-orders
-```
-
-系统：
-
-```text
-GET /api/v1/staffs
-GET /api/v1/roles
-GET /api/v1/logs
-GET /api/v1/agreements
-```
-
-## 数据库
-
-建表脚本：
-
-```text
-daisy-health-admin-backend/src/main/resources/schema.sql
-```
-
-当前脚本包含概要设计中的核心表和演示所需扩展表：
+核心表：
 
 ```text
 user
@@ -393,105 +136,158 @@ medication_record
 user_tag
 user_tag_rel
 service_personnel
-work_order
-service_order
-staff
-role
-operation_log
 product
+service_order
+work_order
 after_sale
 review
 operation_content
+staff
+role
+operation_log
 agreement
 ```
 
-当前默认已切换真实 MySQL：
-
-```bat
-cd D:\agent_project\elder_AI\daisy-health-admin-backend
-mvn spring-boot:run
-```
-
-如果数据库账号密码不是 `root/root`，修改：
+Phase 1 已补表：
 
 ```text
-daisy-health-admin-backend/src/main/resources/application.yml
+health_settings
+device
+report
+coupon
+user_points
+points_record
+member_level
+points_rule
+product_category
+service_item
+banner
+activity
+activity_enroll
 ```
 
-`mysql` profile 中的：
-
-```yaml
-spring:
-  datasource:
-    username: root
-    password: root
-```
-
-## 常见问题
-
-### Maven 提示 MySQL 驱动版本缺失
-
-已修复，当前使用：
-
-```xml
-<groupId>com.mysql</groupId>
-<artifactId>mysql-connector-j</artifactId>
-```
-
-### 启动时报 documentationPluginsBootstrapper 空指针
-
-已修复，原因是 Knife4j/Springfox 与 Spring Boot 2.7 路径匹配策略兼容问题。
-
-### 端口 8080 被占用
-
-```bat
-netstat -ano | findstr :8080
-taskkill /PID 进程ID /F
-```
-
-### 端口 5173 被占用
-
-```bat
-netstat -ano | findstr :5173
-taskkill /PID 进程ID /F
-```
-
-### npm 在 PowerShell 中被执行策略拦截
-
-使用：
-
-```bat
-cmd /c npm run dev
-```
-
-### 启动时报 MySQL Communications link failure
-
-如果看到：
+Phase 2 已补表：
 
 ```text
-Communications link failure
-Connection refused: connect
+topic
+recipe
+article
+disease
+institution
+video
+food
+assessment
+assessment_result
 ```
 
-说明 MySQL 没有在 `localhost:3306` 启动。先启动 MySQL 服务，再重新运行后端。也可以临时用 mock 模式：
+兼容性字段：
 
-```bat
-mvn spring-boot:run -Dspring-boot.run.profiles=mock
+```text
+user.emergency_contact
+user.emergency_phone
+user_tag.color
+staff.avatar_url
 ```
 
-## 后续开发建议
+## 前端页面覆盖
 
-优先级建议：
+独立页面：
 
-1. 将更多写操作从“接收并记录日志”完善为真实增删改
-2. 接入 JWT 登录鉴权
-3. 增加 RBAC 权限模型
-4. 完善用户、工单、订单的状态流转校验
-5. 增加文件上传能力，用于头像、报告、视频、轮播图
-6. 补充单元测试和接口测试
-7. 前端按 131 页原型继续拆分更多独立页面
-8. 生产构建时对前端图表库和 Element Plus 做按需优化
+```text
+LoginView.vue          登录页
+DashboardView.vue      工作台
+ScheduleView.vue       预约看板
+UsersView.vue          用户列表和标签管理
+UserDetailView.vue     用户详情和扩展 Tab
+GenericListView.vue    通用 CRUD 列表页
+AnalyticsView.vue      数据分析
+```
 
-## 调试约定
+通用列表已接入的资源：
 
-如果临时启动后端或前端进行验证，调试完成后应关闭对应进程，避免占用端口。
+```text
+服务：服务人员、审核、工单
+商品：商品、商品分类、服务项目
+运营：动态、话题、轮播图、活动、活动报名、食谱、资讯、疾病、机构、视频、食物、测评
+交易：订单、售后、评价
+用户扩展：设备、报告、健康设置、优惠券、积分、等级、积分规则
+系统：员工、角色、日志
+```
+
+## 主要 API
+
+认证和个人资料：
+
+```text
+POST /api/v1/auth/login
+GET  /api/v1/auth/profile
+PUT  /api/v1/auth/profile
+```
+
+用户：
+
+```text
+GET    /api/v1/users
+POST   /api/v1/users
+GET    /api/v1/users/{id}
+PUT    /api/v1/users/{id}
+DELETE /api/v1/users/{id}
+GET    /api/v1/tags
+POST   /api/v1/tags
+PUT    /api/v1/tags/{id}
+DELETE /api/v1/tags/{id}
+PUT    /api/v1/users/{id}/tags
+```
+
+预约：
+
+```text
+GET    /api/v1/appointments
+POST   /api/v1/appointments
+DELETE /api/v1/appointments/{id}
+```
+
+Phase 1/2 通用资源：
+
+```text
+GET/POST/PUT/DELETE /api/v1/devices
+GET/POST/PUT/DELETE /api/v1/reports
+GET/POST/PUT/DELETE /api/v1/coupons
+GET/POST/PUT/DELETE /api/v1/member-levels
+GET/POST/PUT/DELETE /api/v1/points-rules
+GET/POST/PUT/DELETE /api/v1/product-categories
+GET/POST/PUT/DELETE /api/v1/service-items
+GET/POST/PUT/DELETE /api/v1/banners
+GET/POST/PUT/DELETE /api/v1/topics
+GET/POST/PUT/DELETE /api/v1/recipes
+GET/POST/PUT/DELETE /api/v1/articles
+GET/POST/PUT/DELETE /api/v1/diseases
+GET/POST/PUT/DELETE /api/v1/institutions
+GET/POST/PUT/DELETE /api/v1/videos
+GET/POST/PUT/DELETE /api/v1/foods
+GET/POST/PUT/DELETE /api/v1/assessments
+```
+
+## 验证记录
+
+最近一次验证：
+
+```text
+后端：mvn -DskipTests compile 通过
+前端：npm run build 通过
+运行验证：Spring Boot 临时启动成功，MySQL schema/data 执行成功
+接口验证：个人资料保存、devices/reports/product-categories/banners/topics 查询、topic 新增删除、用户详情扩展数据均通过
+进程清理：验证后已关闭 8080/5173 相关服务
+```
+
+前端构建仍有 Vite/Rollup 大 chunk 警告，属于体积优化提示，不影响运行。
+
+## 后续建议
+
+下一步可继续做：
+
+- Phase 1 的订单详情页 6 种状态、售后详情页 3 种状态的独立详情页面
+- 健康数据 7 种类型的独立趋势和记录页面
+- 文件上传：头像、报告、轮播图、视频封面
+- JWT 登录鉴权、密码加密、RBAC 权限控制
+- Redis 接入和接口测试

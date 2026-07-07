@@ -11,19 +11,43 @@
       <el-menu router :default-active="$route.path" class="side-menu">
         <el-menu-item index="/dashboard"><el-icon><DataBoard /></el-icon><span>首页工作台</span></el-menu-item>
         <el-menu-item index="/schedule"><el-icon><Calendar /></el-icon><span>预约看板</span></el-menu-item>
-        <el-menu-item index="/users"><el-icon><User /></el-icon><span>用户管理</span></el-menu-item>
+        <el-sub-menu index="users">
+          <template #title><el-icon><User /></el-icon><span>用户管理</span></template>
+          <el-menu-item index="/users">全部用户</el-menu-item>
+          <el-menu-item index="/user-health/devices">设备信息</el-menu-item>
+          <el-menu-item index="/user-health/reports">报告信息</el-menu-item>
+          <el-menu-item index="/user-health/healthSettings">健康设置</el-menu-item>
+          <el-menu-item index="/user-assets/coupons">优惠券管理</el-menu-item>
+          <el-menu-item index="/user-assets/userPoints">用户积分</el-menu-item>
+          <el-menu-item index="/user-assets/memberLevels">等级管理</el-menu-item>
+          <el-menu-item index="/user-assets/pointsRules">积分规则</el-menu-item>
+        </el-sub-menu>
         <el-sub-menu index="service">
           <template #title><el-icon><Service /></el-icon><span>服务管理</span></template>
           <el-menu-item index="/service/personnel">服务人员</el-menu-item>
           <el-menu-item index="/service/audits">审核管理</el-menu-item>
           <el-menu-item index="/service/work-orders">工单管理</el-menu-item>
         </el-sub-menu>
-        <el-menu-item index="/products"><el-icon><Goods /></el-icon><span>商品管理</span></el-menu-item>
+        <el-sub-menu index="products">
+          <template #title><el-icon><Goods /></el-icon><span>商品管理</span></template>
+          <el-menu-item index="/products">商品管理</el-menu-item>
+          <el-menu-item index="/product-ext/productCategories">分类管理</el-menu-item>
+          <el-menu-item index="/product-ext/serviceItems">服务项目</el-menu-item>
+        </el-sub-menu>
         <el-sub-menu index="operations">
           <template #title><el-icon><Collection /></el-icon><span>运营管理</span></template>
           <el-menu-item index="/operations/posts">动态管理</el-menu-item>
+          <el-menu-item index="/operations/topics">话题管理</el-menu-item>
+          <el-menu-item index="/operations/banners">轮播图管理</el-menu-item>
           <el-menu-item index="/operations/activities">活动管理</el-menu-item>
+          <el-menu-item index="/operations/activityEnrolls">活动报名</el-menu-item>
+          <el-menu-item index="/operations/recipes">食谱管理</el-menu-item>
           <el-menu-item index="/operations/articles">健康资讯</el-menu-item>
+          <el-menu-item index="/operations/diseases">疾病宝典</el-menu-item>
+          <el-menu-item index="/operations/institutions">养老机构</el-menu-item>
+          <el-menu-item index="/operations/videos">健康讲堂</el-menu-item>
+          <el-menu-item index="/operations/foods">食物管理</el-menu-item>
+          <el-menu-item index="/operations/assessments">测评管理</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="trade">
           <template #title><el-icon><Tickets /></el-icon><span>交易管理</span></template>
@@ -80,8 +104,20 @@
       </dl>
     </div>
     <el-form label-width="72px">
+      <el-form-item label="姓名">
+        <el-input v-model="profileForm.name" placeholder="姓名" />
+      </el-form-item>
+      <el-form-item label="编号">
+        <el-input v-model="profileForm.staffNo" placeholder="员工编号" />
+      </el-form-item>
+      <el-form-item label="手机">
+        <el-input v-model="profileForm.phone" placeholder="手机号码" />
+      </el-form-item>
       <el-form-item label="头像">
         <el-input v-model="profileForm.avatarUrl" placeholder="头像 URL" />
+      </el-form-item>
+      <el-form-item label="角色">
+        <el-input v-model="profileForm.role" placeholder="角色名称" />
       </el-form-item>
       <el-form-item label="备注">
         <el-input v-model="profileForm.remark" type="textarea" :rows="4" maxlength="200" show-word-limit />
@@ -132,7 +168,15 @@ async function openProfile() {
 async function saveProfile() {
   profileSaving.value = true
   try {
-    await auth.saveProfile({ id: profileForm.id, avatarUrl: profileForm.avatarUrl, remark: profileForm.remark })
+    await auth.saveProfile({
+      id: profileForm.id,
+      name: profileForm.name,
+      staffNo: profileForm.staffNo,
+      phone: profileForm.phone,
+      avatarUrl: profileForm.avatarUrl,
+      role: profileForm.role,
+      remark: profileForm.remark
+    })
     syncProfile(auth.user)
     ElMessage.success('个人资料已保存')
     profileVisible.value = false

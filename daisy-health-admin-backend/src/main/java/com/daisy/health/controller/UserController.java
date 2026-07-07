@@ -89,12 +89,12 @@ public class UserController {
         return ApiResponse.success(dataService.deleteTag(id));
     }
 
-    @GetMapping({"/reports", "/messages"})
+    @GetMapping("/messages")
     public ApiResponse<PageResult<Map<String, Object>>> userResources() {
         return ApiResponse.success(dataService.resource("posts"));
     }
 
-    @PostMapping({"/reports", "/messages"})
+    @PostMapping("/messages")
     public ApiResponse<Map<String, Object>> createUserResource(@RequestBody Map<String, Object> payload) {
         return ApiResponse.success(dataService.createResource("posts", payload));
     }
@@ -104,7 +104,7 @@ public class UserController {
         return ApiResponse.success(dataService.updateResource("posts", id, new java.util.LinkedHashMap<String, Object>()));
     }
 
-    @DeleteMapping({"/reports/{id}", "/messages/{id}"})
+    @DeleteMapping("/messages/{id}")
     public ApiResponse<Map<String, Object>> deleteUserResource(@PathVariable Long id) {
         return ApiResponse.success(dataService.accepted("deleteUserResource:" + id));
     }

@@ -25,7 +25,15 @@
           </el-tab-pane>
           <el-tab-pane label="用药信息" name="medication"><el-table :data="user.medications" stripe><el-table-column prop="period" label="时段" /><el-table-column prop="drugName" label="药品名称" /><el-table-column prop="frequency" label="频率" /><el-table-column prop="takeTime" label="时间" /><el-table-column prop="dosage" label="计量" /><el-table-column label="提醒"><template #default="{ row }"><el-switch v-model="row.reminderEnabled" /></template></el-table-column></el-table></el-tab-pane>
           <el-tab-pane label="健康数据" name="data"><div ref="healthChart" class="chart tall"></div></el-tab-pane>
-          <el-tab-pane v-for="tab in simpleTabs" :key="tab.name" :label="tab.label" :name="tab.name"><el-empty :description="`${tab.label}模块预留，后端已提供扩展接口`" /></el-tab-pane>
+          <el-tab-pane label="设备信息" name="devices"><el-table :data="user.devices" stripe><el-table-column prop="deviceName" label="设备名称" /><el-table-column prop="deviceType" label="类型" /><el-table-column prop="deviceCode" label="编号" /><el-table-column prop="status" label="状态" /></el-table></el-tab-pane>
+          <el-tab-pane label="报告信息" name="reports"><el-table :data="user.reports" stripe><el-table-column prop="title" label="报告标题" /><el-table-column prop="reportType" label="类型" /><el-table-column prop="reportDate" label="日期" /><el-table-column prop="doctorName" label="医生" /></el-table></el-tab-pane>
+          <el-tab-pane label="订单信息" name="orders"><el-table :data="user.orders" stripe><el-table-column prop="orderNo" label="订单编号" /><el-table-column prop="productName" label="商品" /><el-table-column prop="amount" label="金额" /><el-table-column prop="status" label="状态" /></el-table></el-tab-pane>
+          <el-tab-pane label="资产信息" name="assets">
+            <el-descriptions v-if="user.points?.length" :column="3" border class="asset-summary"><el-descriptions-item label="积分">{{ user.points[0].points }}</el-descriptions-item><el-descriptions-item label="等级">{{ user.points[0].level }}</el-descriptions-item><el-descriptions-item label="成长值">{{ user.points[0].growthValue }}</el-descriptions-item></el-descriptions>
+            <el-table :data="user.coupons" stripe><el-table-column prop="couponNo" label="券编号" /><el-table-column prop="name" label="名称" /><el-table-column prop="discount" label="优惠" /><el-table-column prop="status" label="状态" /><el-table-column prop="expireDate" label="过期日" /></el-table>
+          </el-tab-pane>
+          <el-tab-pane label="内容信息" name="content"><el-table :data="user.contents" stripe><el-table-column prop="title" label="标题" /><el-table-column prop="type" label="类型" /><el-table-column prop="status" label="状态" /></el-table></el-tab-pane>
+          <el-tab-pane label="服务记录" name="services"><el-table :data="user.serviceRecords" stripe><el-table-column prop="orderNo" label="工单编号" /><el-table-column prop="serviceItem" label="服务项目" /><el-table-column prop="amount" label="金额" /><el-table-column prop="status" label="状态" /></el-table></el-tab-pane>
         </el-tabs>
       </main>
     </div>
@@ -39,6 +47,8 @@
         <el-form-item label="睡眠质量"><el-select v-model="healthForm.sleepQuality"><el-option label="良好" value="良好" /><el-option label="一般" value="一般" /><el-option label="较差" value="较差" /></el-select></el-form-item>
         <el-form-item label="运动频率"><el-input v-model="healthForm.exerciseFreq" /></el-form-item>
         <el-form-item label="饮食偏好"><el-input v-model="healthForm.dietPreference" /></el-form-item>
+        <el-form-item label="紧急联系人"><el-input v-model="healthForm.emergencyContact" /></el-form-item>
+        <el-form-item label="紧急电话"><el-input v-model="healthForm.emergencyPhone" /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="healthDialogVisible = false">取消</el-button>
@@ -60,7 +70,7 @@ const activeTab = ref('profile')
 const healthChart = ref()
 const healthDialogVisible = ref(false)
 const savingHealth = ref(false)
-const healthForm = reactive({ height: 0, weight: 0, bloodType: 'A', chronicDisease: '', sleepQuality: '良好', exerciseFreq: '', dietPreference: '' })
+const healthForm = reactive({ height: 0, weight: 0, bloodType: 'A', chronicDisease: '', sleepQuality: '良好', exerciseFreq: '', dietPreference: '', emergencyContact: '', emergencyPhone: '' })
 const user = ref({
   id: route.params.id,
   nickname: '兰姨',
@@ -88,7 +98,14 @@ const user = ref({
     { day: '07-03', weight: 58.5, heartRate: 78 },
     { day: '07-04', weight: 58.4, heartRate: 75 },
     { day: '07-05', weight: 58.3, heartRate: 73 }
-  ]
+  ],
+  devices: [],
+  reports: [],
+  orders: [],
+  coupons: [],
+  points: [],
+  contents: [],
+  serviceRecords: []
 })
 const profileFields = computed(() => [
   { label: '昵称', value: user.value.nickname },
@@ -100,15 +117,6 @@ const profileFields = computed(() => [
   { label: '民族', value: '汉族' },
   { label: '文化程度', value: '高中' }
 ])
-const simpleTabs = [
-  { label: '设备信息', name: 'devices' },
-  { label: '报告信息', name: 'reports' },
-  { label: '订单信息', name: 'orders' },
-  { label: '资产信息', name: 'assets' },
-  { label: '内容信息', name: 'content' },
-  { label: '服务记录', name: 'services' }
-]
-
 function drawHealthChart() {
   echarts.init(healthChart.value).setOption({
     color: ['#00D39C', '#FAAD14'],
@@ -131,7 +139,9 @@ function openHealthEdit() {
     chronicDisease: user.value.chronicDisease || '',
     sleepQuality: user.value.sleepQuality || '良好',
     exerciseFreq: user.value.exerciseFreq || '',
-    dietPreference: user.value.dietPreference || ''
+    dietPreference: user.value.dietPreference || '',
+    emergencyContact: user.value.emergencyContact || '',
+    emergencyPhone: user.value.emergencyPhone || ''
   })
   healthDialogVisible.value = true
 }

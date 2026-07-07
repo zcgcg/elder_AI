@@ -39,7 +39,16 @@ export const deleteTag = (id) => service.delete(`/tags/${id}`)
 export const updateUserTags = (id, payload) => service.put(`/users/${id}/tags`, payload)
 const resourcePaths = {
   workOrders: 'work-orders',
-  afterSales: 'after-sales'
+  afterSales: 'after-sales',
+  healthSettings: 'health-settings',
+  userPoints: 'user-points',
+  pointsRecords: 'points-records',
+  memberLevels: 'member-levels',
+  pointsRules: 'points-rules',
+  productCategories: 'product-categories',
+  serviceItems: 'service-items',
+  activityEnrolls: 'activity-enrolls',
+  assessmentResults: 'assessment-results'
 }
 export const getResource = (resource, params) => service.get(`/${resourcePaths[resource] || resource}`, { params })
 export const createResource = (resource, payload) => service.post(`/${resourcePaths[resource] || resource}`, payload)

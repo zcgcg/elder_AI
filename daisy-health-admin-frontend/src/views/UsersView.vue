@@ -22,7 +22,7 @@
       <article v-for="user in filteredRows" :key="user.id" class="user-profile-card">
         <el-button class="user-delete-btn" :icon="Delete" text @click="removeUser(user)" />
         <div class="user-card-head">
-          <el-avatar :size="68" :src="user.avatarUrl">{{ user.realName?.slice(0, 1) }}</el-avatar>
+          <el-avatar :size="54" :src="user.avatarUrl">{{ user.realName?.slice(0, 1) }}</el-avatar>
           <div>
             <strong>{{ user.nickname || user.realName }}</strong>
             <span>ID:{{ user.id }}</span>
