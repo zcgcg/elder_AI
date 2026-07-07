@@ -88,8 +88,14 @@ public class JdbcAdminDataService implements AdminDataService {
                         metric("新增订单", count("select count(*) from service_order where created_at >= date_sub(curdate(), interval 7 day)"), "+16.1%", "success"),
                         metric("新增动态", count("select count(*) from operation_content where type = 'posts' and created_at >= date_sub(curdate(), interval 7 day)"), "-3.2%", "danger")
                 ),
-                "tagDistribution", jdbcTemplate.queryForList("select name, user_count as value from user_tag where status = 1 order by user_count desc limit 8"),
-                "serviceShare", jdbcTemplate.queryForList("select service_type as name, count(*) as value from service_order group by service_type order by value desc"),
+                "tagDistribution", jdbcTemplate.queryForList(
+                        "select t.name, count(rel.user_id) as value " +
+                                "from user_tag t left join user_tag_rel rel on t.id = rel.tag_id " +
+                                "where t.status = 1 group by t.id, t.name order by value desc, t.id limit 8"
+                ),
+                "serviceShare", jdbcTemplate.queryForList(
+                        "select service_type as name, count(*) as value from service_order group by service_type order by value desc"
+                ),
                 "trend", trend()
         );
     }
@@ -177,6 +183,8 @@ public class JdbcAdminDataService implements AdminDataService {
         }
         putIfPresent(values, "birthday", payload, "birthday");
         putIfPresent(values, "address", payload, "address");
+        putIfPresent(values, "ethnicity", payload, "ethnicity");
+        putIfPresent(values, "education", payload, "education");
         putIfPresent(values, "height", payload, "height");
         putIfPresent(values, "weight", payload, "weight");
         putIfPresent(values, "blood_type", payload, "bloodType");
@@ -215,7 +223,7 @@ public class JdbcAdminDataService implements AdminDataService {
     public Map<String, Object> user(Long id) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "select u.id, u.nickname, u.real_name as realName, case u.gender when 1 then '男' when 2 then '女' else '未知' end as gender, " +
-                        "date_format(u.birthday, '%Y-%m-%d') as birthday, concat(substr(u.phone, 1, 3), '****', substr(u.phone, 8)) as phone, u.address, u.height, u.weight, u.blood_type as bloodType, " +
+                        "date_format(u.birthday, '%Y-%m-%d') as birthday, u.phone, u.address, u.ethnicity, u.education, u.avatar_url as avatarUrl, u.height, u.weight, u.blood_type as bloodType, " +
                         "u.chronic_disease as chronicDisease, u.sleep_quality as sleepQuality, u.exercise_freq as exerciseFreq, " +
                         "u.emergency_contact as emergencyContact, u.emergency_phone as emergencyPhone, " +
                         "date_format(u.last_buy_time, '%Y-%m-%d') as lastBuyTime, date_format(u.last_login_time, '%Y-%m-%d %H:%i') as lastLoginTime, " +

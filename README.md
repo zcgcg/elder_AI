@@ -95,8 +95,11 @@ mvn spring-boot:run -Dspring-boot.run.profiles=mock
 - 用户标签支持选择、绑定、标签管理、新增、编辑、删除
 - 预约看板支持新建和删除预约
 - 个人资料可编辑并保存：姓名、员工编号、手机号码、头像、角色、备注
+- 用户详情的个人信息可编辑并保存：昵称、真实姓名、手机号、头像、性别、生日、住址、民族、文化程度
 - 用户详情新增真实数据 Tab：设备信息、报告信息、订单信息、资产信息、内容信息、服务记录
 - 健康信息编辑扩展：紧急联系人、紧急联系电话、吸烟/饮酒等后端字段已预留或接入
+- 工作台统计改为按实际数据库生成：用户标签分布实时统计 `user_tag_rel`，服务占比统计 `service_order`，趋势统计最近 7 天 `user` 和 `service_order`
+- `data.sql` 已补充主要管理类别演示数据，重启后端后会通过 `insert ignore` 写入 MySQL
 
 ## 个人资料落库说明
 
@@ -278,6 +281,15 @@ GET/POST/PUT/DELETE /api/v1/assessments
 运行验证：Spring Boot 临时启动成功，MySQL schema/data 执行成功
 接口验证：个人资料保存、devices/reports/product-categories/banners/topics 查询、topic 新增删除、用户详情扩展数据均通过
 进程清理：验证后已关闭 8080/5173 相关服务
+```
+
+补充说明：
+
+```text
+2026-07-07 已临时启动后端执行更新后的 data.sql，新增演示数据已写入当前 MySQL。
+当前主要资源接口均至少 10 条数据；预约看板按当天工单过滤，当前返回 14 条。
+用户详情个人信息更新接口已验证：新增测试用户、修改、读取、删除均通过。
+工作台统计已验证为数据库实时数据：标签分布来自 user_tag/user_tag_rel，服务占比和趋势来自 service_order/user。
 ```
 
 前端构建仍有 Vite/Rollup 大 chunk 警告，属于体积优化提示，不影响运行。

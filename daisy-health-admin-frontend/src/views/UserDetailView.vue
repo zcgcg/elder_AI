@@ -18,7 +18,10 @@
       </aside>
       <main class="panel detail-main">
         <el-tabs v-model="activeTab">
-          <el-tab-pane label="个人信息" name="profile"><el-descriptions :column="2" border><el-descriptions-item v-for="item in profileFields" :key="item.label" :label="item.label">{{ item.value }}</el-descriptions-item></el-descriptions></el-tab-pane>
+          <el-tab-pane label="个人信息" name="profile">
+            <div class="tab-actions"><el-button type="primary" @click="openProfileEdit">编辑个人信息</el-button></div>
+            <el-descriptions :column="2" border><el-descriptions-item v-for="item in profileFields" :key="item.label" :label="item.label">{{ item.value }}</el-descriptions-item></el-descriptions>
+          </el-tab-pane>
           <el-tab-pane label="健康信息" name="health">
             <div class="tab-actions"><el-button type="primary" @click="openHealthEdit">编辑健康信息</el-button></div>
             <el-descriptions :column="2" border><el-descriptions-item label="身高">{{ user.height }} cm</el-descriptions-item><el-descriptions-item label="体重">{{ user.weight }} kg</el-descriptions-item><el-descriptions-item label="血型">{{ user.bloodType }}</el-descriptions-item><el-descriptions-item label="慢性病">{{ user.chronicDisease }}</el-descriptions-item><el-descriptions-item label="睡眠质量">{{ user.sleepQuality }}</el-descriptions-item><el-descriptions-item label="运动频率">{{ user.exerciseFreq }}</el-descriptions-item></el-descriptions>
@@ -55,6 +58,24 @@
         <el-button type="primary" :loading="savingHealth" @click="saveHealth">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="profileDialogVisible" title="编辑个人信息" width="620px">
+      <el-form :model="profileForm" label-width="96px">
+        <el-form-item label="昵称"><el-input v-model="profileForm.nickname" /></el-form-item>
+        <el-form-item label="真实姓名" required><el-input v-model="profileForm.realName" /></el-form-item>
+        <el-form-item label="手机号"><el-input v-model="profileForm.phone" /></el-form-item>
+        <el-form-item label="头像"><el-input v-model="profileForm.avatarUrl" placeholder="头像 URL" /></el-form-item>
+        <el-form-item label="性别"><el-radio-group v-model="profileForm.gender"><el-radio label="女" /><el-radio label="男" /><el-radio label="未知" /></el-radio-group></el-form-item>
+        <el-form-item label="出生日期"><el-date-picker v-model="profileForm.birthday" type="date" value-format="YYYY-MM-DD" /></el-form-item>
+        <el-form-item label="家庭住址"><el-input v-model="profileForm.address" /></el-form-item>
+        <el-form-item label="民族"><el-input v-model="profileForm.ethnicity" /></el-form-item>
+        <el-form-item label="文化程度"><el-input v-model="profileForm.education" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="profileDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="savingProfile" @click="saveProfile">保存</el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -68,8 +89,11 @@ import { getUser, updateUser } from '../api/http'
 const route = useRoute()
 const activeTab = ref('profile')
 const healthChart = ref()
+const profileDialogVisible = ref(false)
 const healthDialogVisible = ref(false)
+const savingProfile = ref(false)
 const savingHealth = ref(false)
+const profileForm = reactive({ nickname: '', realName: '', phone: '', avatarUrl: '', gender: '未知', birthday: '', address: '', ethnicity: '', education: '' })
 const healthForm = reactive({ height: 0, weight: 0, bloodType: 'A', chronicDisease: '', sleepQuality: '良好', exerciseFreq: '', dietPreference: '', emergencyContact: '', emergencyPhone: '' })
 const user = ref({
   id: route.params.id,
@@ -79,6 +103,9 @@ const user = ref({
   birthday: '1952-03-12',
   phone: '138****0001',
   address: '上海市浦东新区',
+  ethnicity: '汉族',
+  education: '高中',
+  avatarUrl: '',
   height: 158,
   weight: 58.4,
   bloodType: 'A',
@@ -114,8 +141,8 @@ const profileFields = computed(() => [
   { label: '出生日期', value: user.value.birthday },
   { label: '手机号', value: user.value.phone },
   { label: '家庭住址', value: user.value.address },
-  { label: '民族', value: '汉族' },
-  { label: '文化程度', value: '高中' }
+  { label: '民族', value: user.value.ethnicity || '汉族' },
+  { label: '文化程度', value: user.value.education || '高中' }
 ])
 function drawHealthChart() {
   echarts.init(healthChart.value).setOption({
@@ -130,6 +157,20 @@ function drawHealthChart() {
       { name: '心率', type: 'line', smooth: true, yAxisIndex: 1, data: user.value.healthData.map((item) => item.heartRate) }
     ]
   })
+}
+function openProfileEdit() {
+  Object.assign(profileForm, {
+    nickname: user.value.nickname || '',
+    realName: user.value.realName || '',
+    phone: String(user.value.phone || '').includes('****') ? '' : user.value.phone || '',
+    avatarUrl: user.value.avatarUrl || '',
+    gender: user.value.gender || '未知',
+    birthday: user.value.birthday || '',
+    address: user.value.address || '',
+    ethnicity: user.value.ethnicity || '',
+    education: user.value.education || ''
+  })
+  profileDialogVisible.value = true
 }
 function openHealthEdit() {
   Object.assign(healthForm, {
@@ -147,6 +188,23 @@ function openHealthEdit() {
 }
 async function loadUser() {
   user.value = await getUser(route.params.id)
+}
+async function saveProfile() {
+  if (!profileForm.realName.trim()) {
+    ElMessage.warning('请填写真实姓名')
+    return
+  }
+  savingProfile.value = true
+  try {
+    await updateUser(route.params.id, profileForm)
+    await loadUser()
+    profileDialogVisible.value = false
+    ElMessage.success('个人信息已保存')
+  } catch (error) {
+    ElMessage.error('保存失败，请确认后端和数据库已启动')
+  } finally {
+    savingProfile.value = false
+  }
 }
 async function saveHealth() {
   savingHealth.value = true

@@ -171,7 +171,13 @@ insert ignore into work_order(id, order_no, order_id, service_item, amount, pers
 (9, 'WO20260703001', 9, '术后肌力训练', 359.00, 2, 10006, 'completed', date_sub(now(), interval 6 day), date_sub(now(), interval 6 day), date_sub(now(), interval 6 day), date_sub(now(), interval 6 day)),
 (10, 'WO20260703002', 10, '心脑血管专项体检', 699.00, 3, 10008, 'completed', date_sub(now(), interval 6 day), date_sub(now(), interval 6 day), date_sub(now(), interval 6 day), date_sub(now(), interval 6 day)),
 (11, 'WO20260702001', 11, '2小时日常清洁', 129.00, 1, 10010, 'completed', date_sub(now(), interval 7 day), date_sub(now(), interval 7 day), date_sub(now(), interval 7 day), date_sub(now(), interval 7 day)),
-(12, 'WO20260702002', 12, '助浴护理', 199.00, 4, 10011, 'cancelled', date_sub(now(), interval 7 day), date_sub(now(), interval 7 day), null, date_sub(now(), interval 7 day));
+(12, 'WO20260702002', 12, '助浴护理', 199.00, 4, 10011, 'cancelled', date_sub(now(), interval 7 day), date_sub(now(), interval 7 day), null, date_sub(now(), interval 7 day)),
+(201, 'WOSEEDTODAY001', 1, '晨间血压巡检', 89.00, 1, 10002, 'pending', now(), timestamp(curdate(), '08:30:00'), null, now()),
+(202, 'WOSEEDTODAY002', 2, '康复训练陪护', 199.00, 2, 10004, 'service_in', now(), timestamp(curdate(), '11:30:00'), null, now()),
+(203, 'WOSEEDTODAY003', 3, '午后用药提醒', 39.00, 3, 10005, 'pending', now(), timestamp(curdate(), '12:30:00'), null, now()),
+(204, 'WOSEEDTODAY004', 4, '居家安全检查', 129.00, 4, 10006, 'pending', now(), timestamp(curdate(), '13:30:00'), null, now()),
+(205, 'WOSEEDTODAY005', 5, '晚间健康随访', 69.00, 5, 10007, 'completed', now(), timestamp(curdate(), '18:30:00'), timestamp(curdate(), '19:10:00'), now()),
+(206, 'WOSEEDTODAY006', 6, '睡前血糖记录', 49.00, 6, 10008, 'pending', now(), timestamp(curdate(), '21:00:00'), null, now());
 
 insert ignore into after_sale(id, order_id, applicant_id, reason, status, created_at) values
 (2, 12, 10011, '用户临时身体不适', '处理中', date_sub(now(), interval 2 day));
@@ -297,3 +303,284 @@ insert ignore into assessment(id, title, description, type, questions, scoring_r
 insert ignore into assessment_result(id, assessment_id, user_id, score, result, answers) values
 (1, 1, 10001, 18, '睡眠质量良好', '{}'),
 (2, 2, 10003, 72, '跌倒风险较高', '{}');
+
+insert ignore into role(id, name, description, permissions, created_at) values
+(101, '运营主管', '运营模块管理', '{"operations":["view","edit"]}', now()),
+(102, '商品主管', '商品和服务项目管理', '{"products":["view","edit"]}', now()),
+(103, '服务主管', '服务人员和工单管理', '{"service":["view","edit"]}', now()),
+(104, '数据分析员', '数据看板查看', '{"analytics":["view"]}', now()),
+(105, '财务专员', '订单和资金查看', '{"trade":["view"]}', now()),
+(106, '内容编辑', '资讯和视频维护', '{"articles":["view","edit"]}', now()),
+(107, '健康顾问', '用户健康资料维护', '{"users":["view","edit"]}', now());
+
+insert ignore into staff(id, staff_no, name, phone, password_hash, role_id, remark, avatar_url, status, updater, created_at) values
+(101, 'S0101', '周运营', '13800000101', 'admin123', 101, '运营主管账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0101', 1, '系统', now()),
+(102, 'S0102', '吴商品', '13800000102', 'admin123', 102, '商品主管账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0102', 1, '系统', now()),
+(103, 'S0103', '郑服务', '13800000103', 'admin123', 103, '服务主管账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0103', 1, '系统', now()),
+(104, 'S0104', '王数据', '13800000104', 'admin123', 104, '数据分析账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0104', 1, '系统', now()),
+(105, 'S0105', '冯财务', '13800000105', 'admin123', 105, '财务账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0105', 1, '系统', now()),
+(106, 'S0106', '陈编辑', '13800000106', 'admin123', 106, '内容编辑账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0106', 1, '系统', now()),
+(107, 'S0107', '杨顾问', '13800000107', 'admin123', 107, '健康顾问账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0107', 1, '系统', now());
+
+insert ignore into service_personnel(id, name, phone, service_type, area, join_time, status, audit_status, created_at) values
+(101, '何洁', '13900020101', '家政护理', '普陀区', date_sub(now(), interval 13 day), 1, '已通过', date_sub(now(), interval 13 day)),
+(102, '罗军', '13900020102', '康复理疗', '宝山区', date_sub(now(), interval 12 day), 1, '已通过', date_sub(now(), interval 12 day)),
+(103, '许芳', '13900020103', '上门体检', '嘉定区', date_sub(now(), interval 11 day), 1, '已通过', date_sub(now(), interval 11 day));
+
+insert ignore into after_sale(id, order_id, applicant_id, reason, status, created_at) values
+(101, 1, 10003, '体检时间冲突', '处理中', date_sub(now(), interval 1 day)),
+(102, 2, 10001, '服务体验反馈', '已完成', date_sub(now(), interval 2 day)),
+(103, 3, 10002, '康复师改期', '已关闭', date_sub(now(), interval 3 day)),
+(104, 5, 10005, '陪诊发票问题', '处理中', date_sub(now(), interval 4 day)),
+(105, 6, 10012, '理疗套餐调整', '处理中', date_sub(now(), interval 5 day)),
+(106, 7, 10007, '报告补发', '已完成', date_sub(now(), interval 6 day)),
+(107, 8, 10009, '服务地点变更', '处理中', date_sub(now(), interval 7 day)),
+(108, 10, 10008, '体检项目变更', '已关闭', date_sub(now(), interval 8 day));
+
+insert ignore into review(id, order_id, product_id, user_id, rating, content, visible, created_at) values
+(101, 1, 3, 10003, 4, '体检安排清晰。', 1, date_sub(now(), interval 2 day)),
+(102, 6, 6, 10012, 5, '理疗体验不错。', 1, date_sub(now(), interval 2 day)),
+(103, 8, 8, 10009, 4, '陪护服务准时。', 1, date_sub(now(), interval 3 day));
+
+insert ignore into medication_record(id, user_id, period, drug_name, frequency, take_time, dosage, reminder_enabled, source, creator, created_at) values
+(101, 10002, '早餐', '阿托伐他汀', '每天', '08:00:00', '1片', 1, '手动', '系统管理员', now()),
+(102, 10004, '午餐', '钙片', '每天', '12:30:00', '1片', 1, '手动', '系统管理员', now()),
+(103, 10005, '晚餐', '硝酸甘油', '按需', '19:00:00', '1片', 1, '手动', '系统管理员', now()),
+(104, 10006, '早餐', '布洛芬缓释胶囊', '每天', '08:30:00', '1粒', 0, '手动', '系统管理员', now()),
+(105, 10007, '早餐', '二甲双胍', '每天', '08:00:00', '1片', 1, '手动', '系统管理员', now()),
+(106, 10008, '晚餐', '辛伐他汀', '每天', '20:00:00', '1片', 1, '手动', '系统管理员', now()),
+(107, 10009, '睡前', '维生素D', '每天', '21:00:00', '1粒', 1, '手动', '系统管理员', now());
+
+insert ignore into agreement(id, title, type, content, status, updated_at) values
+(101, '健康数据授权书', 'health_data', '健康数据授权书示例内容。', 1, now()),
+(102, '上门服务须知', 'service_notice', '上门服务须知示例内容。', 1, now()),
+(103, '优惠券使用规则', 'coupon_rule', '优惠券使用规则示例内容。', 1, now()),
+(104, '会员等级规则', 'member_rule', '会员等级规则示例内容。', 1, now()),
+(105, '积分规则说明', 'points_rule', '积分规则说明示例内容。', 1, now()),
+(106, '活动报名协议', 'activity', '活动报名协议示例内容。', 1, now()),
+(107, '隐私补充条款', 'privacy_ext', '隐私补充条款示例内容。', 1, now()),
+(108, '报告查看授权', 'report_auth', '报告查看授权示例内容。', 1, now());
+
+insert ignore into operation_log(id, operator, action_type, target, content, ip_address, created_at) values
+(101, '运营主管', '编辑', '轮播图管理', '更新首页轮播图排序', '127.0.0.1', date_sub(now(), interval 1 day)),
+(102, '商品主管', '新增', '服务项目', '新增肩颈护理服务项目', '127.0.0.1', date_sub(now(), interval 2 day)),
+(103, '服务主管', '审核', '服务人员', '审核服务人员资质', '127.0.0.1', date_sub(now(), interval 3 day)),
+(104, '内容编辑', '发布', '健康资讯', '发布慢病管理资讯', '127.0.0.1', date_sub(now(), interval 4 day)),
+(105, '健康顾问', '更新', '健康设置', '更新用户健康阈值', '127.0.0.1', date_sub(now(), interval 5 day));
+
+insert ignore into health_settings(id, user_id, heart_rate_upper, heart_rate_lower, blood_pressure_sys_upper, blood_pressure_dias_upper, blood_sugar_upper, blood_sugar_lower, step_goal, sleep_goal, medication_reminder, checkup_interval) values
+(101, 10002, 108, 54, 148, 92, 7.6, 3.8, 6500, 7.0, 1, 120),
+(102, 10004, 112, 56, 150, 95, 8.1, 3.9, 6000, 7.2, 1, 180),
+(103, 10005, 106, 52, 145, 90, 7.5, 3.8, 5200, 7.5, 1, 90),
+(104, 10006, 115, 55, 150, 95, 8.0, 3.9, 7000, 7.0, 0, 180),
+(105, 10007, 105, 50, 142, 88, 7.2, 3.7, 5000, 7.5, 1, 60),
+(106, 10008, 110, 55, 148, 92, 7.8, 3.8, 7200, 7.0, 1, 120),
+(107, 10009, 104, 50, 140, 88, 7.0, 3.7, 4800, 7.8, 1, 90),
+(108, 10010, 112, 55, 148, 92, 7.8, 3.8, 6500, 7.0, 1, 150);
+
+insert ignore into device(id, user_id, device_name, device_type, device_code, bind_time, last_sync_time, status) values
+(101, 10002, '华为手表 GT4', 'watch', 'HW-GT4-10002', date_sub(now(), interval 16 day), now(), 1),
+(102, 10004, '智能体脂秤', 'scale', 'SC-10004', date_sub(now(), interval 14 day), date_sub(now(), interval 2 hour), 1),
+(103, 10005, '血压计 Pro', 'pressure', 'BP-10005', date_sub(now(), interval 13 day), now(), 1),
+(104, 10006, '康复训练仪', 'rehab', 'RH-10006', date_sub(now(), interval 12 day), date_sub(now(), interval 3 hour), 1),
+(105, 10007, '血糖仪 Plus', 'glucometer', 'GLU-10007', date_sub(now(), interval 11 day), now(), 1),
+(106, 10008, '血氧夹', 'oxygen', 'OX-10008', date_sub(now(), interval 10 day), now(), 1),
+(107, 10009, '定位手环', 'band', 'GPS-10009', date_sub(now(), interval 9 day), date_sub(now(), interval 1 hour), 1),
+(108, 10010, '睡眠监测垫', 'sleep', 'SL-10010', date_sub(now(), interval 8 day), now(), 1);
+
+insert ignore into report(id, user_id, title, report_type, report_date, file_url, summary, doctor_name) values
+(101, 10002, '康复训练阶段报告', '康复评估', date_sub(curdate(), interval 1 day), '', '肩颈活动度改善。', '赵医生'),
+(102, 10004, '骨密度复查报告', '体检', date_sub(curdate(), interval 2 day), '', '骨密度略低，建议补钙。', '刘医生'),
+(103, 10005, '冠心病随访报告', '慢病随访', date_sub(curdate(), interval 3 day), '', '心率平稳，继续观察。', '陈医生'),
+(104, 10006, '术后康复月报', '月度总结', date_sub(curdate(), interval 4 day), '', '膝关节恢复良好。', '李医生'),
+(105, 10007, '血糖管理报告', '健康评估', date_sub(curdate(), interval 5 day), '', '餐后血糖仍需控制。', '王医生'),
+(106, 10008, '血脂复查报告', '体检', date_sub(curdate(), interval 6 day), '', '低脂饮食有效。', '周医生'),
+(107, 10009, '跌倒风险报告', '风险评估', date_sub(curdate(), interval 7 day), '', '建议增加居家扶手。', '许医生'),
+(108, 10010, '腰椎护理报告', '康复评估', date_sub(curdate(), interval 8 day), '', '疼痛评分下降。', '黄医生');
+
+insert ignore into coupon(id, user_id, coupon_no, name, type, discount, min_amount, status, expire_date) values
+(101, 10002, 'CP202607101', '康复训练减免券', '满减', 40.00, 299.00, '未使用', date_add(curdate(), interval 25 day)),
+(102, 10004, 'CP202607102', '日常护理券', '现金', 20.00, 0.00, '未使用', date_add(curdate(), interval 28 day)),
+(103, 10005, 'CP202607103', '陪诊服务券', '满减', 30.00, 169.00, '已使用', date_add(curdate(), interval 18 day)),
+(104, 10006, 'CP202607104', '理疗折扣券', '折扣', 8.50, 0.00, '未使用', date_add(curdate(), interval 40 day)),
+(105, 10007, 'CP202607105', '体检专项券', '满减', 50.00, 499.00, '未使用', date_add(curdate(), interval 35 day)),
+(106, 10008, 'CP202607106', '心脑专项券', '满减', 80.00, 699.00, '未使用', date_add(curdate(), interval 45 day)),
+(107, 10009, 'CP202607107', '半日陪护券', '满减', 60.00, 329.00, '已过期', date_sub(curdate(), interval 1 day)),
+(108, 10010, 'CP202607108', '清洁服务券', '现金', 15.00, 0.00, '未使用', date_add(curdate(), interval 20 day));
+
+insert ignore into user_points(id, user_id, points, total_earned, total_spent, level, growth_value) values
+(101, 10002, 960, 1200, 240, '普通', 980),
+(102, 10004, 720, 900, 180, '普通', 760),
+(103, 10005, 2200, 2600, 400, '银卡', 3600),
+(104, 10006, 1560, 1900, 340, '银卡', 2800),
+(105, 10007, 1180, 1400, 220, '银卡', 2100),
+(106, 10008, 3280, 3800, 520, '金卡', 6200),
+(107, 10009, 640, 760, 120, '普通', 680),
+(108, 10010, 1460, 1720, 260, '银卡', 2400);
+
+insert ignore into points_record(id, user_id, change_value, reason, created_at) values
+(101, 10002, 60, '康复打卡', date_sub(now(), interval 1 day)),
+(102, 10004, 30, '完成资料完善', date_sub(now(), interval 2 day)),
+(103, 10005, 100, '完成陪诊订单', date_sub(now(), interval 3 day)),
+(104, 10006, 120, '康复训练达标', date_sub(now(), interval 4 day)),
+(105, 10007, 50, '血糖记录上传', date_sub(now(), interval 5 day)),
+(106, 10008, 180, '完成专项体检', date_sub(now(), interval 6 day)),
+(107, 10009, -30, '兑换护理券', date_sub(now(), interval 7 day));
+
+insert ignore into member_level(id, name, min_growth, max_growth, icon, benefits, status) values
+(101, '铜卡', 500, 999, '', '基础积分加速', 1),
+(102, '铂金卡', 8000, 14999, '', '专属健康顾问', 1),
+(103, '钻石卡', 15000, null, '', '年度体检礼包', 1),
+(104, '关怀会员', 0, 1999, '', '慢病提醒服务', 1),
+(105, '康复会员', 2000, 5999, '', '康复训练优惠', 1),
+(106, '体检会员', 3000, 6999, '', '体检套餐优惠', 1),
+(107, '家庭会员', 5000, 12000, '', '家庭账号权益', 1);
+
+insert ignore into points_rule(id, action_type, description, points, growth, daily_limit, status) values
+(101, 'health_record', '上传健康数据', 10, 10, 5, 1),
+(102, 'medication_check', '用药打卡', 8, 8, 3, 1),
+(103, 'activity_enroll', '报名活动', 20, 20, 2, 1),
+(104, 'activity_attend', '参加活动', 50, 60, 1, 1),
+(105, 'profile_complete', '完善资料', 30, 30, 1, 1),
+(106, 'invite_family', '邀请家属', 80, 100, 1, 1),
+(107, 'service_finish', '完成服务', 100, 120, null, 1);
+
+insert ignore into product_category(id, name, code, description, sort_order, status) values
+(101, '助浴护理', 'HK-BATH', '助浴和清洁护理', 4, 1),
+(102, '陪诊陪护', 'HK-CARE', '陪诊和陪护服务', 5, 1),
+(103, '日常保洁', 'HK-CLEAN', '居家保洁服务', 6, 1),
+(104, '术后康复', 'RH-POST', '术后康复训练', 7, 1),
+(105, '肩颈理疗', 'RH-NECK', '肩颈理疗项目', 8, 1),
+(106, '慢病体检', 'EX-CHRONIC', '慢病随访体检', 9, 1),
+(107, '专项体检', 'EX-SPECIAL', '专项健康检查', 10, 1);
+
+insert ignore into service_item(id, product_id, name, description, duration, price, status) values
+(101, 5, '陪诊前沟通', '确认就诊信息与注意事项', 20, 0.00, 1),
+(102, 5, '全程陪诊', '挂号、排队、取药陪同', 120, 169.00, 1),
+(103, 6, '肩周炎评估', '活动度和疼痛评估', 20, 59.00, 1),
+(104, 6, '肩周炎理疗', '热敷、拉伸和训练', 60, 259.00, 1),
+(105, 7, '慢病指标采集', '血压血糖等基础采集', 40, 199.00, 1),
+(106, 8, '半日陪护', '居家半日陪护服务', 240, 329.00, 1),
+(107, 10, '心脑血管检测', '专项检测和报告解读', 90, 699.00, 1);
+
+insert ignore into banner(id, title, image_url, link_url, sort_order, location, status) values
+(101, '康复理疗套餐', 'https://example.com/banner-rehab.png', '/products/rehab', 3, 'home', 1),
+(102, '助浴护理安心选', 'https://example.com/banner-bath.png', '/products/bath', 4, 'home', 1),
+(103, '健康讲堂开课', 'https://example.com/banner-video.png', '/operations/videos', 5, 'home', 1),
+(104, '银发运动会报名', 'https://example.com/banner-sport.png', '/operations/activities', 6, 'activity', 1),
+(105, '慢病随访提醒', 'https://example.com/banner-chronic.png', '/articles/chronic', 7, 'home', 1),
+(106, '体检套餐优惠', 'https://example.com/banner-checkup.png', '/products/checkup', 8, 'home', 1),
+(107, '食谱推荐', 'https://example.com/banner-recipe.png', '/operations/recipes', 9, 'home', 1),
+(108, '机构参观预约', 'https://example.com/banner-institution.png', '/operations/institutions', 10, 'home', 1);
+
+insert ignore into activity(id, title, cover_url, location, start_time, end_time, quota, enrolled, status, content) values
+(101, '慢病管理讲座', '', '浦东社区中心', date_add(now(), interval 2 day), date_add(now(), interval 2 day), 60, 22, 'published', '慢病用药和饮食管理。'),
+(102, '营养早餐课堂', '', '静安活动室', date_add(now(), interval 3 day), date_add(now(), interval 3 day), 40, 18, 'published', '控糖早餐搭配。'),
+(103, '防跌倒训练营', '', '徐汇康复室', date_add(now(), interval 4 day), date_add(now(), interval 4 day), 35, 16, 'published', '居家防跌倒训练。'),
+(104, '智能设备教学', '', '线上直播', date_add(now(), interval 5 day), date_add(now(), interval 5 day), 100, 42, 'published', '手环和血压计使用教学。'),
+(105, '家属照护课堂', '', '黄浦社区中心', date_add(now(), interval 6 day), date_add(now(), interval 6 day), 80, 33, 'published', '家庭照护注意事项。'),
+(106, '康复经验分享', '', '长宁社区中心', date_add(now(), interval 7 day), date_add(now(), interval 7 day), 50, 24, 'published', '康复训练案例分享。'),
+(107, '健康义剪日', '', '宝山社区驿站', date_add(now(), interval 8 day), date_add(now(), interval 8 day), 70, 31, 'published', '便民服务活动。'),
+(108, '睡眠改善沙龙', '', '线上直播', date_add(now(), interval 9 day), date_add(now(), interval 9 day), 90, 29, 'published', '睡眠质量改善建议。');
+
+insert ignore into activity_enroll(id, activity_id, user_id, status, remark) values
+(101, 101, 10002, 'enrolled', '携带血压记录'),
+(102, 102, 10003, 'enrolled', '关注控糖饮食'),
+(103, 103, 10004, 'attended', '已签到'),
+(104, 104, 10005, 'enrolled', '线上参加'),
+(105, 105, 10006, 'cancelled', '时间冲突'),
+(106, 106, 10007, 'enrolled', '康复训练咨询'),
+(107, 107, 10008, 'attended', '已签到'),
+(108, 108, 10009, 'enrolled', '睡眠较差');
+
+insert ignore into topic(id, name, description, icon, post_count, status) values
+(101, '低盐饮食', '低盐饮食经验交流', '', 18, 1),
+(102, '控糖生活', '控糖饮食和运动', '', 21, 1),
+(103, '居家康复', '居家康复训练分享', '', 15, 1),
+(104, '睡眠改善', '睡眠质量改善交流', '', 9, 1),
+(105, '家属陪护', '家属照护经验', '', 13, 1),
+(106, '健康设备', '智能设备使用', '', 7, 1),
+(107, '社区活动', '社区活动报名交流', '', 16, 1),
+(108, '营养食谱', '营养菜谱分享', '', 19, 1);
+
+insert ignore into recipe(id, name, category, ingredients, steps, calories, suitable_for, cover_url, status) values
+(101, '番茄豆腐汤', '晚餐', '番茄,豆腐', '切块;炖煮', 180, '高血压', '', 1),
+(102, '鸡胸蔬菜饭', '午餐', '鸡胸肉,西兰花,米饭', '蒸煮;装盘', 420, '康复护理', '', 1),
+(103, '南瓜小米粥', '早餐', '南瓜,小米', '熬煮', 260, '消化不良', '', 1),
+(104, '清炒菠菜', '午餐', '菠菜,蒜', '焯水;快炒', 120, '高血脂', '', 1),
+(105, '银耳莲子羹', '加餐', '银耳,莲子', '泡发;慢炖', 210, '睡眠较差', '', 1),
+(106, '低脂鸡蛋羹', '早餐', '鸡蛋,温水', '打散;蒸制', 160, '高血脂', '', 1),
+(107, '紫薯燕麦杯', '早餐', '紫薯,燕麦', '蒸熟;混合', 300, '糖尿病', '', 1),
+(108, '山药排骨汤', '午餐', '山药,排骨', '焯水;炖煮', 360, '康复护理', '', 1);
+
+insert ignore into article(id, title, summary, content, cover_url, author, category, tags, view_count, status) values
+(101, '老人防跌倒指南', '居家防跌倒要点。', '保持地面干燥，安装扶手。', '', '健康编辑', '护理', '防跌倒', 720, 1),
+(102, '控糖饮食三原则', '控糖饮食基础建议。', '控制总量，选择低GI食物。', '', '营养师', '营养', '控糖', 830, 1),
+(103, '康复训练注意事项', '训练强度和频率建议。', '循序渐进，避免过度疲劳。', '', '康复师', '康复', '训练', 650, 1),
+(104, '高血脂日常管理', '饮食与运动管理。', '减少饱和脂肪摄入。', '', '健康编辑', '疾病', '高血脂', 590, 1),
+(105, '老人睡眠改善', '改善睡眠质量。', '固定作息，减少午睡过长。', '', '健康编辑', '养生', '睡眠', 610, 1),
+(106, '家属照护清单', '照护前准备事项。', '记录用药和紧急联系人。', '', '运营中心', '照护', '家属', 540, 1),
+(107, '智能手环使用教程', '设备绑定与同步。', '打开蓝牙并完成授权。', '', '设备顾问', '设备', '手环', 470, 1),
+(108, '夏季用药提醒', '高温天气用药注意。', '药品保存避免高温潮湿。', '', '药师', '用药', '夏季', 760, 1);
+
+insert ignore into disease(id, name, category, summary, symptoms, prevention, diet_advice, risk_factors, status) values
+(101, '高血脂', '心血管', '血脂异常需长期管理。', '乏力,头晕', '低脂饮食,运动', '少油少糖', '肥胖,饮酒', 1),
+(102, '冠心病', '心血管', '冠状动脉供血不足。', '胸闷,胸痛', '控制血压血脂', '清淡饮食', '高血压,吸烟', 1),
+(103, '骨质疏松', '骨科', '骨量降低导致骨折风险升高。', '腰背痛', '补钙,晒太阳', '高钙饮食', '高龄,缺钙', 1),
+(104, '肩周炎', '骨科', '肩关节疼痛和活动受限。', '肩痛,抬手困难', '规律拉伸', '高蛋白', '久坐,劳损', 1),
+(105, '脑卒中康复', '神经', '脑卒中后功能恢复。', '肢体无力', '康复训练', '低盐低脂', '高血压', 1),
+(106, '阿尔茨海默', '神经', '认知功能下降。', '记忆下降', '认知训练', '均衡饮食', '高龄', 1),
+(107, '慢阻肺', '呼吸', '慢性气道疾病。', '咳嗽,气短', '戒烟,肺康复', '高蛋白', '吸烟', 1),
+(108, '失眠', '心理睡眠', '睡眠质量下降。', '入睡困难', '规律作息', '少咖啡因', '焦虑,作息紊乱', 1);
+
+insert ignore into institution(id, name, address, phone, type, rating, capacity, price_range, services, images, status) values
+(101, '徐汇日间照料中心', '徐汇区康健路12号', '021-88880101', '日间照料', 4.5, 60, '3000-6000/月', '照料,餐饮', '', 1),
+(102, '长宁康复护理院', '长宁区虹桥路88号', '021-88880102', '护理院', 4.7, 100, '6000-12000/月', '护理,康复', '', 1),
+(103, '黄浦社区养老站', '黄浦区人民路66号', '021-88880103', '社区', 4.3, 45, '2000-5000/月', '助餐,活动', '', 1),
+(104, '宝山颐养中心', '宝山区友谊路99号', '021-88880104', '养老院', 4.6, 130, '4500-8500/月', '护理,娱乐', '', 1),
+(105, '普陀康养驿站', '普陀区金沙江路18号', '021-88880105', '社区', 4.4, 50, '2500-5500/月', '助浴,助餐', '', 1),
+(106, '嘉定护理之家', '嘉定区安亭路28号', '021-88880106', '护理院', 4.5, 80, '5000-9500/月', '医护,护理', '', 1),
+(107, '闵行颐康院', '闵行区莘庄路56号', '021-88880107', '养老院', 4.2, 110, '4000-8000/月', '护理,康复', '', 1),
+(108, '松江银龄中心', '松江区文诚路77号', '021-88880108', '养老院', 4.8, 140, '5500-10000/月', '护理,餐饮,康复', '', 1);
+
+insert ignore into video(id, title, description, cover_url, video_url, duration, lecturer, category, view_count, status) values
+(101, '防跌倒训练', '居家防跌倒训练动作。', '', 'https://example.com/video-fall.mp4', 840, '赵康复师', '康复', 390, 1),
+(102, '控糖饮食课', '糖尿病饮食控制。', '', 'https://example.com/video-sugar.mp4', 960, '王营养师', '营养', 510, 1),
+(103, '血压计使用教程', '家庭血压计正确使用。', '', 'https://example.com/video-bp.mp4', 480, '李护士', '设备', 620, 1),
+(104, '助浴安全须知', '老人助浴安全要点。', '', 'https://example.com/video-bath.mp4', 720, '周护理师', '护理', 430, 1),
+(105, '肩周炎拉伸', '肩周炎居家拉伸。', '', 'https://example.com/video-shoulder.mp4', 780, '罗康复师', '康复', 360, 1),
+(106, '睡眠放松训练', '睡前放松练习。', '', 'https://example.com/video-sleep.mp4', 900, '心理顾问', '睡眠', 280, 1),
+(107, '家属照护课程', '家属照护基础。', '', 'https://example.com/video-family.mp4', 1100, '陈护士', '照护', 330, 1),
+(108, '低盐烹饪课', '低盐烹饪技巧。', '', 'https://example.com/video-salt.mp4', 640, '刘营养师', '营养', 450, 1);
+
+insert ignore into food(id, name, category, calories, protein, fat, carbs, fiber, sodium, suitable_for, status) values
+(101, '西兰花', '蔬菜', 36, 4.1, 0.6, 4.3, 2.6, 18.0, '高血压,糖尿病', 1),
+(102, '鸡胸肉', '肉类', 133, 24.6, 1.9, 2.5, 0.0, 34.0, '康复护理', 1),
+(103, '豆腐', '豆制品', 84, 6.6, 5.3, 3.4, 0.4, 7.2, '高血脂', 1),
+(104, '紫薯', '主食', 106, 1.6, 0.2, 25.1, 3.0, 27.0, '糖尿病', 1),
+(105, '菠菜', '蔬菜', 28, 2.6, 0.3, 4.5, 1.7, 85.0, '高血压', 1),
+(106, '牛奶', '乳制品', 66, 3.2, 3.6, 5.0, 0.0, 37.0, '骨质疏松', 1),
+(107, '三文鱼', '鱼类', 139, 17.2, 7.8, 0.0, 0.0, 50.0, '高血脂', 1),
+(108, '苹果', '水果', 53, 0.4, 0.2, 13.7, 1.2, 1.6, '普通客户', 1);
+
+insert ignore into assessment(id, title, description, type, questions, scoring_rules, status) values
+(101, '慢病自评', '慢病管理能力自评。', 'chronic', '[\"是否按时服药\",\"是否定期监测\"]', '{}', 1),
+(102, '营养风险测评', '饮食结构风险评估。', 'nutrition', '[\"每日蔬菜摄入\",\"蛋白质摄入\"]', '{}', 1),
+(103, '认知风险测评', '认知能力初筛。', 'cognition', '[\"日期记忆\",\"词语回忆\"]', '{}', 1),
+(104, '运动能力测评', '基础运动能力评估。', 'sport', '[\"步行距离\",\"起坐能力\"]', '{}', 1),
+(105, '用药依从性测评', '用药规律性评估。', 'medication', '[\"是否漏服\",\"是否自行停药\"]', '{}', 1),
+(106, '情绪状态测评', '近期情绪状态评估。', 'mood', '[\"是否焦虑\",\"是否低落\"]', '{}', 1),
+(107, '照护需求测评', '居家照护需求评估。', 'care', '[\"是否需要助浴\",\"是否需要陪诊\"]', '{}', 1),
+(108, '居家安全测评', '居家环境安全评估。', 'home', '[\"地面是否防滑\",\"夜间照明是否充足\"]', '{}', 1);
+
+insert ignore into assessment_result(id, assessment_id, user_id, score, result, answers) values
+(101, 101, 10002, 66, '慢病管理一般', '{}'),
+(102, 102, 10004, 58, '营养风险中等', '{}'),
+(103, 103, 10005, 42, '认知风险较低', '{}'),
+(104, 104, 10006, 74, '运动能力良好', '{}'),
+(105, 105, 10007, 61, '用药依从性一般', '{}'),
+(106, 106, 10008, 36, '情绪状态稳定', '{}'),
+(107, 107, 10009, 82, '照护需求较高', '{}'),
+(108, 108, 10010, 69, '居家安全需改善', '{}');
+
+update user_tag t set user_count = (select count(*) from user_tag_rel r where r.tag_id = t.id);
