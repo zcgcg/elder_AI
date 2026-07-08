@@ -11,6 +11,7 @@
 - 用户模块的等级管理仅保留普通、银卡、金卡三种等级，后端保存时增加等级名称白名单校验。
 - 积分规则仅保留签到、完成订单、发布评价三种行为，清理初始化数据中的多余等级和多余规则。
 - 等级管理和积分规则页面关闭新增入口，并在编辑时禁用已被其他配置占用的选项，避免唯一键冲突导致保存失败。
+- 增加本地上传能力：头像、报告文件、轮播图可上传并保存为 `/uploads/**` 地址；用户头像支持预置头像和自定义上传。
 
 ## 技术栈
 
@@ -89,6 +90,24 @@ http://127.0.0.1:5173
 cd D:\agent_project\elder_AI\daisy-health-admin-backend
 mvn spring-boot:run -Dspring-boot.run.profiles=mock
 ```
+
+## 上传素材要求
+
+上传文件默认保存到后端运行目录下的 `uploads/`，该目录不会提交到 Git。
+
+```text
+头像：jpg/jpeg/png/webp，建议 512x512 正方形，最大 2MB
+轮播图：jpg/jpeg/png/webp，建议 1440x480 或 1200x400 横图，最大 5MB
+报告：jpg/jpeg/png/webp/pdf，图片建议清晰扫描图，PDF 建议常规 A4 报告，最大 20MB
+```
+
+系统预置头像位于：
+
+```text
+daisy-health-admin-frontend/public/default-avatars/
+```
+
+如需替换预置头像，保持文件名 `avatar-01.svg` 到 `avatar-06.svg`，或同步修改前端默认头像列表。
 
 ## 代码架构与项目结构
 

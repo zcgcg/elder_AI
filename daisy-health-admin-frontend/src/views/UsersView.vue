@@ -76,7 +76,26 @@
         <el-form-item label="昵称"><el-input v-model="newUser.nickname" placeholder="如：兰姨" /></el-form-item>
         <el-form-item label="真实姓名" required><el-input v-model="newUser.realName" placeholder="请输入真实姓名" /></el-form-item>
         <el-form-item label="手机号"><el-input v-model="newUser.phone" placeholder="请输入手机号" /></el-form-item>
-        <el-form-item label="头像"><el-input v-model="newUser.avatarUrl" placeholder="头像 URL，可不填" /></el-form-item>
+        <el-form-item label="头像">
+          <div class="avatar-picker">
+            <el-avatar :size="64" :src="newUser.avatarUrl">{{ newUser.realName?.slice(0, 1) || '用' }}</el-avatar>
+            <div class="avatar-choice-grid">
+              <button
+                v-for="avatar in defaultAvatars"
+                :key="avatar"
+                type="button"
+                class="avatar-choice"
+                :class="{ active: newUser.avatarUrl === avatar }"
+                @click="newUser.avatarUrl = avatar"
+              >
+                <img :src="avatar" alt="默认头像" />
+              </button>
+            </div>
+            <el-upload :show-file-list="false" :http-request="handleAvatarUpload" accept=".jpg,.jpeg,.png,.webp">
+              <el-button>上传头像</el-button>
+            </el-upload>
+          </div>
+        </el-form-item>
         <el-form-item label="性别">
           <el-radio-group v-model="newUser.gender"><el-radio label="女" /><el-radio label="男" /><el-radio label="未知" /></el-radio-group>
         </el-form-item>
@@ -144,7 +163,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Delete, Plus, PriceTag } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createTag, createUser, deleteTag, deleteUser, getTags, getUsers, updateTag, updateUser, updateUserTags } from '../api/http'
+import { createTag, createUser, deleteTag, deleteUser, getTags, getUsers, updateTag, updateUser, updateUserTags, uploadFile } from '../api/http'
 
 const viewMode = ref('卡片')
 const filters = reactive({ tag: '', dateRange: [], keyword: '' })
@@ -170,6 +189,7 @@ const newUser = reactive({
   chronicDisease: '',
   tagNames: []
 })
+const defaultAvatars = ['/default-avatars/avatar-01.svg', '/default-avatars/avatar-02.svg', '/default-avatars/avatar-03.svg', '/default-avatars/avatar-04.svg', '/default-avatars/avatar-05.svg', '/default-avatars/avatar-06.svg']
 const tagForm = reactive({ name: '', color: 'green' })
 const fallbackUsers = [
   { id: 10001, nickname: '笑看人生', realName: '王强', phone: '19233664486', tags: ['高血压', '糖尿病', '多次购买'], tagIds: [1, 5], createdAt: '2024-10-09 10:09:09' },
@@ -266,6 +286,17 @@ async function submitCreate() {
     ElMessage.error('保存失败，请确认后端和数据库已启动')
   } finally {
     saving.value = false
+  }
+}
+async function handleAvatarUpload(options) {
+  try {
+    const data = await uploadFile(options.file, 'avatar')
+    newUser.avatarUrl = data.url
+    options.onSuccess?.(data)
+    ElMessage.success('头像上传成功')
+  } catch (error) {
+    options.onError?.(error)
+    ElMessage.error(error?.response?.data?.message || '头像上传失败')
   }
 }
 async function removeUser(row) {

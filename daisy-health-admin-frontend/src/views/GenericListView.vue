@@ -23,6 +23,8 @@
       <el-table-column v-for="column in columns" :key="column.prop" :prop="column.prop" :label="column.label" :min-width="column.width || 120">
         <template #default="{ row }">
           <el-tag v-if="isStatusColumn(column.prop)" :type="tagType(row[column.prop])">{{ row[column.prop] }}</el-tag>
+          <img v-else-if="column.type === 'image' && row[column.prop]" class="table-thumb" :src="row[column.prop]" :alt="row.title || row.name || column.label" />
+          <el-button v-else-if="column.type === 'file'" link type="primary" :disabled="!row[column.prop]" @click="openFile(row[column.prop])">查看</el-button>
           <span v-else>{{ row[column.prop] }}</span>
         </template>
       </el-table-column>
@@ -88,6 +90,21 @@
           <el-select v-else-if="field.type === 'select'" v-model="form[field.prop]" placeholder="请选择" :disabled="readonly">
             <el-option v-for="option in field.options" :key="option" :label="option" :value="option" :disabled="isSelectOptionDisabled(field, option)" />
           </el-select>
+          <div v-else-if="field.type === 'upload'" class="upload-field">
+            <img v-if="field.preview === 'image' && form[field.prop]" class="upload-preview" :src="form[field.prop]" :alt="field.label" />
+            <div v-else-if="form[field.prop]" class="upload-file-row">
+              <span>{{ fileNameFromUrl(form[field.prop]) }}</span>
+              <el-button link type="primary" @click="openFile(form[field.prop])">查看</el-button>
+            </div>
+            <el-upload
+              :show-file-list="false"
+              :http-request="(options) => handleFieldUpload(field, options)"
+              :accept="field.accept"
+              :disabled="readonly"
+            >
+              <el-button :disabled="readonly">上传文件</el-button>
+            </el-upload>
+          </div>
           <el-input v-else-if="field.type === 'textarea'" v-model="form[field.prop]" type="textarea" :rows="4" :placeholder="field.placeholder" :disabled="readonly" />
           <el-input v-else v-model="form[field.prop]" :placeholder="field.placeholder" :disabled="readonly" />
         </el-form-item>
@@ -105,7 +122,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createResource, deleteResource, getResource, getUsers, updateResource } from '../api/http'
+import { createResource, deleteResource, getResource, getUsers, updateResource, uploadFile } from '../api/http'
 import { fallbackRows } from '../api/fallback'
 
 const route = useRoute()
@@ -202,7 +219,7 @@ const columnMap = {
 }
 Object.assign(columnMap, {
   devices: [{ prop: 'userName', label: '用户' }, { prop: 'deviceName', label: '设备名称' }, { prop: 'deviceType', label: '类型' }, { prop: 'deviceCode', label: '设备编号' }, { prop: 'status', label: '状态' }],
-  reports: [{ prop: 'userName', label: '用户' }, { prop: 'title', label: '报告标题', width: 220 }, { prop: 'reportType', label: '类型' }, { prop: 'reportDate', label: '报告日期' }, { prop: 'doctorName', label: '医生' }],
+  reports: [{ prop: 'userName', label: '用户' }, { prop: 'title', label: '报告标题', width: 220 }, { prop: 'reportType', label: '类型' }, { prop: 'reportDate', label: '报告日期' }, { prop: 'doctorName', label: '医生' }, { prop: 'fileUrl', label: '文件', type: 'file' }],
   healthSettings: [{ prop: 'userName', label: '用户' }, { prop: 'stepGoal', label: '步数目标' }, { prop: 'sleepGoal', label: '睡眠目标' }, { prop: 'status', label: '用药提醒' }],
   coupons: [{ prop: 'couponNo', label: '券编号', width: 170 }, { prop: 'name', label: '名称' }, { prop: 'type', label: '类型' }, { prop: 'discount', label: '优惠' }, { prop: 'status', label: '状态' }, { prop: 'expireDate', label: '过期日' }],
   userPoints: [{ prop: 'userName', label: '用户' }, { prop: 'points', label: '积分' }, { prop: 'level', label: '等级' }, { prop: 'growthValue', label: '成长值' }],
@@ -211,7 +228,7 @@ Object.assign(columnMap, {
   pointsRules: [{ prop: 'actionType', label: '行为' }, { prop: 'description', label: '说明' }, { prop: 'points', label: '积分' }, { prop: 'growth', label: '成长值' }, { prop: 'status', label: '状态' }],
   productCategories: [{ prop: 'name', label: '分类名称' }, { prop: 'code', label: '编码' }, { prop: 'description', label: '描述' }, { prop: 'sortOrder', label: '排序' }, { prop: 'status', label: '状态' }],
   serviceItems: [{ prop: 'productName', label: '商品' }, { prop: 'name', label: '项目名称' }, { prop: 'duration', label: '时长' }, { prop: 'price', label: '价格' }, { prop: 'status', label: '状态' }],
-  banners: [{ prop: 'title', label: '标题' }, { prop: 'imageUrl', label: '图片' }, { prop: 'location', label: '位置' }, { prop: 'sortOrder', label: '排序' }, { prop: 'status', label: '状态' }],
+  banners: [{ prop: 'title', label: '标题' }, { prop: 'imageUrl', label: '图片', type: 'image', width: 150 }, { prop: 'location', label: '位置' }, { prop: 'sortOrder', label: '排序' }, { prop: 'status', label: '状态' }],
   topics: [{ prop: 'name', label: '话题名称' }, { prop: 'description', label: '描述' }, { prop: 'postCount', label: '动态数' }, { prop: 'status', label: '状态' }],
   activityEnrolls: [{ prop: 'activityTitle', label: '活动' }, { prop: 'userName', label: '用户' }, { prop: 'status', label: '状态' }, { prop: 'remark', label: '备注' }],
   recipes: [{ prop: 'title', label: '菜谱名称' }, { prop: 'category', label: '分类' }, { prop: 'calories', label: '热量' }, { prop: 'suitableFor', label: '适宜人群' }, { prop: 'status', label: '状态' }],
@@ -314,6 +331,7 @@ Object.assign(createFieldMap, {
     { prop: 'reportType', label: '报告类型', placeholder: '体检/健康评估/月度总结' },
     { prop: 'reportDate', label: '报告日期', placeholder: 'YYYY-MM-DD' },
     { prop: 'doctorName', label: '医生', placeholder: '医生/评估人' },
+    { prop: 'fileUrl', label: '报告文件', type: 'upload', category: 'report', accept: '.jpg,.jpeg,.png,.webp,.pdf' },
     { prop: 'summary', label: '摘要', type: 'textarea', placeholder: '报告摘要' }
   ],
   healthSettings: [
@@ -373,7 +391,7 @@ Object.assign(createFieldMap, {
   ],
   banners: [
     { prop: 'title', label: '标题', required: true, placeholder: '轮播标题' },
-    { prop: 'imageUrl', label: '图片URL', placeholder: '图片 URL' },
+    { prop: 'imageUrl', label: '图片', required: true, type: 'upload', category: 'banner', accept: '.jpg,.jpeg,.png,.webp', preview: 'image' },
     { prop: 'linkUrl', label: '跳转URL', placeholder: '跳转链接' },
     { prop: 'location', label: '位置', placeholder: 'home/activity' },
     { prop: 'sortOrder', label: '排序', type: 'number' },
@@ -509,6 +527,24 @@ function isSelectOptionDisabled(field, option) {
     return rows.value.some((row) => row.id !== editingId.value && row.actionType === option)
   }
   return false
+}
+async function handleFieldUpload(field, options) {
+  try {
+    const data = await uploadFile(options.file, field.category || 'avatar')
+    form[field.prop] = data.url
+    options.onSuccess?.(data)
+    ElMessage.success('上传成功')
+  } catch (error) {
+    options.onError?.(error)
+    ElMessage.error(error?.response?.data?.message || '上传失败')
+  }
+}
+function openFile(url) {
+  if (!url) return
+  window.open(url, '_blank')
+}
+function fileNameFromUrl(url) {
+  return String(url || '').split('/').filter(Boolean).pop() || '已上传文件'
 }
 async function loadUsers() {
   try {

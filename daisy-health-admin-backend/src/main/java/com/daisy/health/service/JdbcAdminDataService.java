@@ -251,7 +251,7 @@ public class JdbcAdminDataService implements AdminDataService {
                 id
         ));
         row.put("devices", jdbcTemplate.queryForList("select id, device_name as deviceName, device_type as deviceType, device_code as deviceCode, if(status = 1, '绑定', '解绑') as status from device where user_id = ? order by id", id));
-        row.put("reports", jdbcTemplate.queryForList("select id, title, report_type as reportType, date_format(report_date, '%Y-%m-%d') as reportDate, doctor_name as doctorName, summary from report where user_id = ? order by report_date desc", id));
+        row.put("reports", jdbcTemplate.queryForList("select id, title, report_type as reportType, date_format(report_date, '%Y-%m-%d') as reportDate, file_url as fileUrl, doctor_name as doctorName, summary from report where user_id = ? order by report_date desc", id));
         row.put("orders", jdbcTemplate.queryForList("select id, order_no as orderNo, product_name as productName, amount, status, service_type as serviceType from service_order where buyer_id = ? order by id desc", id));
         row.put("coupons", jdbcTemplate.queryForList("select id, coupon_no as couponNo, name, type, discount, status, date_format(expire_date, '%Y-%m-%d') as expireDate from coupon where user_id = ? order by id desc", id));
         row.put("points", jdbcTemplate.queryForList("select id, points, total_earned as totalEarned, total_spent as totalSpent, level, growth_value as growthValue from user_points where user_id = ?", id));
@@ -724,7 +724,7 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("healthData".equals(name)) return jdbcTemplate.queryForList("select h.id, u.real_name as userName, h.data_type as dataType, h.value, h.unit, date_format(h.record_date, '%Y-%m-%d') as recordDate, date_format(h.record_time, '%H:%i:%s') as recordTime, h.source from health_data h left join `user` u on h.user_id = u.id order by h.record_date desc, h.id desc");
         if ("medications".equals(name)) return jdbcTemplate.queryForList("select m.id, u.real_name as userName, m.period, m.drug_name as drugName, m.frequency, date_format(m.take_time, '%H:%i:%s') as takeTime, m.dosage, if(m.reminder_enabled = 1, '启用', '禁用') as status from medication_record m left join `user` u on m.user_id = u.id order by m.id");
         if ("devices".equals(name)) return jdbcTemplate.queryForList("select d.id, u.real_name as userName, d.device_name as deviceName, d.device_type as deviceType, d.device_code as deviceCode, if(d.status = 1, '绑定', '解绑') as status from device d left join `user` u on d.user_id = u.id order by d.id");
-        if ("reports".equals(name)) return jdbcTemplate.queryForList("select r.id, u.real_name as userName, r.title, r.report_type as reportType, date_format(r.report_date, '%Y-%m-%d') as reportDate, r.doctor_name as doctorName, r.summary from report r left join `user` u on r.user_id = u.id order by r.id");
+        if ("reports".equals(name)) return jdbcTemplate.queryForList("select r.id, u.real_name as userName, r.title, r.report_type as reportType, date_format(r.report_date, '%Y-%m-%d') as reportDate, r.file_url as fileUrl, r.doctor_name as doctorName, r.summary from report r left join `user` u on r.user_id = u.id order by r.id");
         if ("coupons".equals(name)) return jdbcTemplate.queryForList("select id, coupon_no as couponNo, name, type, discount, min_amount as minAmount, status, date_format(expire_date, '%Y-%m-%d') as expireDate from coupon order by id");
         if ("userPoints".equals(name)) return jdbcTemplate.queryForList("select p.id, u.real_name as userName, p.points, p.total_earned as totalEarned, p.total_spent as totalSpent, p.level, p.growth_value as growthValue from user_points p left join `user` u on p.user_id = u.id order by p.id");
         if ("pointsRecords".equals(name)) return jdbcTemplate.queryForList("select r.id, u.real_name as userName, r.change_value as changeValue, r.reason, date_format(r.created_at, '%Y-%m-%d %H:%i') as createdAt from points_record r left join `user` u on r.user_id = u.id order by r.id desc");
@@ -795,6 +795,7 @@ public class JdbcAdminDataService implements AdminDataService {
             putIfPresent(values, "title", payload, "title");
             putIfPresent(values, "report_type", payload, "reportType");
             putIfPresent(values, "report_date", payload, "reportDate");
+            putIfPresent(values, "file_url", payload, "fileUrl");
             putIfPresent(values, "summary", payload, "summary");
             putIfPresent(values, "doctor_name", payload, "doctorName");
         } else if ("coupons".equals(name)) {

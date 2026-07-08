@@ -70,7 +70,26 @@
         <el-form-item label="昵称"><el-input v-model="profileForm.nickname" /></el-form-item>
         <el-form-item label="真实姓名" required><el-input v-model="profileForm.realName" /></el-form-item>
         <el-form-item label="手机号"><el-input v-model="profileForm.phone" /></el-form-item>
-        <el-form-item label="头像"><el-input v-model="profileForm.avatarUrl" placeholder="头像 URL" /></el-form-item>
+        <el-form-item label="头像">
+          <div class="avatar-picker">
+            <el-avatar :size="64" :src="profileForm.avatarUrl">{{ profileForm.realName?.slice(0, 1) || '用' }}</el-avatar>
+            <div class="avatar-choice-grid">
+              <button
+                v-for="avatar in defaultAvatars"
+                :key="avatar"
+                type="button"
+                class="avatar-choice"
+                :class="{ active: profileForm.avatarUrl === avatar }"
+                @click="profileForm.avatarUrl = avatar"
+              >
+                <img :src="avatar" alt="默认头像" />
+              </button>
+            </div>
+            <el-upload :show-file-list="false" :http-request="handleProfileAvatarUpload" accept=".jpg,.jpeg,.png,.webp">
+              <el-button>上传头像</el-button>
+            </el-upload>
+          </div>
+        </el-form-item>
         <el-form-item label="性别"><el-radio-group v-model="profileForm.gender"><el-radio label="女" /><el-radio label="男" /><el-radio label="未知" /></el-radio-group></el-form-item>
         <el-form-item label="出生日期"><el-date-picker v-model="profileForm.birthday" type="date" value-format="YYYY-MM-DD" /></el-form-item>
         <el-form-item label="家庭住址"><el-input v-model="profileForm.address" /></el-form-item>
@@ -101,6 +120,19 @@
           </el-select>
           <el-date-picker v-else-if="field.type === 'date'" v-model="sectionForm[field.prop]" type="date" value-format="YYYY-MM-DD" />
           <el-time-picker v-else-if="field.type === 'time'" v-model="sectionForm[field.prop]" value-format="HH:mm:ss" />
+          <div v-else-if="field.type === 'upload'" class="upload-field">
+            <div v-if="sectionForm[field.prop]" class="upload-file-row">
+              <span>{{ fileNameFromUrl(sectionForm[field.prop]) }}</span>
+              <el-button link type="primary" @click="openFile(sectionForm[field.prop])">查看</el-button>
+            </div>
+            <el-upload
+              :show-file-list="false"
+              :http-request="(options) => handleSectionUpload(field, options)"
+              :accept="field.accept"
+            >
+              <el-button>上传文件</el-button>
+            </el-upload>
+          </div>
           <el-input v-else-if="field.type === 'textarea'" v-model="sectionForm[field.prop]" type="textarea" :rows="4" :placeholder="field.placeholder" />
           <el-input v-else v-model="sectionForm[field.prop]" :placeholder="field.placeholder" />
         </el-form-item>
@@ -118,7 +150,7 @@ import { computed, defineComponent, h, nextTick, onMounted, reactive, ref } from
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { ElButton, ElMessage, ElMessageBox, ElTable, ElTableColumn } from 'element-plus'
-import { createResource, deleteResource, getUser, updateResource, updateUser } from '../api/http'
+import { createResource, deleteResource, getUser, updateResource, updateUser, uploadFile } from '../api/http'
 
 const EditableTable = defineComponent({
   props: { section: String, rows: Array, columns: Array },
@@ -127,7 +159,16 @@ const EditableTable = defineComponent({
     return () => h('div', [
       h('div', { class: 'tab-actions' }, [h(ElButton, { type: 'primary', onClick: () => emit('create', props.section) }, () => '新增')]),
       h(ElTable, { data: props.rows || [], stripe: true }, () => [
-        ...(props.columns || []).map((column) => h(ElTableColumn, { prop: column.prop, label: column.label, minWidth: column.width || 120 })),
+        ...(props.columns || []).map((column) => {
+          if (column.type === 'file') {
+            return h(ElTableColumn, { prop: column.prop, label: column.label, minWidth: column.width || 120 }, {
+              default: ({ row }) => row[column.prop]
+                ? h(ElButton, { link: true, type: 'primary', onClick: () => window.open(row[column.prop], '_blank') }, () => '查看')
+                : h('span', '-')
+            })
+          }
+          return h(ElTableColumn, { prop: column.prop, label: column.label, minWidth: column.width || 120 })
+        }),
         h(ElTableColumn, { label: '操作', width: 150, align: 'right' }, {
           default: ({ row }) => [
             h(ElButton, { link: true, type: 'primary', onClick: () => emit('edit', props.section, row) }, () => '编辑'),
@@ -153,6 +194,7 @@ const profileForm = reactive({
   nickname: '', realName: '', phone: '', avatarUrl: '', gender: '未知', birthday: '', address: '', ethnicity: '', education: '',
   height: 0, weight: 0, bloodType: 'A', chronicDisease: '', sleepQuality: '良好', exerciseFreq: '', dietPreference: '', emergencyContact: '', emergencyPhone: ''
 })
+const defaultAvatars = ['/default-avatars/avatar-01.svg', '/default-avatars/avatar-02.svg', '/default-avatars/avatar-03.svg', '/default-avatars/avatar-04.svg', '/default-avatars/avatar-05.svg', '/default-avatars/avatar-06.svg']
 const user = ref({ id: route.params.id, nickname: '', realName: '', tags: [], medications: [], healthData: [], devices: [], reports: [], orders: [], coupons: [], points: [], contents: [], serviceRecords: [] })
 
 const sectionMap = {
@@ -180,9 +222,9 @@ const sectionMap = {
   reports: {
     title: '报告信息',
     resource: 'reports',
-    defaults: () => ({ userRef: String(user.value.id), title: '', reportType: '健康评估', reportDate: new Date().toISOString().slice(0, 10), doctorName: '', summary: '' }),
-    columns: [{ prop: 'title', label: '报告标题', width: 180 }, { prop: 'reportType', label: '类型' }, { prop: 'reportDate', label: '日期' }, { prop: 'doctorName', label: '医生' }],
-    fields: [{ prop: 'title', label: '报告标题', required: true }, { prop: 'reportType', label: '报告类型' }, { prop: 'reportDate', label: '报告日期', type: 'date' }, { prop: 'doctorName', label: '医生' }, { prop: 'summary', label: '摘要', type: 'textarea' }]
+    defaults: () => ({ userRef: String(user.value.id), title: '', reportType: '健康评估', reportDate: new Date().toISOString().slice(0, 10), doctorName: '', fileUrl: '', summary: '' }),
+    columns: [{ prop: 'title', label: '报告标题', width: 180 }, { prop: 'reportType', label: '类型' }, { prop: 'reportDate', label: '日期' }, { prop: 'doctorName', label: '医生' }, { prop: 'fileUrl', label: '文件', type: 'file' }],
+    fields: [{ prop: 'title', label: '报告标题', required: true }, { prop: 'reportType', label: '报告类型' }, { prop: 'reportDate', label: '报告日期', type: 'date' }, { prop: 'doctorName', label: '医生' }, { prop: 'fileUrl', label: '报告文件', type: 'upload', category: 'report', accept: '.jpg,.jpeg,.png,.webp,.pdf' }, { prop: 'summary', label: '摘要', type: 'textarea' }]
   },
   orders: {
     title: '订单信息',
@@ -289,6 +331,35 @@ async function saveProfile() {
   } finally {
     savingProfile.value = false
   }
+}
+async function handleProfileAvatarUpload(options) {
+  try {
+    const data = await uploadFile(options.file, 'avatar')
+    profileForm.avatarUrl = data.url
+    options.onSuccess?.(data)
+    ElMessage.success('头像上传成功')
+  } catch (error) {
+    options.onError?.(error)
+    ElMessage.error(error?.response?.data?.message || '头像上传失败')
+  }
+}
+async function handleSectionUpload(field, options) {
+  try {
+    const data = await uploadFile(options.file, field.category || 'report')
+    sectionForm[field.prop] = data.url
+    options.onSuccess?.(data)
+    ElMessage.success('上传成功')
+  } catch (error) {
+    options.onError?.(error)
+    ElMessage.error(error?.response?.data?.message || '上传失败')
+  }
+}
+function openFile(url) {
+  if (!url) return
+  window.open(url, '_blank')
+}
+function fileNameFromUrl(url) {
+  return String(url || '').split('/').filter(Boolean).pop() || '已上传文件'
 }
 async function saveSection() {
   const required = currentSection.value.fields.find((field) => field.required && !String(sectionForm[field.prop] || '').trim())

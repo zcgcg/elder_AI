@@ -890,6 +890,71 @@ body {
   margin-bottom: 16px;
 }
 
+.avatar-picker,
+.upload-field {
+  display: grid;
+  gap: 12px;
+  width: 100%;
+}
+
+.avatar-choice-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 44px);
+  gap: 8px;
+}
+
+.avatar-choice {
+  width: 44px;
+  height: 44px;
+  padding: 2px;
+  border: 1px solid #dce3ea;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.avatar-choice.active {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px rgba(31, 214, 166, 0.18);
+}
+
+.avatar-choice img,
+.table-thumb,
+.upload-preview {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.table-thumb {
+  width: 96px;
+  height: 44px;
+  border-radius: 6px;
+  border: 1px solid #edf0f2;
+}
+
+.upload-preview {
+  width: 180px;
+  height: 72px;
+  border-radius: 8px;
+  border: 1px solid #edf0f2;
+}
+
+.upload-file-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  color: #4d5965;
+}
+
+.upload-file-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pagination {
   display: flex;
   justify-content: center;
@@ -920,5 +985,9 @@ body {
   .tag-check-grid,
   .tag-manager-toolbar {
     grid-template-columns: 1fr;
+  }
+
+  .avatar-choice-grid {
+    grid-template-columns: repeat(3, 44px);
   }
 }

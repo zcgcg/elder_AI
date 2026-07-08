@@ -37,6 +37,12 @@ export const createTag = (payload) => service.post('/tags', payload)
 export const updateTag = (id, payload) => service.put(`/tags/${id}`, payload)
 export const deleteTag = (id) => service.delete(`/tags/${id}`)
 export const updateUserTags = (id, payload) => service.put(`/users/${id}/tags`, payload)
+export const uploadFile = (file, category) => {
+  const data = new FormData()
+  data.append('file', file)
+  data.append('category', category)
+  return service.post('/uploads', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+}
 const resourcePaths = {
   workOrders: 'work-orders',
   afterSales: 'after-sales',

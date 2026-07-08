@@ -1,6 +1,8 @@
 node_modules/
 dist/
 target/
+uploads/
+daisy-health-admin-backend/uploads/
 .idea/
 .vscode/
 *.log
