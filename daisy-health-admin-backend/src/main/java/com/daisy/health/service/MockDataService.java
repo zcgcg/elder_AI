@@ -180,18 +180,6 @@ public class MockDataService implements AdminDataService {
         return record("accepted", true, "id", id, "resource", name, "action", "delete");
     }
 
-    @Override
-    public Map<String, Object> resourceDetail(String name, Long id) {
-        return record("id", id, "resource", name, "detailTitle", "模拟详情", "ownerName", "系统管理员", "detailStatus", "启用", "detailContent", "模拟详情内容", "remark", "");
-    }
-
-    @Override
-    public Map<String, Object> saveResourceDetail(String name, Long id, Map<String, Object> payload) {
-        Map<String, Object> detail = resourceDetail(name, id);
-        detail.putAll(payload);
-        return detail;
-    }
-
     public Map<String, Object> analyticsOverview() {
         return record("metrics", list(
                 record("label", "活跃用户", "value", 3280, "delta", "+9.8%"),

@@ -571,50 +571,8 @@ public class JdbcAdminDataService implements AdminDataService {
     public Map<String, Object> deleteResource(String name, Long id) {
         String table = tableName(name);
         jdbcTemplate.update("delete from `" + table + "` where id = ?", id);
-        jdbcTemplate.update("delete from resource_detail where resource_name = ? and resource_id = ?", name, id);
         accepted("deleteResource:" + name + ":" + id);
         return record("accepted", true, "id", id, "resource", name);
-    }
-
-    @Override
-    public Map<String, Object> resourceDetail(String name, Long id) {
-        Map<String, Object> base = findResourceRow(name, id);
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select detail_title as detailTitle, owner_name as ownerName, detail_status as detailStatus, detail_content as detailContent, remark, date_format(updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt from resource_detail where resource_name = ? and resource_id = ? limit 1",
-                name, id
-        );
-        Map<String, Object> detail = rows.isEmpty() ? new LinkedHashMap<String, Object>() : rows.get(0);
-        return record(
-                "id", id,
-                "resource", name,
-                "base", base,
-                "detailTitle", textFrom(detail, "detailTitle", stringValue(firstNonBlank(base, "title", "name", "orderNo", "productName", "deviceName", "serviceItem"))),
-                "ownerName", textFrom(detail, "ownerName", stringValue(firstNonBlank(base, "userName", "customer", "buyer", "applicant", "publisher", "author"))),
-                "detailStatus", textFrom(detail, "detailStatus", stringValue(firstNonBlank(base, "status", "auditStatus"))),
-                "detailContent", textFrom(detail, "detailContent", ""),
-                "remark", textFrom(detail, "remark", ""),
-                "updatedAt", detail.get("updatedAt")
-        );
-    }
-
-    @Override
-    public Map<String, Object> saveResourceDetail(String name, Long id, Map<String, Object> payload) {
-        if (!"logs".equals(name) && !"audits".equals(name)) {
-            updateResource(name, id, payload);
-        }
-        jdbcTemplate.update(
-                "insert into resource_detail(resource_name, resource_id, detail_title, owner_name, detail_status, detail_content, remark) values(?, ?, ?, ?, ?, ?, ?) " +
-                        "on duplicate key update detail_title = values(detail_title), owner_name = values(owner_name), detail_status = values(detail_status), detail_content = values(detail_content), remark = values(remark)",
-                name,
-                id,
-                text(payload, "detailTitle", text(payload, "title", "")),
-                text(payload, "ownerName", ""),
-                text(payload, "detailStatus", text(payload, "status", "")),
-                text(payload, "detailContent", ""),
-                text(payload, "remark", "")
-        );
-        accepted("saveResourceDetail:" + name + ":" + id);
-        return resourceDetail(name, id);
     }
 
     @Override
@@ -763,7 +721,7 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("healthData".equals(name)) return jdbcTemplate.queryForList("select h.id, u.real_name as userName, h.data_type as dataType, h.value, h.unit, date_format(h.record_date, '%Y-%m-%d') as recordDate, date_format(h.record_time, '%H:%i:%s') as recordTime, h.source from health_data h left join `user` u on h.user_id = u.id order by h.record_date desc, h.id desc");
         if ("medications".equals(name)) return jdbcTemplate.queryForList("select m.id, u.real_name as userName, m.period, m.drug_name as drugName, m.frequency, date_format(m.take_time, '%H:%i:%s') as takeTime, m.dosage, if(m.reminder_enabled = 1, '启用', '禁用') as status from medication_record m left join `user` u on m.user_id = u.id order by m.id");
         if ("devices".equals(name)) return jdbcTemplate.queryForList("select d.id, u.real_name as userName, d.device_name as deviceName, d.device_type as deviceType, d.device_code as deviceCode, if(d.status = 1, '绑定', '解绑') as status from device d left join `user` u on d.user_id = u.id order by d.id");
-        if ("reports".equals(name)) return jdbcTemplate.queryForList("select r.id, u.real_name as userName, r.title, r.report_type as reportType, date_format(r.report_date, '%Y-%m-%d') as reportDate, r.doctor_name as doctorName from report r left join `user` u on r.user_id = u.id order by r.id");
+        if ("reports".equals(name)) return jdbcTemplate.queryForList("select r.id, u.real_name as userName, r.title, r.report_type as reportType, date_format(r.report_date, '%Y-%m-%d') as reportDate, r.doctor_name as doctorName, r.summary from report r left join `user` u on r.user_id = u.id order by r.id");
         if ("coupons".equals(name)) return jdbcTemplate.queryForList("select id, coupon_no as couponNo, name, type, discount, status, date_format(expire_date, '%Y-%m-%d') as expireDate from coupon order by id");
         if ("userPoints".equals(name)) return jdbcTemplate.queryForList("select p.id, u.real_name as userName, p.points, p.level, p.growth_value as growthValue from user_points p left join `user` u on p.user_id = u.id order by p.id");
         if ("pointsRecords".equals(name)) return jdbcTemplate.queryForList("select r.id, u.real_name as userName, r.change_value as changeValue, r.reason, date_format(r.created_at, '%Y-%m-%d %H:%i') as createdAt from points_record r left join `user` u on r.user_id = u.id order by r.id desc");
@@ -775,11 +733,11 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("activities".equals(name)) return jdbcTemplate.queryForList("select id, title, location, quota, enrolled, case status when 'published' then '已发布' when 'draft' then '草稿' when 'ended' then '已结束' else status end as status from activity order by id");
         if ("activityEnrolls".equals(name)) return jdbcTemplate.queryForList("select e.id, a.title as activityTitle, u.real_name as userName, e.status, e.remark from activity_enroll e left join activity a on e.activity_id = a.id left join `user` u on e.user_id = u.id order by e.id");
         if ("topics".equals(name)) return jdbcTemplate.queryForList("select id, name, description, post_count as postCount, if(status = 1, '启用', '禁用') as status from topic order by id");
-        if ("recipes".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, calories, suitable_for as suitableFor, if(status = 1, '启用', '禁用') as status from recipe order by id");
-        if ("articles".equals(name)) return jdbcTemplate.queryForList("select id, title, author, category, view_count as viewCount, if(status = 1, '已发布', '草稿') as status from article order by id");
-        if ("diseases".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, summary, if(status = 1, '启用', '禁用') as status from disease order by id");
-        if ("institutions".equals(name)) return jdbcTemplate.queryForList("select id, name as title, type, address, rating, capacity, if(status = 1, '启用', '禁用') as status from institution order by id");
-        if ("videos".equals(name)) return jdbcTemplate.queryForList("select id, title, lecturer, category, duration, view_count as viewCount, if(status = 1, '已发布', '草稿') as status from video order by id");
+        if ("recipes".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, ingredients, steps, calories, suitable_for as suitableFor, if(status = 1, '启用', '禁用') as status from recipe order by id");
+        if ("articles".equals(name)) return jdbcTemplate.queryForList("select id, title, summary, content, author, category, view_count as viewCount, if(status = 1, '已发布', '草稿') as status from article order by id");
+        if ("diseases".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, summary, symptoms, prevention, if(status = 1, '启用', '禁用') as status from disease order by id");
+        if ("institutions".equals(name)) return jdbcTemplate.queryForList("select id, name as title, type, address, phone, rating, capacity, if(status = 1, '启用', '禁用') as status from institution order by id");
+        if ("videos".equals(name)) return jdbcTemplate.queryForList("select id, title, lecturer, category, video_url as videoUrl, duration, view_count as viewCount, if(status = 1, '已发布', '草稿') as status from video order by id");
         if ("foods".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, calories, protein, fat, carbs, if(status = 1, '启用', '禁用') as status from food order by id");
         if ("assessments".equals(name)) return jdbcTemplate.queryForList("select id, title, type, if(status = 1, '启用', '禁用') as status from assessment order by id");
         if ("assessmentResults".equals(name)) return jdbcTemplate.queryForList("select r.id, a.title as assessmentTitle, u.real_name as userName, r.score, r.result from assessment_result r left join assessment a on r.assessment_id = a.id left join `user` u on r.user_id = u.id order by r.id");
@@ -922,32 +880,6 @@ public class JdbcAdminDataService implements AdminDataService {
             return new LinkedHashMap<String, Object>();
         }
         return rows.get(0);
-    }
-
-    private Map<String, Object> findResourceRow(String name, Long id) {
-        List<Map<String, Object>> rows = resource(name).getList();
-        for (Map<String, Object> row : rows) {
-            Object rowId = row.get("id");
-            if (rowId instanceof Number && ((Number) rowId).longValue() == id) {
-                return row;
-            }
-        }
-        return new LinkedHashMap<String, Object>();
-    }
-
-    private Object firstNonBlank(Map<String, Object> row, String... keys) {
-        for (String key : keys) {
-            Object value = row.get(key);
-            if (value != null && stringValue(value).trim().length() > 0) {
-                return value;
-            }
-        }
-        return "";
-    }
-
-    private String textFrom(Map<String, Object> row, String key, String fallback) {
-        String value = stringValue(row.get(key)).trim();
-        return value.length() == 0 ? fallback : value;
     }
 
     private BigDecimal countAmount() {

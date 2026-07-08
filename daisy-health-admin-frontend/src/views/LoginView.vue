@@ -104,7 +104,7 @@ async function submit() {
   position: relative;
   min-height: 100vh;
   display: grid;
-  grid-template-columns: minmax(560px, 1fr) minmax(640px, 1fr);
+  grid-template-columns: minmax(560px, 1fr) minmax(560px, 0.9fr);
   overflow: hidden;
   background: #effaf8;
   color: #1f2328;
@@ -158,14 +158,14 @@ async function submit() {
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
-  padding: 126px 80px 72px 0;
+  padding: 88px 56px 64px 0;
   box-sizing: border-box;
 }
 
 .login-panel {
-  width: min(688px, 100%);
-  min-height: min(862px, calc(100vh - 144px));
-  padding: 127px 94px 58px;
+  width: min(600px, 100%);
+  min-height: min(760px, calc(100vh - 120px));
+  padding: 94px 78px 44px;
   box-sizing: border-box;
   border: 1px solid rgba(224, 233, 231, 0.8);
   border-radius: 22px;
@@ -174,8 +174,8 @@ async function submit() {
 }
 
 .login-logo {
-  width: 66px;
-  height: 66px;
+  width: 62px;
+  height: 62px;
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -186,16 +186,16 @@ async function submit() {
 }
 
 .login-logo svg {
-  width: 42px;
-  height: 42px;
+  width: 39px;
+  height: 39px;
   fill: #ffffff;
 }
 
 .login-panel h2 {
-  margin: 36px 0 0;
+  margin: 34px 0 0;
   color: #24262b;
   text-align: center;
-  font-size: 39px;
+  font-size: 38px;
   font-weight: 400;
   line-height: 1.2;
   letter-spacing: 0;
@@ -203,11 +203,11 @@ async function submit() {
 
 .login-form {
   width: 100%;
-  margin-top: 74px;
+  margin-top: 64px;
 }
 
 .login-form :deep(.el-form-item) {
-  margin-bottom: 36px;
+  margin-bottom: 32px;
 }
 
 .login-form :deep(.el-form-item__error) {
@@ -216,8 +216,8 @@ async function submit() {
 }
 
 .login-input :deep(.el-input__wrapper) {
-  height: 66px;
-  padding: 0 28px 0 35px;
+  height: 62px;
+  padding: 0 26px 0 33px;
   border-radius: 10px;
   box-shadow: none;
   transition: box-shadow 0.15s ease, background-color 0.15s ease;
@@ -234,10 +234,10 @@ async function submit() {
 }
 
 .login-input :deep(.el-input__inner) {
-  height: 66px;
+  height: 62px;
   color: #273036;
   font-size: 18px;
-  line-height: 66px;
+  line-height: 62px;
 }
 
 .login-input :deep(.el-input__inner::placeholder) {
@@ -253,11 +253,11 @@ async function submit() {
 }
 
 .agreement-row {
-  margin: 2px 0 30px;
+  margin: 0 0 28px;
 }
 
 .agreement-row :deep(.el-checkbox) {
-  height: 32px;
+  height: 30px;
   align-items: center;
   color: #b7c0c5;
   font-size: 19px;
@@ -265,8 +265,8 @@ async function submit() {
 }
 
 .agreement-row :deep(.el-checkbox__input) {
-  width: 24px;
-  height: 24px;
+  width: 26px;
+  height: 26px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -275,18 +275,27 @@ async function submit() {
 .agreement-row :deep(.el-checkbox__inner) {
   width: 24px;
   height: 24px;
-  display: block;
+  display: inline-block;
+  box-sizing: border-box;
+  position: relative;
   border: 0;
   border-radius: 3px;
   background: #54d4ad;
 }
 
 .agreement-row :deep(.el-checkbox__inner::after) {
-  width: 6px;
-  height: 12px;
-  left: 8px;
-  top: 3px;
-  border-width: 2px;
+  width: 7px;
+  height: 13px;
+  left: 7px;
+  top: 2px;
+  border-color: #ffffff;
+  border-width: 0 3px 3px 0;
+  transform: rotate(45deg) scaleY(1);
+  transform-origin: center;
+}
+
+.agreement-row :deep(.el-checkbox__input.is-checked .el-checkbox__inner::after) {
+  transform: rotate(45deg) scaleY(1);
 }
 
 .agreement-row :deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
@@ -306,7 +315,7 @@ async function submit() {
 
 .login-button {
   width: 100%;
-  height: 66px;
+  height: 62px;
   margin: 0;
   border: 0;
   border-radius: 10px;
@@ -323,7 +332,7 @@ async function submit() {
 }
 
 .forgot-text {
-  margin: 31px 0 0;
+  margin: 28px 0 0;
   color: #c1c7cc;
   text-align: center;
   font-size: 18px;

@@ -1,6 +1,6 @@
 <template>
   <el-container class="app-shell">
-    <el-aside width="362px" class="nav-shell">
+    <el-aside width="300px" class="nav-shell">
       <nav class="main-rail">
         <div class="rail-brand">
           <span class="brand-heart">❤</span>
