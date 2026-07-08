@@ -1,227 +1,481 @@
 # 黛西健康智慧养老后台管理系统
 
-当前仓库：`D:\agent_project\elder_AI`
+仓库路径：`D:\agent_project\elder_AI`
 
-当前 Git 分支：`main`
+当前分支：`main`
 
-本项目根据 `黛西健康_概要设计报告.md` 和 `D:\agent_project\elder_AI_opencode\原型对比分析报告.md` 生成并持续补齐，包含前端 Vue 管理后台和后端 Spring Boot API。默认使用 MySQL 数据库，启动后自动执行 `schema.sql` 和 `data.sql`。
+本项目包含一个 Vue 3 管理后台和一个 Spring Boot 后端 API，默认接入 MySQL 数据库。项目按 `黛西健康_概要设计报告.md` 和 `D:\agent_project\elder_AI_opencode\原型对比分析报告.md` 逐步实现，目前已覆盖后台首页、用户、服务、商品、运营、交易、数据、系统等主要管理模块。
 
-## 项目结构
+## 技术栈
+
+前端：
 
 ```text
-D:\agent_project\elder_AI
-├─ daisy-health-admin-backend
-│  ├─ src/main/java/com/daisy/health
-│  │  ├─ common          通用响应、分页、异常、跨域配置
-│  │  ├─ controller      REST API 控制器
-│  │  ├─ service         AdminDataService、JdbcAdminDataService、MockDataService
-│  │  ├─ mapper          Mapper 示例
-│  │  └─ model           Model 示例
-│  └─ src/main/resources
-│     ├─ application.yml MySQL/mock profile 配置
-│     ├─ schema.sql      建表和兼容旧库字段扩展
-│     └─ data.sql        演示数据
-├─ daisy-health-admin-frontend
-│  ├─ assets             登录页图片等静态资源
-│  └─ src
-│     ├─ api             Axios API 封装
-│     ├─ layout          后台主布局、个人资料弹窗
-│     ├─ router          路由和登录守卫
-│     ├─ stores          Pinia 登录状态
-│     ├─ views           登录、工作台、用户、通用列表、数据分析
-│     └─ styles.css      全局样式
-├─ README.md
-└─ 黛西健康_概要设计报告.md
+Vue 3
+Vite
+Vue Router
+Pinia
+Element Plus
+ECharts
+Axios
+```
+
+后端：
+
+```text
+Java 8
+Spring Boot 2.7.18
+MyBatis starter
+MySQL Connector/J
+Knife4j
+Spring Data Redis 依赖已保留，但当前业务没有强依赖 Redis
+```
+
+数据库：
+
+```text
+MySQL 8.x 或兼容版本
+默认库名：daisy_health
+默认账号：root
+默认密码：root
 ```
 
 ## 运行方式
 
-后端：
+先确认本机 Java、Maven 已配置：
+
+```bat
+java -version
+javac -version
+mvn -v
+```
+
+后端启动：
 
 ```bat
 cd D:\agent_project\elder_AI\daisy-health-admin-backend
 mvn spring-boot:run
 ```
 
-前端：
+前端启动：
 
 ```bat
 cd D:\agent_project\elder_AI\daisy-health-admin-frontend
 cmd /c npm run dev
 ```
 
-访问：
+浏览器访问：
 
 ```text
 http://127.0.0.1:5173
 ```
 
-登录：
+默认登录账号：
 
 ```text
 手机号：13800000000
 密码：admin123
 ```
 
-默认数据库：
-
-```text
-MySQL: localhost:3306
-database: daisy_health
-username: root
-password: root
-```
-
-无数据库临时演示：
+无数据库临时演示模式：
 
 ```bat
 cd D:\agent_project\elder_AI\daisy-health-admin-backend
 mvn spring-boot:run -Dspring-boot.run.profiles=mock
 ```
 
+## 代码架构与项目结构
+
+```text
+D:\agent_project\elder_AI
+├─ daisy-health-admin-backend
+│  ├─ pom.xml
+│  └─ src/main
+│     ├─ java/com/daisy/health
+│     │  ├─ DaisyHealthApplication.java
+│     │  ├─ common
+│     │  │  ├─ ApiResponse.java
+│     │  │  ├─ GlobalExceptionHandler.java
+│     │  │  ├─ PageResult.java
+│     │  │  └─ WebConfig.java
+│     │  ├─ controller
+│     │  │  ├─ AuthController.java
+│     │  │  ├─ DashboardController.java
+│     │  │  ├─ UserController.java
+│     │  │  ├─ ServiceController.java
+│     │  │  ├─ ProductController.java
+│     │  │  ├─ TradeController.java
+│     │  │  ├─ OperationController.java
+│     │  │  ├─ PhaseResourceController.java
+│     │  │  ├─ AnalyticsController.java
+│     │  │  └─ SystemController.java
+│     │  ├─ service
+│     │  │  ├─ AdminDataService.java
+│     │  │  ├─ JdbcAdminDataService.java
+│     │  │  └─ MockDataService.java
+│     │  ├─ mapper
+│     │  └─ model
+│     └─ resources
+│        ├─ application.yml
+│        ├─ schema.sql
+│        └─ data.sql
+├─ daisy-health-admin-frontend
+│  ├─ assets
+│  │  └─ login_picture.png
+│  ├─ package.json
+│  └─ src
+│     ├─ api
+│     │  ├─ http.js
+│     │  └─ fallback.js
+│     ├─ layout
+│     │  └─ AdminLayout.vue
+│     ├─ router
+│     │  └─ index.js
+│     ├─ stores
+│     │  └─ auth.js
+│     ├─ views
+│     │  ├─ LoginView.vue
+│     │  ├─ DashboardView.vue
+│     │  ├─ ScheduleView.vue
+│     │  ├─ UsersView.vue
+│     │  ├─ UserDetailView.vue
+│     │  ├─ GenericListView.vue
+│     │  └─ AnalyticsView.vue
+│     ├─ App.vue
+│     ├─ main.js
+│     └─ styles.css
+├─ README.md
+└─ 黛西健康_概要设计报告.md
+```
+
 ## 当前完成情况
 
-基础功能：
+已完成基础能力：
 
-- 登录页已按参考图重做，左侧使用 `daisy-health-admin-frontend/assets/login_picture.png`
-- 工作台、预约看板、用户管理、用户详情、服务、商品、运营、交易、数据、系统设置主结构已完成
-- 后端默认接入 MySQL，保留 `mock` profile
-- 前端新增、编辑、删除多数业务数据会实时写入数据库
-- 已初始化 Git，当前使用 `main` 分支
+- 登录页按参考图重做，左侧使用 `daisy-health-admin-frontend/assets/login_picture.png`。
+- 登录后主布局改为 8 个主功能入口，左侧深色主导航，右侧显示当前主功能的细分菜单。
+- 首页合并“工作台”和“预约看板”入口。
+- 工作台使用真实数据库统计：用户标签分布来自 `user_tag_rel`，服务占比来自 `service_order`，趋势来自 `user` 和 `service_order`。
+- 用户列表使用卡片式展示，支持标签选择、标签绑定、标签管理。
+- 用户详情已将个人信息和健康信息合并为同一个“个人信息”页签，并支持编辑保存。
+- 用户详情扩展 Tab 已覆盖用药信息、健康数据、设备信息、报告信息、订单信息、资产信息、内容信息、服务记录。
+- 预约看板支持新建和删除。
+- 通用列表支持新增、编辑、详情、删除；详情为只读查看，编辑保存写回原业务表。
+- 关联用户的新增/编辑支持按姓名、昵称、手机号或用户 ID 解析。
+- Git 已初始化，当前主分支为 `main`。
 
-近期已完成：
-
-- 用户卡片按原型卡片样式重做，并缩小为更适合后台列表的尺寸
-- 用户标签支持选择、绑定、标签管理、新增、编辑、删除
-- 预约看板支持新建和删除预约
-- 个人资料可编辑并保存：姓名、员工编号、手机号码、头像、角色、备注
-- 用户详情的个人信息可编辑并保存：昵称、真实姓名、手机号、头像、性别、生日、住址、民族、文化程度
-- 用户详情新增真实数据 Tab：设备信息、报告信息、订单信息、资产信息、内容信息、服务记录
-- 健康信息编辑扩展：紧急联系人、紧急联系电话、吸烟/饮酒等后端字段已预留或接入
-- 2026-07-08 用户详情已将个人信息与健康信息合并为同一个“个人信息”页签，并支持统一编辑保存
-- 2026-07-08 用户详情的用药信息、健康数据、设备信息、报告信息、订单信息、资产信息、内容信息、服务记录均已增加新增、编辑、删除入口
-- 2026-07-08 设备、工单、预约、健康设置、报告、优惠券、积分、活动报名、测评结果、订单、售后、评价等关联用户的新增/编辑功能支持按姓名、昵称、手机号或用户 ID 解析
-- 2026-07-08 工作台 UI 已按新原型优化：顶部问候、指标卡、快捷入口宫格、标签分布条形列表、服务占比饼图、用户趋势大图
-- 2026-07-08 通用列表的“详情”按钮已改为只读查看，与“编辑”使用同一套业务字段；编辑后保存会写回对应业务表
-- 2026-07-08 登录页左侧插图和右侧登录卡片尺寸已收紧，隐私协议复选框对勾已对齐
-- 2026-07-08 登录后侧边栏改为 8 个主功能入口并缩小尺寸：最左侧深色主导航，右侧显示当前主功能的细分菜单；首页下合并“工作台”和“预约看板”
-- 工作台统计改为按实际数据库生成：用户标签分布实时统计 `user_tag_rel`，服务占比统计 `service_order`，趋势统计最近 7 天 `user` 和 `service_order`
-- `data.sql` 已补充主要管理类别演示数据，重启后端后会通过 `insert ignore` 写入 MySQL
-
-## 个人资料落库说明
-
-个人资料保存到：
+已完成模块：
 
 ```text
-staff
+首页：首页工作台、预约看板
+用户：全部用户、设备信息、报告信息、健康设置、优惠券、用户积分、等级管理、积分规则
+服务：服务人员、审核管理、工单管理
+商品：商品管理、分类管理、服务项目
+运营：动态、话题、轮播图、活动、活动报名、食谱、健康资讯、疾病宝典、养老机构、健康讲堂、食物管理、测评管理
+交易：订单管理、售后管理、评价管理
+数据：数据分析
+系统：员工管理、角色管理、操作日志
 ```
 
-字段映射：
+最近已修复的编辑保存问题：
+
+- 优惠券管理：门槛 `minAmount` 可保存。
+- 设备信息：状态改为“绑定 / 解绑”。
+- 健康设置：心率上限、心率下限可保存。
+- 用户积分：累计获得、累计消耗可保存，等级改为“普通 / 银卡 / 金卡”选择。
+- 等级管理：权益可保存，等级名称改为“普通 / 银卡 / 金卡”选择。
+- 积分规则：行为类型中文展示，去掉每日上限编辑项。
+- 服务人员、审核管理：编辑可保存；审核管理补充 `PUT /api/v1/audits/{id}`。
+- 工单管理：状态改为中文选择。
+- 服务项目：商品改为下拉选择，描述可保存。
+- 活动报名：活动改为下拉选择，状态改为中文。
+- 健康讲堂：列表去掉播放数据列。
+- 测评管理：类型改为中文，说明和状态可保存，去掉题目 JSON、规则 JSON 编辑项。
+- 订单管理：状态改为中文，服务类型可保存。
+- 评价管理：评价内容可保存。
+- 员工管理：手机号、备注可保存。
+
+## 后端设计
+
+后端入口：
 
 ```text
-姓名       -> staff.name
-员工编号   -> staff.staff_no
-手机号码   -> staff.phone
-头像       -> staff.avatar_url
-备注       -> staff.remark
-角色       -> staff.role_id
+daisy-health-admin-backend/src/main/java/com/daisy/health/DaisyHealthApplication.java
 ```
 
-角色名称显示来自：
+通用响应：
 
 ```text
-role.name
+ApiResponse<T>      统一返回 code/message/data
+PageResult<T>       列表返回 total/list
+GlobalExceptionHandler 统一异常转 API 响应
+WebConfig           CORS 和 Web 配置
 ```
 
-如果编辑资料时输入了不存在的角色名称，后端会创建一条 `role` 记录并把 `staff.role_id` 指向它。
-
-## 数据库表
-
-核心表：
+Controller 分工：
 
 ```text
-user
-health_data
-medication_record
-user_tag
-user_tag_rel
-service_personnel
-product
-service_order
-work_order
-after_sale
-review
-operation_content
-staff
-role
-operation_log
-agreement
+AuthController       登录、个人资料读取和保存
+DashboardController  工作台、预约看板、统计入口
+UserController       用户、标签、用户详情扩展接口
+ServiceController    服务人员、审核、工单
+ProductController    商品
+TradeController      订单、售后、评价
+OperationController  动态、活动、资讯、食谱、疾病、机构、视频、食物、测评
+PhaseResourceController  Phase 1/2 补充资源：设备、报告、健康设置、优惠券、积分、等级、规则、分类、服务项目、轮播、活动报名、话题等
+AnalyticsController  数据分析
+SystemController     员工、角色、协议、日志
 ```
 
-Phase 1 已补表：
+Service 分工：
 
 ```text
-health_settings
-device
-report
-coupon
-user_points
-points_record
-member_level
-points_rule
-product_category
-service_item
-banner
-activity
-activity_enroll
+AdminDataService      业务能力接口
+JdbcAdminDataService  MySQL 实现，当前主要业务逻辑都在这里
+MockDataService       mock profile 下使用的内存/模拟数据
 ```
 
-Phase 2 已补表：
+当前后端采用“控制器按模块拆分，数据访问集中在 `JdbcAdminDataService`”的实现方式。后续如果继续扩大功能，建议逐步把 `JdbcAdminDataService` 拆成用户、服务、交易、运营、系统等多个 Service，避免单文件继续膨胀。
+
+配置文件：
 
 ```text
-topic
-recipe
-article
-disease
-institution
-video
-food
-assessment
-assessment_result
+application.yml
 ```
 
-兼容性字段：
+默认 profile：
 
 ```text
-user.emergency_contact
-user.emergency_phone
-user_tag.color
-staff.avatar_url
+spring.profiles.active=mysql
 ```
 
-## 前端页面覆盖
-
-独立页面：
+MySQL 启动时自动执行：
 
 ```text
-LoginView.vue          登录页
-DashboardView.vue      工作台
-ScheduleView.vue       预约看板
-UsersView.vue          用户列表和标签管理
-UserDetailView.vue     用户详情和扩展 Tab
-GenericListView.vue    通用 CRUD 列表页
-AnalyticsView.vue      数据分析
+schema.sql  建表和兼容字段
+data.sql    演示数据，主要使用 insert ignore，重复启动不会重复插入同 ID 数据
 ```
 
-通用列表已接入的资源：
+## 前端设计
+
+前端入口：
 
 ```text
-服务：服务人员、审核、工单
-商品：商品、商品分类、服务项目
-运营：动态、话题、轮播图、活动、活动报名、食谱、资讯、疾病、机构、视频、食物、测评
-交易：订单、售后、评价
-用户扩展：设备、报告、健康设置、优惠券、积分、等级、积分规则
-系统：员工、角色、日志
+daisy-health-admin-frontend/src/main.js
+```
+
+路由：
+
+```text
+daisy-health-admin-frontend/src/router/index.js
+```
+
+路由设计：
+
+```text
+/login                         登录页
+/dashboard                     工作台
+/schedule                      预约看板
+/users                         用户列表
+/users/:id                     用户详情
+/user-health/:resource         用户健康扩展通用页
+/user-assets/:resource         用户资产扩展通用页
+/service/personnel             服务人员
+/service/audits                审核管理
+/service/work-orders           工单管理
+/products/:category?           商品管理
+/product-ext/:resource         商品扩展通用页
+/operations/:resource          运营通用页
+/trade/orders                  订单管理
+/trade/after-sales             售后管理
+/trade/reviews                 评价管理
+/analytics                     数据分析
+/system/staffs                 员工管理
+/system/roles                  角色管理
+/system/logs                   操作日志
+```
+
+布局：
+
+```text
+AdminLayout.vue
+```
+
+`AdminLayout.vue` 负责：
+
+- 左侧 8 个主功能入口。
+- 右侧二级菜单。
+- 顶部搜索、通知、个人资料入口。
+- 个人资料弹窗保存到 `staff` 表。
+
+API 封装：
+
+```text
+src/api/http.js
+```
+
+`http.js` 负责：
+
+- Axios 实例。
+- token 请求头。
+- 统一拆包 `ApiResponse.data`。
+- REST 接口方法。
+- 前端资源名到后端路径的转换，例如 `healthSettings -> health-settings`。
+
+通用列表：
+
+```text
+src/views/GenericListView.vue
+```
+
+`GenericListView.vue` 是当前大部分模块的核心页面，包含：
+
+- `columnMap`：各资源列表列定义。
+- `createFieldMap`：各资源新增/编辑表单字段。
+- `titleMap` 和 `descriptors`：页面标题和说明。
+- 新增、编辑、详情、删除逻辑。
+- 用户、商品、活动下拉选项加载。
+
+以后要新增一个简单 CRUD 模块，通常要改这些地方：
+
+1. 后端加表：`schema.sql`。
+2. 后端加演示数据：`data.sql`。
+3. 后端把资源接入 `JdbcAdminDataService.phaseTableName`、`phaseRows`、`phaseCreateValues`、必要时 `phaseUpdateValues`。
+4. 后端 Controller 增加路径，或放进 `PhaseResourceController` 的映射数组。
+5. 前端 `src/api/http.js` 的 `resourcePaths` 增加路径映射。
+6. 前端 `src/router/index.js` 增加路由。
+7. 前端 `AdminLayout.vue` 增加菜单入口。
+8. 前端 `GenericListView.vue` 增加 `columnMap` 和 `createFieldMap`。
+
+用户详情：
+
+```text
+src/views/UserDetailView.vue
+```
+
+负责用户详情页个人信息、用药、健康数据、设备、报告、订单、资产、内容、服务记录等扩展信息的展示和维护。
+
+工作台：
+
+```text
+src/views/DashboardView.vue
+```
+
+负责顶部指标卡、快捷入口、用户标签分布、服务占比、用户趋势图。
+
+## 数据库设计
+
+数据库初始化文件：
+
+```text
+daisy-health-admin-backend/src/main/resources/schema.sql
+daisy-health-admin-backend/src/main/resources/data.sql
+```
+
+核心用户和健康表：
+
+```text
+user                  用户基础信息、个人信息、健康基础字段
+health_data           健康数据记录，按 user_id + data_type + record_date 查询
+medication_record     用药记录
+health_settings       健康设置，心率阈值、步数目标、睡眠目标、用药提醒
+device                用户设备
+report                用户报告，含 summary 摘要
+```
+
+标签表：
+
+```text
+user_tag              标签定义，含颜色、状态、用户数
+user_tag_rel          用户和标签多对多关系
+```
+
+服务和交易表：
+
+```text
+service_personnel     服务人员和审核数据，audit_status 表示审核状态
+work_order            工单和预约看板数据
+product               商品
+service_order         订单
+after_sale            售后
+review                评价
+```
+
+运营表：
+
+```text
+operation_content     早期运营内容通用表，仍用于 posts/comments 等内容
+banner                轮播图
+activity              活动
+activity_enroll       活动报名
+topic                 话题
+recipe                食谱
+article               健康资讯
+disease               疾病宝典
+institution           养老机构
+video                 健康讲堂
+food                  食物管理
+assessment            测评管理
+assessment_result     测评结果
+```
+
+资产和积分表：
+
+```text
+coupon                优惠券，min_amount 为使用门槛
+user_points           用户积分，total_earned/total_spent 为累计获得和消耗
+points_record         积分流水
+member_level          会员等级，benefits 为权益说明
+points_rule           积分规则，action_type 内部存 signin/order/review，前端中文展示
+```
+
+商品扩展表：
+
+```text
+product_category      商品分类
+service_item          商品下属服务项目，product_id 关联 product
+```
+
+系统表：
+
+```text
+staff                 后台员工，个人资料也保存在这里
+role                  角色
+operation_log         操作日志
+agreement             协议
+```
+
+重要字段映射：
+
+```text
+个人资料姓名       -> staff.name
+个人资料员工编号   -> staff.staff_no
+个人资料手机号     -> staff.phone
+个人资料头像       -> staff.avatar_url
+个人资料角色       -> staff.role_id -> role.name
+个人资料备注       -> staff.remark
+
+用户标签           -> user_tag / user_tag_rel
+用户积分等级       -> user_points.level
+等级权益           -> member_level.benefits
+优惠券门槛         -> coupon.min_amount
+健康设置心率上限   -> health_settings.heart_rate_upper
+健康设置心率下限   -> health_settings.heart_rate_lower
+服务项目商品       -> service_item.product_id -> product.id
+活动报名活动       -> activity_enroll.activity_id -> activity.id
+评价内容           -> review.content
+测评说明           -> assessment.description
+```
+
+状态值说明：
+
+```text
+device.status: 1=绑定, 0=解绑
+work_order.status: pending=待服务, service_in=服务中, completed=已完成, cancelled=已取消
+service_order.status: pending_accept=待接单, pending_service=待服务, completed=已完成, closed=已关闭, after_sale=售后中
+activity_enroll.status: enrolled=已报名, cancelled=已取消, attended=已到场
+assessment.type: sleep=睡眠测评, fall=跌倒风险, custom=综合测评
+points_rule.action_type: signin=签到, order=完成订单, review=发布评价
 ```
 
 ## 主要 API
@@ -234,7 +488,17 @@ GET  /api/v1/auth/profile
 PUT  /api/v1/auth/profile
 ```
 
-用户：
+首页和预约：
+
+```text
+GET    /api/v1/dashboard
+GET    /api/v1/appointments
+POST   /api/v1/appointments
+DELETE /api/v1/appointments/{id}
+GET    /api/v1/analytics/overview
+```
+
+用户和标签：
 
 ```text
 GET    /api/v1/users
@@ -249,26 +513,30 @@ DELETE /api/v1/tags/{id}
 PUT    /api/v1/users/{id}/tags
 ```
 
-预约：
+服务：
 
 ```text
-GET    /api/v1/appointments
-POST   /api/v1/appointments
-DELETE /api/v1/appointments/{id}
+GET/POST/PUT/DELETE /api/v1/personnel
+GET/PUT             /api/v1/audits
+GET/POST/PUT/DELETE /api/v1/work-orders
 ```
 
-Phase 1/2 通用资源：
+商品：
 
 ```text
-GET/POST/PUT/DELETE /api/v1/devices
-GET/POST/PUT/DELETE /api/v1/reports
-GET/POST/PUT/DELETE /api/v1/coupons
-GET/POST/PUT/DELETE /api/v1/member-levels
-GET/POST/PUT/DELETE /api/v1/points-rules
+GET/POST/PUT/DELETE /api/v1/products
 GET/POST/PUT/DELETE /api/v1/product-categories
 GET/POST/PUT/DELETE /api/v1/service-items
-GET/POST/PUT/DELETE /api/v1/banners
+```
+
+运营：
+
+```text
+GET/POST/PUT/DELETE /api/v1/posts
+GET/POST/PUT/DELETE /api/v1/activities
+GET/POST/PUT/DELETE /api/v1/activity-enrolls
 GET/POST/PUT/DELETE /api/v1/topics
+GET/POST/PUT/DELETE /api/v1/banners
 GET/POST/PUT/DELETE /api/v1/recipes
 GET/POST/PUT/DELETE /api/v1/articles
 GET/POST/PUT/DELETE /api/v1/diseases
@@ -278,37 +546,119 @@ GET/POST/PUT/DELETE /api/v1/foods
 GET/POST/PUT/DELETE /api/v1/assessments
 ```
 
+交易：
+
+```text
+GET/POST/PUT/DELETE /api/v1/orders
+GET/POST/PUT/DELETE /api/v1/after-sales
+GET/POST/PUT/DELETE /api/v1/reviews
+```
+
+用户扩展：
+
+```text
+GET/POST/PUT/DELETE /api/v1/devices
+GET/POST/PUT/DELETE /api/v1/reports
+GET/POST/PUT/DELETE /api/v1/health-settings
+GET/POST/PUT/DELETE /api/v1/coupons
+GET/POST/PUT/DELETE /api/v1/user-points
+GET/POST/PUT/DELETE /api/v1/member-levels
+GET/POST/PUT/DELETE /api/v1/points-rules
+```
+
+系统：
+
+```text
+GET/POST/PUT/DELETE /api/v1/staffs
+GET/POST/PUT/DELETE /api/v1/roles
+GET                 /api/v1/logs
+GET/POST/PUT/DELETE /api/v1/agreements
+```
+
+## 后期修改指南
+
+修改菜单：
+
+```text
+前端文件：daisy-health-admin-frontend/src/layout/AdminLayout.vue
+修改位置：menuGroups
+```
+
+新增路由：
+
+```text
+前端文件：daisy-health-admin-frontend/src/router/index.js
+```
+
+修改通用列表字段：
+
+```text
+前端文件：daisy-health-admin-frontend/src/views/GenericListView.vue
+列表列：columnMap
+新增/编辑表单：createFieldMap
+标题：titleMap
+页面说明：descriptors
+```
+
+修改接口路径映射：
+
+```text
+前端文件：daisy-health-admin-frontend/src/api/http.js
+修改位置：resourcePaths
+```
+
+修改后端资源查询和保存：
+
+```text
+后端文件：daisy-health-admin-backend/src/main/java/com/daisy/health/service/JdbcAdminDataService.java
+列表查询：resource 或 phaseRows
+新增保存：createResource 或 phaseCreateValues
+编辑保存：updateResource 或 phaseUpdateValues
+表名映射：tableName / phaseTableName
+状态转换：orderStatus / workOrderStatus / activityEnrollStatus / pointActionType / assessmentType
+```
+
+修改数据库结构：
+
+```text
+后端文件：daisy-health-admin-backend/src/main/resources/schema.sql
+```
+
+补充演示数据：
+
+```text
+后端文件：daisy-health-admin-backend/src/main/resources/data.sql
+```
+
+注意：`schema.sql` 会在后端启动时执行。新增表推荐使用 `create table if not exists`。给旧表补字段时推荐使用 `information_schema.columns` 判断后再 `alter table`，避免重复执行失败。
+
 ## 验证记录
 
 最近一次验证：
 
 ```text
 后端：mvn -DskipTests compile 通过
-前端：npm run build 通过
-运行验证：Spring Boot 临时启动成功，MySQL schema/data 执行成功
-接口验证：通用报告列表临时创建、编辑摘要、重新读取回显、删除测试数据通过；通用列表详情为只读查看，编辑保存写回业务表
-进程清理：验证后已关闭 8080/5173 相关服务
+前端：npm.cmd run build 通过
+接口验证：临时启动后端，抽样验证并恢复数据，覆盖优惠券门槛、健康设置心率、用户积分累计、等级权益、积分规则、服务项目、活动报名、测评、订单、评价、员工、服务人员、审核管理
+进程清理：验证后已关闭本次启动的 8080 后端进程；5173 未残留监听
 ```
 
-补充说明：
+最近本地提交：
 
 ```text
-2026-07-07 已临时启动后端执行更新后的 data.sql，新增演示数据已写入当前 MySQL。
-当前主要资源接口均至少 10 条数据；预约看板按当天工单过滤，当前返回 14 条。
-用户详情个人信息更新接口已验证：新增测试用户、修改、读取、删除均通过。
-工作台统计已验证为数据库实时数据：标签分布来自 user_tag/user_tag_rel，服务占比和趋势来自 service_order/user。
-2026-07-08 已通过后端编译、前端构建和临时后端接口验证；浏览器截图检查因当前 Browser 插件缺少 browser-client.mjs 未执行。
-2026-07-08 已验证报告信息摘要字段可通过编辑保存并从列表接口重新读取；验证后已删除临时测试报告并关闭后端进程。
+f6a96c0 Fix admin edit field persistence
+b6fdca5 Fix read-only details and report summary persistence
 ```
 
-前端构建仍有 Vite/Rollup 大 chunk 警告，属于体积优化提示，不影响运行。
+前端构建目前仍有 Vite/Rollup 大 chunk 警告，属于体积优化提示，不影响运行。
 
 ## 后续建议
 
-下一步可继续做：
+建议后续优先处理：
 
-- Phase 1 的订单详情页 6 种状态、售后详情页 3 种状态的独立详情页面
-- 健康数据 7 种类型的独立趋势和记录页面
-- 文件上传：头像、报告、轮播图、视频封面
-- JWT 登录鉴权、密码加密、RBAC 权限控制
-- Redis 接入和接口测试
+- 把 `JdbcAdminDataService` 拆分为多个模块 Service。
+- 增加真实登录鉴权、JWT、密码加密。
+- 增加文件上传：头像、报告、轮播图、视频封面。
+- 增加更细的 RBAC 权限控制。
+- 增加接口自动化测试。
+- 接入 Redis 缓存或会话能力，目前 Redis 依赖存在但业务未强依赖。
