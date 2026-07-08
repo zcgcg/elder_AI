@@ -6,7 +6,7 @@
     </div>
     <div class="detail-layout">
       <aside class="profile-panel">
-        <el-avatar :size="88" :src="user.avatarUrl">{{ user.realName?.slice(0, 1) }}</el-avatar>
+        <el-avatar :size="88" :src="assetUrl(user.avatarUrl)">{{ user.realName?.slice(0, 1) }}</el-avatar>
         <h2>{{ user.nickname }}</h2>
         <p>ID {{ user.id }} · {{ user.realName }}</p>
         <div class="tag-row"><el-tag v-for="tag in user.tags" :key="tag">{{ tag }}</el-tag></div>
@@ -72,7 +72,7 @@
         <el-form-item label="手机号"><el-input v-model="profileForm.phone" /></el-form-item>
         <el-form-item label="头像">
           <div class="avatar-picker">
-            <el-avatar :size="64" :src="profileForm.avatarUrl">{{ profileForm.realName?.slice(0, 1) || '用' }}</el-avatar>
+            <el-avatar :size="64" :src="assetUrl(profileForm.avatarUrl)">{{ profileForm.realName?.slice(0, 1) || '用' }}</el-avatar>
             <div class="avatar-choice-grid">
               <button
                 v-for="avatar in defaultAvatars"
@@ -150,7 +150,7 @@ import { computed, defineComponent, h, nextTick, onMounted, reactive, ref } from
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { ElButton, ElMessage, ElMessageBox, ElTable, ElTableColumn } from 'element-plus'
-import { createResource, deleteResource, getUser, updateResource, updateUser, uploadFile } from '../api/http'
+import { assetUrl, createResource, deleteResource, getUser, updateResource, updateUser, uploadFile } from '../api/http'
 
 const EditableTable = defineComponent({
   props: { section: String, rows: Array, columns: Array },
@@ -163,7 +163,7 @@ const EditableTable = defineComponent({
           if (column.type === 'file') {
             return h(ElTableColumn, { prop: column.prop, label: column.label, minWidth: column.width || 120 }, {
               default: ({ row }) => row[column.prop]
-                ? h(ElButton, { link: true, type: 'primary', onClick: () => window.open(row[column.prop], '_blank') }, () => '查看')
+                ? h(ElButton, { link: true, type: 'primary', onClick: () => window.open(assetUrl(row[column.prop]), '_blank') }, () => '查看')
                 : h('span', '-')
             })
           }
@@ -356,7 +356,7 @@ async function handleSectionUpload(field, options) {
 }
 function openFile(url) {
   if (!url) return
-  window.open(url, '_blank')
+  window.open(assetUrl(url), '_blank')
 }
 function fileNameFromUrl(url) {
   return String(url || '').split('/').filter(Boolean).pop() || '已上传文件'

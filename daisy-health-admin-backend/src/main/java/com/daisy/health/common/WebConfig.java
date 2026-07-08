@@ -29,6 +29,9 @@ public class WebConfig {
             @Override
             public void addResourceHandlers(ResourceHandlerRegistry registry) {
                 String uploadPath = Paths.get(uploadDir).toAbsolutePath().normalize().toUri().toString();
+                if (!uploadPath.endsWith("/")) {
+                    uploadPath = uploadPath + "/";
+                }
                 registry.addResourceHandler("/uploads/**").addResourceLocations(uploadPath);
             }
         };

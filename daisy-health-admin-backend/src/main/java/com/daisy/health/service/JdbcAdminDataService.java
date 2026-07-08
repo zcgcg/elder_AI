@@ -838,6 +838,13 @@ public class JdbcAdminDataService implements AdminDataService {
             if (hasUserRef(payload, "userId")) values.put("user_id", userId(payload, "userId", firstId("user")));
             if (payload.containsKey("status")) values.put("status", activityEnrollStatus(text(payload, "status", "已报名")));
             putIfPresent(values, "remark", payload, "remark");
+        } else if ("banners".equals(name)) {
+            putIfPresent(values, "title", payload, "title");
+            putIfPresent(values, "image_url", payload, "imageUrl");
+            putIfPresent(values, "link_url", payload, "linkUrl");
+            putIfPresent(values, "location", payload, "location");
+            if (payload.containsKey("sortOrder")) values.put("sort_order", longValue(payload, "sortOrder", 0));
+            if (payload.containsKey("status")) values.put("status", statusCode(text(payload, "status", "启用")));
         } else if ("assessments".equals(name)) {
             putIfPresent(values, "title", payload, "title");
             putIfPresent(values, "description", payload, "description");

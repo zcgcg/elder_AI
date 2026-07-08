@@ -43,6 +43,11 @@ export const uploadFile = (file, category) => {
   data.append('category', category)
   return service.post('/uploads', data, { headers: { 'Content-Type': 'multipart/form-data' } })
 }
+export const assetUrl = (url) => {
+  if (!url || !String(url).startsWith('/uploads/')) return url
+  if (typeof window === 'undefined' || window.location.port === '8080') return url
+  return `${window.location.protocol}//${window.location.hostname}:8080${url}`
+}
 const resourcePaths = {
   workOrders: 'work-orders',
   afterSales: 'after-sales',

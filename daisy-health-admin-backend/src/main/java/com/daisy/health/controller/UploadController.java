@@ -15,12 +15,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1")
@@ -30,6 +31,7 @@ public class UploadController {
     private static final long AVATAR_MAX_SIZE = 2L * 1024L * 1024L;
     private static final long BANNER_MAX_SIZE = 5L * 1024L * 1024L;
     private static final long REPORT_MAX_SIZE = 20L * 1024L * 1024L;
+    private static final DateTimeFormatter FILE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS");
 
     private final Path uploadRoot;
 
@@ -48,9 +50,9 @@ public class UploadController {
         String originalName = StringUtils.cleanPath(file.getOriginalFilename() == null ? "upload" : file.getOriginalFilename());
         String extension = extensionOf(originalName);
         String day = LocalDate.now().toString();
-        String fileName = UUID.randomUUID().toString().replace("-", "") + "." + extension;
         Path targetDir = uploadRoot.resolve(normalizedCategory).resolve(day).normalize();
         Files.createDirectories(targetDir);
+        String fileName = uniqueFileName(targetDir, normalizedCategory, originalName, extension);
         Path target = targetDir.resolve(fileName).normalize();
         if (!target.startsWith(uploadRoot)) {
             throw new IllegalArgumentException("文件路径非法");
@@ -100,5 +102,29 @@ public class UploadController {
         String cleanName = StringUtils.cleanPath(fileName == null ? "" : fileName);
         int index = cleanName.lastIndexOf('.');
         return index < 0 ? "" : cleanName.substring(index + 1).toLowerCase(Locale.ROOT);
+    }
+
+    private String uniqueFileName(Path targetDir, String category, String originalName, String extension) {
+        String baseName = baseNameOf(originalName);
+        String timestamp = LocalDateTime.now().format(FILE_TIME_FORMATTER);
+        String prefix = category + "_" + timestamp + "_" + baseName;
+        String fileName = prefix + "." + extension;
+        int index = 1;
+        while (Files.exists(targetDir.resolve(fileName))) {
+            fileName = prefix + "_" + index++ + "." + extension;
+        }
+        return fileName;
+    }
+
+    private String baseNameOf(String fileName) {
+        String cleanName = StringUtils.cleanPath(fileName == null ? "" : fileName);
+        int index = cleanName.lastIndexOf('.');
+        String baseName = index < 0 ? cleanName : cleanName.substring(0, index);
+        baseName = baseName.trim().replaceAll("[^\\p{IsHan}a-zA-Z0-9_-]+", "_");
+        baseName = baseName.replaceAll("_+", "_").replaceAll("^_+|_+$", "");
+        if (baseName.length() == 0) {
+            return "file";
+        }
+        return baseName.length() > 40 ? baseName.substring(0, 40) : baseName;
     }
 }

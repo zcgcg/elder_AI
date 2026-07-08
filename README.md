@@ -109,6 +109,20 @@ daisy-health-admin-frontend/public/default-avatars/
 
 如需替换预置头像，保持文件名 `avatar-01.svg` 到 `avatar-06.svg`，或同步修改前端默认头像列表。
 
+上传文件命名规则：
+
+```text
+分类_yyyyMMdd_HHmmss_SSS_原文件名.扩展名
+```
+
+例如：
+
+```text
+avatar_20260708_143522_018_liukun.png
+banner_20260708_143601_220_home_banner.webp
+report_20260708_143655_481_health_report.pdf
+```
+
 ## 代码架构与项目结构
 
 ```text

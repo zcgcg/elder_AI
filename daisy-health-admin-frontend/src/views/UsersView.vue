@@ -22,7 +22,7 @@
       <article v-for="user in filteredRows" :key="user.id" class="user-profile-card">
         <el-button class="user-delete-btn" :icon="Delete" text @click="removeUser(user)" />
         <div class="user-card-head">
-          <el-avatar :size="54" :src="user.avatarUrl">{{ user.realName?.slice(0, 1) }}</el-avatar>
+          <el-avatar :size="54" :src="assetUrl(user.avatarUrl)">{{ user.realName?.slice(0, 1) }}</el-avatar>
           <div>
             <strong>{{ user.nickname || user.realName }}</strong>
             <span>ID:{{ user.id }}</span>
@@ -78,7 +78,7 @@
         <el-form-item label="手机号"><el-input v-model="newUser.phone" placeholder="请输入手机号" /></el-form-item>
         <el-form-item label="头像">
           <div class="avatar-picker">
-            <el-avatar :size="64" :src="newUser.avatarUrl">{{ newUser.realName?.slice(0, 1) || '用' }}</el-avatar>
+            <el-avatar :size="64" :src="assetUrl(newUser.avatarUrl)">{{ newUser.realName?.slice(0, 1) || '用' }}</el-avatar>
             <div class="avatar-choice-grid">
               <button
                 v-for="avatar in defaultAvatars"
@@ -163,7 +163,7 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Delete, Plus, PriceTag } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createTag, createUser, deleteTag, deleteUser, getTags, getUsers, updateTag, updateUser, updateUserTags, uploadFile } from '../api/http'
+import { assetUrl, createTag, createUser, deleteTag, deleteUser, getTags, getUsers, updateTag, updateUser, updateUserTags, uploadFile } from '../api/http'
 
 const viewMode = ref('卡片')
 const filters = reactive({ tag: '', dateRange: [], keyword: '' })

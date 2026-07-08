@@ -23,7 +23,7 @@
       <el-table-column v-for="column in columns" :key="column.prop" :prop="column.prop" :label="column.label" :min-width="column.width || 120">
         <template #default="{ row }">
           <el-tag v-if="isStatusColumn(column.prop)" :type="tagType(row[column.prop])">{{ row[column.prop] }}</el-tag>
-          <img v-else-if="column.type === 'image' && row[column.prop]" class="table-thumb" :src="row[column.prop]" :alt="row.title || row.name || column.label" />
+          <img v-else-if="column.type === 'image' && row[column.prop]" class="table-thumb" :src="assetUrl(row[column.prop])" :alt="row.title || row.name || column.label" />
           <el-button v-else-if="column.type === 'file'" link type="primary" :disabled="!row[column.prop]" @click="openFile(row[column.prop])">查看</el-button>
           <span v-else>{{ row[column.prop] }}</span>
         </template>
@@ -91,7 +91,7 @@
             <el-option v-for="option in field.options" :key="option" :label="option" :value="option" :disabled="isSelectOptionDisabled(field, option)" />
           </el-select>
           <div v-else-if="field.type === 'upload'" class="upload-field">
-            <img v-if="field.preview === 'image' && form[field.prop]" class="upload-preview" :src="form[field.prop]" :alt="field.label" />
+            <img v-if="field.preview === 'image' && form[field.prop]" class="upload-preview" :src="assetUrl(form[field.prop])" :alt="field.label" />
             <div v-else-if="form[field.prop]" class="upload-file-row">
               <span>{{ fileNameFromUrl(form[field.prop]) }}</span>
               <el-button link type="primary" @click="openFile(form[field.prop])">查看</el-button>
@@ -122,7 +122,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createResource, deleteResource, getResource, getUsers, updateResource, uploadFile } from '../api/http'
+import { assetUrl, createResource, deleteResource, getResource, getUsers, updateResource, uploadFile } from '../api/http'
 import { fallbackRows } from '../api/fallback'
 
 const route = useRoute()
@@ -541,7 +541,7 @@ async function handleFieldUpload(field, options) {
 }
 function openFile(url) {
   if (!url) return
-  window.open(url, '_blank')
+  window.open(assetUrl(url), '_blank')
 }
 function fileNameFromUrl(url) {
   return String(url || '').split('/').filter(Boolean).pop() || '已上传文件'
