@@ -571,8 +571,50 @@ public class JdbcAdminDataService implements AdminDataService {
     public Map<String, Object> deleteResource(String name, Long id) {
         String table = tableName(name);
         jdbcTemplate.update("delete from `" + table + "` where id = ?", id);
+        jdbcTemplate.update("delete from resource_detail where resource_name = ? and resource_id = ?", name, id);
         accepted("deleteResource:" + name + ":" + id);
         return record("accepted", true, "id", id, "resource", name);
+    }
+
+    @Override
+    public Map<String, Object> resourceDetail(String name, Long id) {
+        Map<String, Object> base = findResourceRow(name, id);
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select detail_title as detailTitle, owner_name as ownerName, detail_status as detailStatus, detail_content as detailContent, remark, date_format(updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt from resource_detail where resource_name = ? and resource_id = ? limit 1",
+                name, id
+        );
+        Map<String, Object> detail = rows.isEmpty() ? new LinkedHashMap<String, Object>() : rows.get(0);
+        return record(
+                "id", id,
+                "resource", name,
+                "base", base,
+                "detailTitle", textFrom(detail, "detailTitle", stringValue(firstNonBlank(base, "title", "name", "orderNo", "productName", "deviceName", "serviceItem"))),
+                "ownerName", textFrom(detail, "ownerName", stringValue(firstNonBlank(base, "userName", "customer", "buyer", "applicant", "publisher", "author"))),
+                "detailStatus", textFrom(detail, "detailStatus", stringValue(firstNonBlank(base, "status", "auditStatus"))),
+                "detailContent", textFrom(detail, "detailContent", ""),
+                "remark", textFrom(detail, "remark", ""),
+                "updatedAt", detail.get("updatedAt")
+        );
+    }
+
+    @Override
+    public Map<String, Object> saveResourceDetail(String name, Long id, Map<String, Object> payload) {
+        if (!"logs".equals(name) && !"audits".equals(name)) {
+            updateResource(name, id, payload);
+        }
+        jdbcTemplate.update(
+                "insert into resource_detail(resource_name, resource_id, detail_title, owner_name, detail_status, detail_content, remark) values(?, ?, ?, ?, ?, ?, ?) " +
+                        "on duplicate key update detail_title = values(detail_title), owner_name = values(owner_name), detail_status = values(detail_status), detail_content = values(detail_content), remark = values(remark)",
+                name,
+                id,
+                text(payload, "detailTitle", text(payload, "title", "")),
+                text(payload, "ownerName", ""),
+                text(payload, "detailStatus", text(payload, "status", "")),
+                text(payload, "detailContent", ""),
+                text(payload, "remark", "")
+        );
+        accepted("saveResourceDetail:" + name + ":" + id);
+        return resourceDetail(name, id);
     }
 
     @Override
@@ -880,6 +922,32 @@ public class JdbcAdminDataService implements AdminDataService {
             return new LinkedHashMap<String, Object>();
         }
         return rows.get(0);
+    }
+
+    private Map<String, Object> findResourceRow(String name, Long id) {
+        List<Map<String, Object>> rows = resource(name).getList();
+        for (Map<String, Object> row : rows) {
+            Object rowId = row.get("id");
+            if (rowId instanceof Number && ((Number) rowId).longValue() == id) {
+                return row;
+            }
+        }
+        return new LinkedHashMap<String, Object>();
+    }
+
+    private Object firstNonBlank(Map<String, Object> row, String... keys) {
+        for (String key : keys) {
+            Object value = row.get(key);
+            if (value != null && stringValue(value).trim().length() > 0) {
+                return value;
+            }
+        }
+        return "";
+    }
+
+    private String textFrom(Map<String, Object> row, String key, String fallback) {
+        String value = stringValue(row.get(key)).trim();
+        return value.length() == 0 ? fallback : value;
     }
 
     private BigDecimal countAmount() {

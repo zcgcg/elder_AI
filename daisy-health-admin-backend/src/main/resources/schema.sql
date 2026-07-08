@@ -505,3 +505,16 @@ create table if not exists assessment_result (
   answers text null,
   created_at datetime not null default current_timestamp
 ) default charset = utf8mb4;
+
+create table if not exists resource_detail (
+  id bigint primary key auto_increment,
+  resource_name varchar(60) not null,
+  resource_id bigint not null,
+  detail_title varchar(120) null,
+  owner_name varchar(60) null,
+  detail_status varchar(40) null,
+  detail_content text null,
+  remark text null,
+  updated_at datetime not null default current_timestamp on update current_timestamp,
+  unique key uk_resource_detail (resource_name, resource_id)
+) default charset = utf8mb4;

@@ -54,4 +54,6 @@ export const getResource = (resource, params) => service.get(`/${resourcePaths[r
 export const createResource = (resource, payload) => service.post(`/${resourcePaths[resource] || resource}`, payload)
 export const updateResource = (resource, id, payload) => service.put(`/${resourcePaths[resource] || resource}/${id}`, payload)
 export const deleteResource = (resource, id) => service.delete(`/${resourcePaths[resource] || resource}/${id}`)
+export const getResourceDetail = (resource, id) => service.get(`/resource-details/${resource}/${id}`)
+export const saveResourceDetail = (resource, id, payload) => service.put(`/resource-details/${resource}/${id}`, payload)
 export const getAnalytics = () => service.get('/analytics/overview')

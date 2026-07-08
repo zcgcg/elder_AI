@@ -28,7 +28,7 @@
       </el-table-column>
       <el-table-column label="操作" width="190" align="right">
         <template #default="{ row }">
-          <el-button link type="primary">详情</el-button>
+          <el-button link type="primary" @click="openDetail(row)">详情</el-button>
           <el-button link @click="openEdit(row)">编辑</el-button>
           <el-button link type="danger" @click="removeRow(row)">删除</el-button>
         </template>
@@ -66,6 +66,32 @@
         <el-button type="primary" :loading="saving" @click="submitCreate">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-drawer v-model="detailVisible" :title="`${title}详情`" size="520px">
+      <el-form :model="detailForm" label-width="96px" class="detail-form">
+        <el-form-item label="详情标题"><el-input v-model="detailForm.detailTitle" /></el-form-item>
+        <el-form-item label="负责人"><el-input v-model="detailForm.ownerName" /></el-form-item>
+        <el-form-item label="详情状态"><el-input v-model="detailForm.detailStatus" /></el-form-item>
+        <el-form-item label="详情内容"><el-input v-model="detailForm.detailContent" type="textarea" :rows="6" /></el-form-item>
+        <el-form-item label="备注"><el-input v-model="detailForm.remark" type="textarea" :rows="4" /></el-form-item>
+        <el-divider>基础字段</el-divider>
+        <el-form-item v-for="field in createFields" :key="field.prop" :label="field.label">
+          <el-input-number v-if="field.type === 'number'" v-model="detailForm[field.prop]" :min="0" controls-position="right" />
+          <el-select v-else-if="field.type === 'user'" v-model="detailForm[field.prop]" filterable clearable placeholder="输入姓名/手机号搜索">
+            <el-option v-for="user in userOptions" :key="user.id" :label="`${user.realName || user.nickname} · ${user.phone || user.id}`" :value="String(user.id)" />
+          </el-select>
+          <el-select v-else-if="field.type === 'select'" v-model="detailForm[field.prop]" placeholder="请选择">
+            <el-option v-for="option in field.options" :key="option" :label="option" :value="option" />
+          </el-select>
+          <el-input v-else-if="field.type === 'textarea'" v-model="detailForm[field.prop]" type="textarea" :rows="4" />
+          <el-input v-else v-model="detailForm[field.prop]" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="detailVisible = false">取消</el-button>
+        <el-button type="primary" :loading="detailSaving" @click="saveDetail">保存详情</el-button>
+      </template>
+    </el-drawer>
   </section>
 </template>
 
@@ -74,7 +100,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createResource, deleteResource, getResource, getUsers, updateResource } from '../api/http'
+import { createResource, deleteResource, getResource, getResourceDetail, getUsers, saveResourceDetail, updateResource } from '../api/http'
 import { fallbackRows } from '../api/fallback'
 
 const route = useRoute()
@@ -86,6 +112,10 @@ const saving = ref(false)
 const editingId = ref(null)
 const form = reactive({})
 const userOptions = ref([])
+const detailVisible = ref(false)
+const detailSaving = ref(false)
+const detailId = ref(null)
+const detailForm = reactive({})
 const resource = computed(() => route.meta.resourceFromParam ? route.params.resource : route.meta.resource)
 const title = computed(() => titleMap[resource.value] || route.meta.title)
 const descriptor = computed(() => descriptors[resource.value] || '列表筛选、批量操作、状态流转与数据维护')
@@ -453,6 +483,25 @@ function openEdit(row) {
   })
   dialogVisible.value = true
 }
+async function openDetail(row) {
+  detailId.value = row.id
+  Object.keys(detailForm).forEach((key) => delete detailForm[key])
+  createFields.value.forEach((field) => {
+    const value = field.type === 'user' ? userRefFromRow(row) : row[field.prop]
+    if (field.type === 'number') detailForm[field.prop] = Number(value || 0)
+    else detailForm[field.prop] = value || ''
+  })
+  try {
+    const detail = await getResourceDetail(resource.value, row.id)
+    Object.assign(detailForm, detail.base || {}, detail)
+    createFields.value.forEach((field) => {
+      if (field.type === 'user') detailForm[field.prop] = String(userRefFromRow(detail.base || row) || detailForm[field.prop] || '')
+    })
+  } catch (error) {
+    Object.assign(detailForm, { detailTitle: row.title || row.name || row.orderNo || row.productName || '', ownerName: userRefFromRow(row) || '', detailStatus: row.status || row.auditStatus || '', detailContent: '', remark: '' })
+  }
+  detailVisible.value = true
+}
 function userRefFromRow(row) {
   const name = row.userName || row.customer || row.buyer || row.applicant || row.user
   const matched = userOptions.value.find((item) => item.realName === name || item.nickname === name)
@@ -483,6 +532,19 @@ async function submitCreate() {
     ElMessage.error('新增失败，请确认后端和数据库已启动')
   } finally {
     saving.value = false
+  }
+}
+async function saveDetail() {
+  detailSaving.value = true
+  try {
+    await saveResourceDetail(resource.value, detailId.value, detailForm)
+    ElMessage.success('详情已保存')
+    detailVisible.value = false
+    await load()
+  } catch (error) {
+    ElMessage.error('详情保存失败，请确认数据库已初始化')
+  } finally {
+    detailSaving.value = false
   }
 }
 async function removeRow(row) {

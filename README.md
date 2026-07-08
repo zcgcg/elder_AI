@@ -102,8 +102,33 @@ mvn spring-boot:run -Dspring-boot.run.profiles=mock
 - 2026-07-08 用户详情的用药信息、健康数据、设备信息、报告信息、订单信息、资产信息、内容信息、服务记录均已增加新增、编辑、删除入口
 - 2026-07-08 设备、工单、预约、健康设置、报告、优惠券、积分、活动报名、测评结果、订单、售后、评价等关联用户的新增/编辑功能支持按姓名、昵称、手机号或用户 ID 解析
 - 2026-07-08 工作台 UI 已按新原型优化：顶部问候、指标卡、快捷入口宫格、标签分布条形列表、服务占比饼图、用户趋势大图
+- 2026-07-08 通用列表的“详情”按钮已接入可保存详情抽屉，基础字段写回原业务表，扩展详情写入 `resource_detail`
+- 2026-07-08 登录页左侧插图区域已缩小，隐私协议复选框对勾已对齐
+- 2026-07-08 登录后侧边栏改为 8 个主功能入口：最左侧深色主导航，右侧显示当前主功能的细分菜单；首页下合并“工作台”和“预约看板”
 - 工作台统计改为按实际数据库生成：用户标签分布实时统计 `user_tag_rel`，服务占比统计 `service_order`，趋势统计最近 7 天 `user` 和 `service_order`
 - `data.sql` 已补充主要管理类别演示数据，重启后端后会通过 `insert ignore` 写入 MySQL
+
+## 通用详情落库说明
+
+所有通用业务列表的“详情”抽屉都会保存到：
+
+```text
+resource_detail
+```
+
+字段映射：
+
+```text
+模块名称   -> resource_detail.resource_name
+业务数据ID -> resource_detail.resource_id
+详情标题   -> resource_detail.detail_title
+负责人     -> resource_detail.owner_name
+详情状态   -> resource_detail.detail_status
+详情内容   -> resource_detail.detail_content
+备注       -> resource_detail.remark
+```
+
+保存详情时会先调用原业务资源的更新逻辑，能落到原业务表的字段会继续写原业务表；无法归属于具体业务表的扩展说明写入 `resource_detail`。
 
 ## 个人资料落库说明
 
@@ -283,7 +308,7 @@ GET/POST/PUT/DELETE /api/v1/assessments
 后端：mvn -DskipTests compile 通过
 前端：npm run build 通过
 运行验证：Spring Boot 临时启动成功，MySQL schema/data 执行成功
-接口验证：个人资料保存、按姓名 userRef 创建设备并编辑、medications/health-data/devices 新接口、用户详情扩展数据均通过
+接口验证：个人资料保存、按姓名 userRef 创建设备并编辑、medications/health-data/devices 新接口、通用详情 resource_detail 保存读取均通过
 进程清理：验证后已关闭 8080/5173 相关服务
 ```
 
@@ -295,6 +320,7 @@ GET/POST/PUT/DELETE /api/v1/assessments
 用户详情个人信息更新接口已验证：新增测试用户、修改、读取、删除均通过。
 工作台统计已验证为数据库实时数据：标签分布来自 user_tag/user_tag_rel，服务占比和趋势来自 service_order/user。
 2026-07-08 已通过后端编译、前端构建和临时后端接口验证；浏览器截图检查因当前 Browser 插件缺少 browser-client.mjs 未执行。
+2026-07-08 已临时启动后端执行 schema.sql，resource_detail 表已创建；用临时商品验证详情保存、读取、删除链路通过。
 ```
 
 前端构建仍有 Vite/Rollup 大 chunk 警告，属于体积优化提示，不影响运行。

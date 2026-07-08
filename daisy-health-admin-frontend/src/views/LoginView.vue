@@ -115,7 +115,7 @@ async function submit() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 274px 48px 72px;
+  padding: 270px 48px 72px;
   box-sizing: border-box;
 }
 
@@ -145,10 +145,10 @@ async function submit() {
 }
 
 .login-picture {
-  width: min(520px, 40vw);
-  max-height: 50vh;
+  width: min(440px, 34vw);
+  max-height: 42vh;
   object-fit: contain;
-  margin-top: 8px;
+  margin-top: 24px;
   user-select: none;
   pointer-events: none;
 }
@@ -257,16 +257,25 @@ async function submit() {
 }
 
 .agreement-row :deep(.el-checkbox) {
-  height: auto;
+  height: 32px;
   align-items: center;
   color: #b7c0c5;
   font-size: 19px;
   font-weight: 600;
 }
 
+.agreement-row :deep(.el-checkbox__input) {
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .agreement-row :deep(.el-checkbox__inner) {
   width: 24px;
   height: 24px;
+  display: block;
   border: 0;
   border-radius: 3px;
   background: #54d4ad;
@@ -276,7 +285,7 @@ async function submit() {
   width: 6px;
   height: 12px;
   left: 8px;
-  top: 2px;
+  top: 3px;
   border-width: 2px;
 }
 

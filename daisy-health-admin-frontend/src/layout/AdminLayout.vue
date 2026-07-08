@@ -1,68 +1,35 @@
 <template>
   <el-container class="app-shell">
-    <el-aside width="232px" class="sidebar">
-      <div class="brand">
-        <span class="brand-mark">D</span>
-        <div>
+    <el-aside width="362px" class="nav-shell">
+      <nav class="main-rail">
+        <div class="rail-brand">
+          <span class="brand-heart">❤</span>
           <strong>黛西健康</strong>
-          <small>智慧养老后台</small>
         </div>
-      </div>
-      <el-menu router :default-active="$route.path" class="side-menu">
-        <el-menu-item index="/dashboard"><el-icon><DataBoard /></el-icon><span>首页工作台</span></el-menu-item>
-        <el-menu-item index="/schedule"><el-icon><Calendar /></el-icon><span>预约看板</span></el-menu-item>
-        <el-sub-menu index="users">
-          <template #title><el-icon><User /></el-icon><span>用户管理</span></template>
-          <el-menu-item index="/users">全部用户</el-menu-item>
-          <el-menu-item index="/user-health/devices">设备信息</el-menu-item>
-          <el-menu-item index="/user-health/reports">报告信息</el-menu-item>
-          <el-menu-item index="/user-health/healthSettings">健康设置</el-menu-item>
-          <el-menu-item index="/user-assets/coupons">优惠券管理</el-menu-item>
-          <el-menu-item index="/user-assets/userPoints">用户积分</el-menu-item>
-          <el-menu-item index="/user-assets/memberLevels">等级管理</el-menu-item>
-          <el-menu-item index="/user-assets/pointsRules">积分规则</el-menu-item>
-        </el-sub-menu>
-        <el-sub-menu index="service">
-          <template #title><el-icon><Service /></el-icon><span>服务管理</span></template>
-          <el-menu-item index="/service/personnel">服务人员</el-menu-item>
-          <el-menu-item index="/service/audits">审核管理</el-menu-item>
-          <el-menu-item index="/service/work-orders">工单管理</el-menu-item>
-        </el-sub-menu>
-        <el-sub-menu index="products">
-          <template #title><el-icon><Goods /></el-icon><span>商品管理</span></template>
-          <el-menu-item index="/products">商品管理</el-menu-item>
-          <el-menu-item index="/product-ext/productCategories">分类管理</el-menu-item>
-          <el-menu-item index="/product-ext/serviceItems">服务项目</el-menu-item>
-        </el-sub-menu>
-        <el-sub-menu index="operations">
-          <template #title><el-icon><Collection /></el-icon><span>运营管理</span></template>
-          <el-menu-item index="/operations/posts">动态管理</el-menu-item>
-          <el-menu-item index="/operations/topics">话题管理</el-menu-item>
-          <el-menu-item index="/operations/banners">轮播图管理</el-menu-item>
-          <el-menu-item index="/operations/activities">活动管理</el-menu-item>
-          <el-menu-item index="/operations/activityEnrolls">活动报名</el-menu-item>
-          <el-menu-item index="/operations/recipes">食谱管理</el-menu-item>
-          <el-menu-item index="/operations/articles">健康资讯</el-menu-item>
-          <el-menu-item index="/operations/diseases">疾病宝典</el-menu-item>
-          <el-menu-item index="/operations/institutions">养老机构</el-menu-item>
-          <el-menu-item index="/operations/videos">健康讲堂</el-menu-item>
-          <el-menu-item index="/operations/foods">食物管理</el-menu-item>
-          <el-menu-item index="/operations/assessments">测评管理</el-menu-item>
-        </el-sub-menu>
-        <el-sub-menu index="trade">
-          <template #title><el-icon><Tickets /></el-icon><span>交易管理</span></template>
-          <el-menu-item index="/trade/orders">订单管理</el-menu-item>
-          <el-menu-item index="/trade/after-sales">售后管理</el-menu-item>
-          <el-menu-item index="/trade/reviews">评价管理</el-menu-item>
-        </el-sub-menu>
-        <el-menu-item index="/analytics"><el-icon><TrendCharts /></el-icon><span>数据分析</span></el-menu-item>
-        <el-sub-menu index="system">
-          <template #title><el-icon><Setting /></el-icon><span>系统设置</span></template>
-          <el-menu-item index="/system/staffs">员工管理</el-menu-item>
-          <el-menu-item index="/system/roles">角色管理</el-menu-item>
-          <el-menu-item index="/system/logs">操作日志</el-menu-item>
-        </el-sub-menu>
-      </el-menu>
+        <button
+          v-for="group in menuGroups"
+          :key="group.key"
+          type="button"
+          :class="['rail-item', { active: activeGroup === group.key }]"
+          :title="group.label"
+          @click="selectGroup(group.key)"
+        >
+          <el-icon><component :is="group.icon" /></el-icon>
+        </button>
+      </nav>
+      <section class="sub-nav">
+        <header>{{ currentGroup.label }}</header>
+        <h2>{{ currentGroup.label }}</h2>
+        <button
+          v-for="item in currentGroup.children"
+          :key="item.path"
+          type="button"
+          :class="['sub-nav-item', { active: $route.path === item.path }]"
+          @click="router.push(item.path)"
+        >
+          {{ item.label }}
+        </button>
+      </section>
     </el-aside>
     <el-container>
       <el-header class="topbar">
@@ -131,17 +98,39 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { Bell, ChatDotRound } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const profileVisible = ref(false)
 const profileSaving = ref(false)
 const profileForm = reactive({ id: '', name: '', staffNo: '', phone: '', avatarUrl: '', role: '', remark: '' })
+const activeGroup = ref('home')
+const menuGroups = [
+  { key: 'home', label: '首页', icon: 'House', children: [{ label: '工作台', path: '/dashboard' }, { label: '预约看板', path: '/schedule' }] },
+  { key: 'users', label: '用户', icon: 'User', children: [{ label: '全部用户', path: '/users' }, { label: '设备信息', path: '/user-health/devices' }, { label: '报告信息', path: '/user-health/reports' }, { label: '健康设置', path: '/user-health/healthSettings' }, { label: '优惠券管理', path: '/user-assets/coupons' }, { label: '用户积分', path: '/user-assets/userPoints' }, { label: '等级管理', path: '/user-assets/memberLevels' }, { label: '积分规则', path: '/user-assets/pointsRules' }] },
+  { key: 'service', label: '服务', icon: 'Service', children: [{ label: '服务人员', path: '/service/personnel' }, { label: '审核管理', path: '/service/audits' }, { label: '工单管理', path: '/service/work-orders' }] },
+  { key: 'products', label: '商品', icon: 'Goods', children: [{ label: '商品管理', path: '/products' }, { label: '分类管理', path: '/product-ext/productCategories' }, { label: '服务项目', path: '/product-ext/serviceItems' }] },
+  { key: 'operations', label: '运营', icon: 'Star', children: [{ label: '动态管理', path: '/operations/posts' }, { label: '话题管理', path: '/operations/topics' }, { label: '轮播图管理', path: '/operations/banners' }, { label: '活动管理', path: '/operations/activities' }, { label: '活动报名', path: '/operations/activityEnrolls' }, { label: '食谱管理', path: '/operations/recipes' }, { label: '健康资讯', path: '/operations/articles' }, { label: '疾病宝典', path: '/operations/diseases' }, { label: '养老机构', path: '/operations/institutions' }, { label: '健康讲堂', path: '/operations/videos' }, { label: '食物管理', path: '/operations/foods' }, { label: '测评管理', path: '/operations/assessments' }] },
+  { key: 'trade', label: '交易', icon: 'Wallet', children: [{ label: '订单管理', path: '/trade/orders' }, { label: '售后管理', path: '/trade/after-sales' }, { label: '评价管理', path: '/trade/reviews' }] },
+  { key: 'analytics', label: '数据', icon: 'TrendCharts', children: [{ label: '数据分析', path: '/analytics' }] },
+  { key: 'system', label: '系统', icon: 'Setting', children: [{ label: '员工管理', path: '/system/staffs' }, { label: '角色管理', path: '/system/roles' }, { label: '操作日志', path: '/system/logs' }] }
+]
+const currentGroup = computed(() => menuGroups.find((group) => group.key === activeGroup.value) || menuGroups[0])
+
+function selectGroup(key) {
+  activeGroup.value = key
+}
+
+function syncActiveGroup(path = route.path) {
+  const matched = menuGroups.find((group) => group.children.some((item) => path === item.path || path.startsWith(item.path + '/')))
+  activeGroup.value = matched?.key || 'home'
+}
 
 function syncProfile(user = auth.user || {}) {
   Object.assign(profileForm, {
@@ -193,7 +182,9 @@ function logout() {
 }
 
 onMounted(() => {
+  syncActiveGroup()
   syncProfile()
   auth.loadProfile().then(syncProfile).catch(() => {})
 })
+watch(() => route.path, syncActiveGroup)
 </script>
