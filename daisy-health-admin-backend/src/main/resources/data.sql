@@ -445,6 +445,9 @@ insert ignore into points_rule(id, action_type, description, points, growth, dai
 (106, 'invite_family', '邀请家属', 80, 100, 1, 1),
 (107, 'service_finish', '完成服务', 100, 120, null, 1);
 
+delete from member_level where name not in ('普通', '银卡', '金卡');
+delete from points_rule where action_type not in ('signin', 'order', 'review');
+
 insert ignore into product_category(id, name, code, description, sort_order, status) values
 (101, '助浴护理', 'HK-BATH', '助浴和清洁护理', 4, 1),
 (102, '陪诊陪护', 'HK-CARE', '陪诊和陪护服务', 5, 1),

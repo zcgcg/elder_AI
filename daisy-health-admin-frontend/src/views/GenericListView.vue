@@ -86,7 +86,7 @@
             />
           </el-select>
           <el-select v-else-if="field.type === 'select'" v-model="form[field.prop]" placeholder="请选择" :disabled="readonly">
-            <el-option v-for="option in field.options" :key="option" :label="option" :value="option" />
+            <el-option v-for="option in field.options" :key="option" :label="option" :value="option" :disabled="isSelectOptionDisabled(field, option)" />
           </el-select>
           <el-input v-else-if="field.type === 'textarea'" v-model="form[field.prop]" type="textarea" :rows="4" :placeholder="field.placeholder" :disabled="readonly" />
           <el-input v-else v-model="form[field.prop]" :placeholder="field.placeholder" :disabled="readonly" />
@@ -126,7 +126,7 @@ const dialogTitle = computed(() => readonly.value ? `${title.value}详情` : (ed
 const descriptor = computed(() => descriptors[resource.value] || '列表筛选、批量操作、状态流转与数据维护')
 const columns = computed(() => columnMap[resource.value] || defaultColumns)
 const createFields = computed(() => createFieldMap[resource.value] || createFieldMap.posts)
-const canCreate = computed(() => !['audits', 'logs'].includes(resource.value))
+const canCreate = computed(() => !['audits', 'logs', 'memberLevels', 'pointsRules'].includes(resource.value))
 
 const descriptors = {
   personnel: '服务人员生命周期、负责区域与启用状态管理',
@@ -500,6 +500,15 @@ function userRefFromRow(row) {
   const name = row.userName || row.customer || row.buyer || row.applicant || row.user
   const matched = userOptions.value.find((item) => item.realName === name || item.nickname === name)
   return matched ? matched.id : name
+}
+function isSelectOptionDisabled(field, option) {
+  if (resource.value === 'memberLevels' && field.prop === 'name') {
+    return rows.value.some((row) => row.id !== editingId.value && row.name === option)
+  }
+  if (resource.value === 'pointsRules' && field.prop === 'actionType') {
+    return rows.value.some((row) => row.id !== editingId.value && row.actionType === option)
+  }
+  return false
 }
 async function loadUsers() {
   try {

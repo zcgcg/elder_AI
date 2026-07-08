@@ -22,6 +22,8 @@ import java.util.Map;
 @Service
 @Profile("mysql")
 public class JdbcAdminDataService implements AdminDataService {
+    private static final List<String> MEMBER_LEVEL_NAMES = Arrays.asList("普通", "银卡", "金卡");
+
     private final JdbcTemplate jdbcTemplate;
     private final DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("MM-dd");
 
@@ -726,8 +728,8 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("coupons".equals(name)) return jdbcTemplate.queryForList("select id, coupon_no as couponNo, name, type, discount, min_amount as minAmount, status, date_format(expire_date, '%Y-%m-%d') as expireDate from coupon order by id");
         if ("userPoints".equals(name)) return jdbcTemplate.queryForList("select p.id, u.real_name as userName, p.points, p.total_earned as totalEarned, p.total_spent as totalSpent, p.level, p.growth_value as growthValue from user_points p left join `user` u on p.user_id = u.id order by p.id");
         if ("pointsRecords".equals(name)) return jdbcTemplate.queryForList("select r.id, u.real_name as userName, r.change_value as changeValue, r.reason, date_format(r.created_at, '%Y-%m-%d %H:%i') as createdAt from points_record r left join `user` u on r.user_id = u.id order by r.id desc");
-        if ("memberLevels".equals(name)) return jdbcTemplate.queryForList("select id, name, min_growth as minGrowth, max_growth as maxGrowth, benefits, if(status = 1, '启用', '禁用') as status from member_level order by id");
-        if ("pointsRules".equals(name)) return jdbcTemplate.queryForList("select id, case action_type when 'signin' then '签到' when 'order' then '完成订单' when 'review' then '发布评价' else action_type end as actionType, description, points, growth, if(status = 1, '启用', '禁用') as status from points_rule order by id");
+        if ("memberLevels".equals(name)) return jdbcTemplate.queryForList("select id, name, min_growth as minGrowth, max_growth as maxGrowth, benefits, if(status = 1, '启用', '禁用') as status from member_level where name in ('普通', '银卡', '金卡') order by field(name, '普通', '银卡', '金卡'), id");
+        if ("pointsRules".equals(name)) return jdbcTemplate.queryForList("select id, case action_type when 'signin' then '签到' when 'order' then '完成订单' when 'review' then '发布评价' else action_type end as actionType, description, points, growth, if(status = 1, '启用', '禁用') as status from points_rule where action_type in ('signin', 'order', 'review') order by field(action_type, 'signin', 'order', 'review'), id");
         if ("productCategories".equals(name)) return jdbcTemplate.queryForList("select id, name, code, description, sort_order as sortOrder, if(status = 1, '启用', '禁用') as status from product_category order by sort_order, id");
         if ("serviceItems".equals(name)) return jdbcTemplate.queryForList("select s.id, s.product_id as productId, p.name as productName, s.name, s.description, s.duration, s.price, if(s.status = 1, '启用', '禁用') as status from service_item s left join product p on s.product_id = p.id order by s.id");
         if ("banners".equals(name)) return jdbcTemplate.queryForList("select id, title, image_url as imageUrl, location, sort_order as sortOrder, if(status = 1, '启用', '禁用') as status from banner order by sort_order, id");
@@ -754,7 +756,7 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("coupons".equals(name)) return record("user_id", nullableUserId(payload, "userId"), "coupon_no", text(payload, "couponNo", "CP" + System.currentTimeMillis()), "name", text(payload, "name", "优惠券"), "type", text(payload, "type", "满减"), "discount", decimal(payload, "discount", BigDecimal.valueOf(10)), "min_amount", decimal(payload, "minAmount", BigDecimal.ZERO), "status", text(payload, "status", "未使用"), "expire_date", nullIfBlank(text(payload, "expireDate", LocalDate.now().plusDays(30).toString())));
         if ("userPoints".equals(name)) return record("user_id", userId(payload, "userId", firstId("user")), "points", longValue(payload, "points", 0), "total_earned", longValue(payload, "totalEarned", 0), "total_spent", longValue(payload, "totalSpent", 0), "level", text(payload, "level", "普通"), "growth_value", longValue(payload, "growthValue", 0));
         if ("pointsRecords".equals(name)) return record("user_id", userId(payload, "userId", firstId("user")), "change_value", longValue(payload, "changeValue", 1), "reason", text(payload, "reason", "后台调整"));
-        if ("memberLevels".equals(name)) return record("name", text(payload, "name", "新等级"), "min_growth", longValue(payload, "minGrowth", 0), "max_growth", nullableLong(payload, "maxGrowth"), "icon", text(payload, "icon", ""), "benefits", text(payload, "benefits", ""), "status", statusCode(text(payload, "status", "启用")));
+        if ("memberLevels".equals(name)) return record("name", memberLevelName(text(payload, "name", "普通")), "min_growth", longValue(payload, "minGrowth", 0), "max_growth", nullableLong(payload, "maxGrowth"), "icon", text(payload, "icon", ""), "benefits", text(payload, "benefits", ""), "status", statusCode(text(payload, "status", "启用")));
         if ("pointsRules".equals(name)) return record("action_type", pointActionType(text(payload, "actionType", "签到")), "description", text(payload, "description", "积分规则"), "points", longValue(payload, "points", 1), "growth", longValue(payload, "growth", 1), "daily_limit", nullableLong(payload, "dailyLimit"), "status", statusCode(text(payload, "status", "启用")));
         if ("productCategories".equals(name)) return record("name", text(payload, "name", "新分类"), "code", text(payload, "code", "CAT" + uniqueDigits(4)), "description", text(payload, "description", ""), "sort_order", longValue(payload, "sortOrder", 0), "status", statusCode(text(payload, "status", "启用")));
         if ("serviceItems".equals(name)) return record("product_id", longValue(payload, "productId", firstId("product")), "name", text(payload, "name", "服务项目"), "description", text(payload, "description", ""), "duration", longValue(payload, "duration", 60), "price", decimal(payload, "price", BigDecimal.valueOf(99)), "status", statusCode(text(payload, "status", "启用")));
@@ -812,7 +814,7 @@ public class JdbcAdminDataService implements AdminDataService {
             putIfPresent(values, "level", payload, "level");
             if (payload.containsKey("growthValue")) values.put("growth_value", longValue(payload, "growthValue", 0));
         } else if ("memberLevels".equals(name)) {
-            putIfPresent(values, "name", payload, "name");
+            if (payload.containsKey("name")) values.put("name", memberLevelName(text(payload, "name", "普通")));
             if (payload.containsKey("minGrowth")) values.put("min_growth", longValue(payload, "minGrowth", 0));
             if (payload.containsKey("maxGrowth")) values.put("max_growth", nullableLong(payload, "maxGrowth"));
             putIfPresent(values, "benefits", payload, "benefits");
@@ -1088,6 +1090,13 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("完成订单".equals(value)) return "order";
         if ("发布评价".equals(value)) return "review";
         return value;
+    }
+
+    private String memberLevelName(String value) {
+        if (MEMBER_LEVEL_NAMES.contains(value)) {
+            return value;
+        }
+        throw new IllegalArgumentException("等级名称只能为普通、银卡、金卡");
     }
 
     private String assessmentType(String value) {
