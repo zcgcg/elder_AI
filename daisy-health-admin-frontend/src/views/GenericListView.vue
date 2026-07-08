@@ -40,6 +40,20 @@
       <el-form :model="form" label-width="96px">
         <el-form-item v-for="field in createFields" :key="field.prop" :label="field.label" :required="field.required">
           <el-input-number v-if="field.type === 'number'" v-model="form[field.prop]" :min="0" controls-position="right" />
+          <el-select
+            v-else-if="field.type === 'user'"
+            v-model="form[field.prop]"
+            filterable
+            clearable
+            placeholder="输入姓名/手机号搜索"
+          >
+            <el-option
+              v-for="user in userOptions"
+              :key="user.id"
+              :label="`${user.realName || user.nickname} · ${user.phone || user.id}`"
+              :value="String(user.id)"
+            />
+          </el-select>
           <el-select v-else-if="field.type === 'select'" v-model="form[field.prop]" placeholder="请选择">
             <el-option v-for="option in field.options" :key="option" :label="option" :value="option" />
           </el-select>
@@ -60,7 +74,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createResource, deleteResource, getResource, updateResource } from '../api/http'
+import { createResource, deleteResource, getResource, getUsers, updateResource } from '../api/http'
 import { fallbackRows } from '../api/fallback'
 
 const route = useRoute()
@@ -71,6 +85,7 @@ const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref(null)
 const form = reactive({})
+const userOptions = ref([])
 const resource = computed(() => route.meta.resourceFromParam ? route.params.resource : route.meta.resource)
 const title = computed(() => titleMap[resource.value] || route.meta.title)
 const descriptor = computed(() => descriptors[resource.value] || '列表筛选、批量操作、状态流转与数据维护')
@@ -183,7 +198,7 @@ const createFieldMap = {
   workOrders: [
     { prop: 'serviceItem', label: '服务项目', required: true, placeholder: '如：助浴护理' },
     { prop: 'amount', label: '金额', type: 'number' },
-    { prop: 'customerId', label: '客户ID', type: 'number' },
+    { prop: 'userRef', label: '客户', type: 'user' },
     { prop: 'status', label: '状态', type: 'select', options: ['pending', 'service_in', 'completed', 'cancelled'] }
   ],
   products: [
@@ -194,19 +209,19 @@ const createFieldMap = {
   ],
   orders: [
     { prop: 'productName', label: '商品名称', placeholder: '不填则使用默认商品' },
-    { prop: 'buyerId', label: '买家ID', type: 'number' },
+    { prop: 'userRef', label: '买家', type: 'user' },
     { prop: 'amount', label: '金额', type: 'number' },
     { prop: 'serviceType', label: '服务类型', type: 'select', options: ['家政护理', '康复理疗', '上门体检'] },
     { prop: 'status', label: '状态', type: 'select', options: ['pending_accept', 'pending_service', 'completed', 'closed', 'after_sale'] }
   ],
   afterSales: [
     { prop: 'orderId', label: '订单ID', type: 'number' },
-    { prop: 'applicantId', label: '申请人ID', type: 'number' },
+    { prop: 'userRef', label: '申请人', type: 'user' },
     { prop: 'reason', label: '售后原因', required: true, placeholder: '请输入售后原因' },
     { prop: 'status', label: '状态', type: 'select', options: ['处理中', '已完成', '已关闭'] }
   ],
   reviews: [
-    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'userRef', label: '用户', type: 'user' },
     { prop: 'productId', label: '商品ID', type: 'number' },
     { prop: 'rating', label: '评分', type: 'number' },
     { prop: 'content', label: '评价内容', type: 'textarea', placeholder: '请输入评价内容' }
@@ -253,14 +268,14 @@ createFieldMap.foods = createFieldMap.articles
 createFieldMap.assessments = createFieldMap.articles
 Object.assign(createFieldMap, {
   devices: [
-    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'userRef', label: '用户', type: 'user' },
     { prop: 'deviceName', label: '设备名称', required: true, placeholder: '如：小米手环8' },
     { prop: 'deviceType', label: '设备类型', placeholder: 'band/watch/scale' },
     { prop: 'deviceCode', label: '设备编号', placeholder: '设备编号或 MAC' },
     { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
   ],
   reports: [
-    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'userRef', label: '用户', type: 'user' },
     { prop: 'title', label: '报告标题', required: true, placeholder: '报告标题' },
     { prop: 'reportType', label: '报告类型', placeholder: '体检/健康评估/月度总结' },
     { prop: 'reportDate', label: '报告日期', placeholder: 'YYYY-MM-DD' },
@@ -268,7 +283,7 @@ Object.assign(createFieldMap, {
     { prop: 'summary', label: '摘要', type: 'textarea', placeholder: '报告摘要' }
   ],
   healthSettings: [
-    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'userRef', label: '用户', type: 'user' },
     { prop: 'heartRateUpper', label: '心率上限', type: 'number' },
     { prop: 'heartRateLower', label: '心率下限', type: 'number' },
     { prop: 'stepGoal', label: '步数目标', type: 'number' },
@@ -276,7 +291,7 @@ Object.assign(createFieldMap, {
     { prop: 'status', label: '用药提醒', type: 'select', options: ['启用', '禁用'] }
   ],
   coupons: [
-    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'userRef', label: '用户', type: 'user' },
     { prop: 'couponNo', label: '券编号', placeholder: '不填则自动生成' },
     { prop: 'name', label: '名称', required: true, placeholder: '优惠券名称' },
     { prop: 'type', label: '类型', type: 'select', options: ['满减', '折扣', '现金'] },
@@ -286,7 +301,7 @@ Object.assign(createFieldMap, {
     { prop: 'expireDate', label: '过期日', placeholder: 'YYYY-MM-DD' }
   ],
   userPoints: [
-    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'userRef', label: '用户', type: 'user' },
     { prop: 'points', label: '当前积分', type: 'number' },
     { prop: 'totalEarned', label: '累计获得', type: 'number' },
     { prop: 'totalSpent', label: '累计消耗', type: 'number' },
@@ -339,7 +354,7 @@ Object.assign(createFieldMap, {
   ],
   activityEnrolls: [
     { prop: 'activityId', label: '活动ID', type: 'number' },
-    { prop: 'userId', label: '用户ID', type: 'number' },
+    { prop: 'userRef', label: '用户', type: 'user' },
     { prop: 'status', label: '状态', type: 'select', options: ['enrolled', 'cancelled', 'attended'] },
     { prop: 'remark', label: '备注', placeholder: '备注' }
   ],
@@ -420,6 +435,7 @@ function openCreate() {
   Object.keys(form).forEach((key) => delete form[key])
   createFields.value.forEach((field) => {
     if (field.type === 'number') form[field.prop] = 0
+    else if (field.type === 'user') form[field.prop] = ''
     else if (field.type === 'select') form[field.prop] = field.options[0]
     else form[field.prop] = ''
   })
@@ -429,12 +445,26 @@ function openEdit(row) {
   editingId.value = row.id
   Object.keys(form).forEach((key) => delete form[key])
   createFields.value.forEach((field) => {
-    const value = row[field.prop]
+    const value = field.type === 'user' ? userRefFromRow(row) : row[field.prop]
     if (field.type === 'number') form[field.prop] = Number(value || 0)
+    else if (field.type === 'user') form[field.prop] = String(value || '')
     else if (field.type === 'select') form[field.prop] = value || field.options[0]
     else form[field.prop] = value || ''
   })
   dialogVisible.value = true
+}
+function userRefFromRow(row) {
+  const name = row.userName || row.customer || row.buyer || row.applicant || row.user
+  const matched = userOptions.value.find((item) => item.realName === name || item.nickname === name)
+  return matched ? matched.id : name
+}
+async function loadUsers() {
+  try {
+    const data = await getUsers()
+    userOptions.value = data.list || []
+  } catch (error) {
+    userOptions.value = []
+  }
 }
 async function submitCreate() {
   const required = createFields.value.find((field) => field.required && !String(form[field.prop] || '').trim())
@@ -467,5 +497,7 @@ async function removeRow(row) {
   }
 }
 watch(() => route.fullPath, load)
-onMounted(load)
+onMounted(async () => {
+  await Promise.all([load(), loadUsers()])
+})
 </script>

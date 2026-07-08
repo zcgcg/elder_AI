@@ -183,6 +183,245 @@ body {
   height: 380px;
 }
 
+.dashboard-page {
+  background: #effaf7;
+  margin: -24px;
+  min-height: calc(100vh - 68px);
+  padding: 0 24px 24px;
+}
+
+.dashboard-greeting {
+  height: 52px;
+  display: flex;
+  align-items: center;
+  color: #1f2d3d;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.dashboard-metrics {
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.rich-metric {
+  height: 132px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 26px;
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(31, 45, 61, 0.04);
+}
+
+.rich-metric strong {
+  font-size: 40px;
+  line-height: 1;
+  margin: 10px 0 12px;
+}
+
+.rich-metric em {
+  display: inline-flex;
+  align-items: center;
+  min-width: 108px;
+  height: 26px;
+  justify-content: center;
+  border-radius: 5px;
+  background: #f1f3f4;
+  color: #52d6ad;
+  font-style: normal;
+  font-size: 14px;
+}
+
+.rich-metric em.down {
+  color: #ff6b66;
+}
+
+.metric-visual {
+  width: 120px;
+  height: 72px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.metric-visual i {
+  display: block;
+  width: 16px;
+  border-radius: 5px 5px 0 0;
+  background: #fed86a;
+}
+
+.metric-visual i:nth-child(1) { height: 28px; opacity: .8; }
+.metric-visual i:nth-child(2) { height: 58px; }
+.metric-visual i:nth-child(3) { height: 36px; opacity: .9; }
+.metric-visual i:nth-child(4) { height: 28px; opacity: .35; }
+.metric-visual i:nth-child(5) { height: 46px; opacity: .45; }
+
+.visual-0,
+.visual-2 {
+  position: relative;
+  align-items: center;
+}
+
+.visual-0::before,
+.visual-2::before {
+  content: "";
+  width: 112px;
+  height: 52px;
+  border-bottom: 3px solid #52d6ad;
+  border-left: 3px solid transparent;
+  transform: skew(-28deg);
+  background: linear-gradient(180deg, rgba(82, 214, 173, .28), rgba(82, 214, 173, .04));
+}
+
+.visual-2::before {
+  border-bottom-color: #ff6b66;
+  background: linear-gradient(180deg, rgba(255, 107, 102, .32), rgba(255, 107, 102, .04));
+}
+
+.visual-0 i,
+.visual-2 i {
+  display: none;
+}
+
+.visual-3 i {
+  background: #6e6df7;
+}
+
+.dashboard-middle {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.dashboard-middle .panel,
+.trend-panel {
+  border-radius: 16px;
+  box-shadow: 0 2px 10px rgba(31, 45, 61, 0.04);
+}
+
+.quick-panel header,
+.tag-panel h2,
+.share-panel h2,
+.trend-panel h2 {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.quick-panel header {
+  justify-content: space-between;
+}
+
+.quick-panel header h2::before,
+.tag-panel h2::before,
+.share-panel h2::before,
+.trend-panel h2::before {
+  content: "";
+  width: 6px;
+  height: 24px;
+  border-radius: 4px;
+  background: #52d6ad;
+}
+
+.quick-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(72px, 1fr));
+  gap: 28px 22px;
+}
+
+.quick-entry {
+  border: 0;
+  background: transparent;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  cursor: pointer;
+  color: #1f2d3d;
+  font: inherit;
+}
+
+.quick-entry span {
+  width: 58px;
+  height: 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 24px;
+}
+
+.quick-entry b {
+  font-weight: 700;
+}
+
+.quick-entry .mint { background: #dff8ef; color: #43c99d; }
+.quick-entry .cream { background: #fff8df; color: #f6bf31; }
+.quick-entry .rose { background: #ffe2e0; color: #ff6b66; }
+.quick-entry .violet { background: #e8e7ff; color: #6e6df7; }
+.quick-entry .blue { background: #dbe9ff; color: #4388f5; }
+.quick-entry .green { background: #dbf8ef; color: #38c792; }
+.quick-entry .yellow { background: #fff6db; color: #f5bd24; }
+.quick-entry .red { background: #ffe2e0; color: #ff6b66; }
+
+.tag-bars {
+  display: grid;
+  gap: 24px;
+}
+
+.tag-bar-row {
+  display: grid;
+  grid-template-columns: 72px minmax(120px, 1fr) 42px;
+  align-items: center;
+  gap: 14px;
+}
+
+.tag-bar-row span {
+  color: #7d8893;
+}
+
+.tag-bar-row i {
+  height: 8px;
+  border-radius: 6px;
+  background: #d8f3eb;
+  overflow: hidden;
+}
+
+.tag-bar-row b {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: #52d6ad;
+}
+
+.tag-bar-row strong {
+  color: #1f2d3d;
+  font-weight: 500;
+  text-align: right;
+}
+
+.compact-chart {
+  height: 260px;
+}
+
+.trend-panel {
+  padding: 24px;
+}
+
+.trend-chart {
+  height: 430px;
+}
+
+.section-subtitle {
+  margin: 14px 0 12px;
+  color: var(--title);
+  font-size: 16px;
+}
+
 .login-page {
   min-height: 100vh;
   display: grid;

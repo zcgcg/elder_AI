@@ -31,7 +31,16 @@
     <el-dialog v-model="dialogVisible" title="新建预约" width="620px">
       <el-form :model="form" label-width="96px">
         <el-form-item label="服务名称" required><el-input v-model="form.serviceName" placeholder="如：助浴护理" /></el-form-item>
-        <el-form-item label="客户ID"><el-input-number v-model="form.customerId" :min="1" controls-position="right" /></el-form-item>
+        <el-form-item label="客户">
+          <el-select v-model="form.userRef" filterable clearable placeholder="输入姓名/手机号搜索">
+            <el-option
+              v-for="user in userOptions"
+              :key="user.id"
+              :label="`${user.realName || user.nickname} · ${user.phone || user.id}`"
+              :value="String(user.id)"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="服务人员ID"><el-input-number v-model="form.personnelId" :min="1" controls-position="right" /></el-form-item>
         <el-form-item label="预约日期"><el-date-picker v-model="form.date" type="date" value-format="YYYY-MM-DD" /></el-form-item>
         <el-form-item label="开始时间"><el-time-picker v-model="form.startTime" value-format="HH:mm:ss" placeholder="开始时间" /></el-form-item>
@@ -50,14 +59,15 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createAppointment, deleteAppointment, getAppointments } from '../api/http'
+import { createAppointment, deleteAppointment, getAppointments, getUsers } from '../api/http'
 
 const filters = reactive({ date: new Date(), serviceType: '' })
 const hours = Array.from({ length: 10 }, (_, index) => index + 9)
 const dialogVisible = ref(false)
 const saving = ref(false)
 const today = new Date().toISOString().slice(0, 10)
-const form = reactive({ serviceName: '', customerId: 10001, personnelId: 1, date: today, startTime: '09:00:00', endTime: '10:00:00', amount: 99 })
+const form = reactive({ serviceName: '', userRef: '', personnelId: 1, date: today, startTime: '09:00:00', endTime: '10:00:00', amount: 99 })
+const userOptions = ref([])
 const appointments = ref([
   { id: 1, hour: 9, serviceName: '助浴护理', timeRange: '09:00-10:30', userName: '王秀兰', status: '待服务' },
   { id: 2, hour: 10, serviceName: '肩颈康复', timeRange: '10:00-11:00', userName: '陈建国', status: '服务中' },
@@ -73,13 +83,21 @@ function tagType(status) {
   return { 已完成: 'success', 服务中: 'primary', 待服务: 'warning', 已取消: 'info' }[status] || 'info'
 }
 function openCreate() {
-  Object.assign(form, { serviceName: '', customerId: 10001, personnelId: 1, date: today, startTime: '09:00:00', endTime: '10:00:00', amount: 99 })
+  Object.assign(form, { serviceName: '', userRef: userOptions.value[0]?.id ? String(userOptions.value[0].id) : '', personnelId: 1, date: today, startTime: '09:00:00', endTime: '10:00:00', amount: 99 })
   dialogVisible.value = true
 }
 async function load() {
   try {
     appointments.value = await getAppointments()
   } catch (error) {}
+}
+async function loadUsers() {
+  try {
+    const data = await getUsers()
+    userOptions.value = data.list || []
+  } catch (error) {
+    userOptions.value = []
+  }
 }
 async function submitCreate() {
   if (!form.serviceName.trim()) {
@@ -90,7 +108,7 @@ async function submitCreate() {
   try {
     await createAppointment({
       serviceName: form.serviceName,
-      customerId: form.customerId,
+      userRef: form.userRef,
       personnelId: form.personnelId,
       amount: form.amount,
       serviceTime: `${form.date} ${form.startTime}`,
@@ -116,5 +134,7 @@ async function removeAppointment(item) {
   }
 }
 
-onMounted(load)
+onMounted(async () => {
+  await Promise.all([load(), loadUsers()])
+})
 </script>

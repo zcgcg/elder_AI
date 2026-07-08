@@ -98,6 +98,10 @@ mvn spring-boot:run -Dspring-boot.run.profiles=mock
 - 用户详情的个人信息可编辑并保存：昵称、真实姓名、手机号、头像、性别、生日、住址、民族、文化程度
 - 用户详情新增真实数据 Tab：设备信息、报告信息、订单信息、资产信息、内容信息、服务记录
 - 健康信息编辑扩展：紧急联系人、紧急联系电话、吸烟/饮酒等后端字段已预留或接入
+- 2026-07-08 用户详情已将个人信息与健康信息合并为同一个“个人信息”页签，并支持统一编辑保存
+- 2026-07-08 用户详情的用药信息、健康数据、设备信息、报告信息、订单信息、资产信息、内容信息、服务记录均已增加新增、编辑、删除入口
+- 2026-07-08 设备、工单、预约、健康设置、报告、优惠券、积分、活动报名、测评结果、订单、售后、评价等关联用户的新增/编辑功能支持按姓名、昵称、手机号或用户 ID 解析
+- 2026-07-08 工作台 UI 已按新原型优化：顶部问候、指标卡、快捷入口宫格、标签分布条形列表、服务占比饼图、用户趋势大图
 - 工作台统计改为按实际数据库生成：用户标签分布实时统计 `user_tag_rel`，服务占比统计 `service_order`，趋势统计最近 7 天 `user` 和 `service_order`
 - `data.sql` 已补充主要管理类别演示数据，重启后端后会通过 `insert ignore` 写入 MySQL
 
@@ -279,7 +283,7 @@ GET/POST/PUT/DELETE /api/v1/assessments
 后端：mvn -DskipTests compile 通过
 前端：npm run build 通过
 运行验证：Spring Boot 临时启动成功，MySQL schema/data 执行成功
-接口验证：个人资料保存、devices/reports/product-categories/banners/topics 查询、topic 新增删除、用户详情扩展数据均通过
+接口验证：个人资料保存、按姓名 userRef 创建设备并编辑、medications/health-data/devices 新接口、用户详情扩展数据均通过
 进程清理：验证后已关闭 8080/5173 相关服务
 ```
 
@@ -290,6 +294,7 @@ GET/POST/PUT/DELETE /api/v1/assessments
 当前主要资源接口均至少 10 条数据；预约看板按当天工单过滤，当前返回 14 条。
 用户详情个人信息更新接口已验证：新增测试用户、修改、读取、删除均通过。
 工作台统计已验证为数据库实时数据：标签分布来自 user_tag/user_tag_rel，服务占比和趋势来自 service_order/user。
+2026-07-08 已通过后端编译、前端构建和临时后端接口验证；浏览器截图检查因当前 Browser 插件缺少 browser-client.mjs 未执行。
 ```
 
 前端构建仍有 Vite/Rollup 大 chunk 警告，属于体积优化提示，不影响运行。

@@ -28,7 +28,7 @@ public class PhaseResourceController {
     @GetMapping({
             "/health-settings", "/devices", "/reports", "/coupons", "/user-points", "/points-records",
             "/member-levels", "/points-rules", "/product-categories", "/service-items", "/banners",
-            "/activity-enrolls", "/topics", "/assessment-results"
+            "/activity-enrolls", "/topics", "/assessment-results", "/medications", "/health-data"
     })
     public ApiResponse<PageResult<Map<String, Object>>> list(HttpServletRequest request) {
         return ApiResponse.success(dataService.resource(resourceName(request)));
@@ -37,7 +37,7 @@ public class PhaseResourceController {
     @PostMapping({
             "/health-settings", "/devices", "/reports", "/coupons", "/user-points", "/points-records",
             "/member-levels", "/points-rules", "/product-categories", "/service-items", "/banners",
-            "/activity-enrolls", "/topics", "/assessment-results"
+            "/activity-enrolls", "/topics", "/assessment-results", "/medications", "/health-data"
     })
     public ApiResponse<Map<String, Object>> create(HttpServletRequest request, @RequestBody Map<String, Object> payload) {
         return ApiResponse.success(dataService.createResource(resourceName(request), payload));
@@ -46,7 +46,7 @@ public class PhaseResourceController {
     @PutMapping({
             "/health-settings/{id}", "/devices/{id}", "/reports/{id}", "/coupons/{id}", "/user-points/{id}", "/points-records/{id}",
             "/member-levels/{id}", "/points-rules/{id}", "/product-categories/{id}", "/service-items/{id}", "/banners/{id}",
-            "/activity-enrolls/{id}", "/topics/{id}", "/assessment-results/{id}"
+            "/activity-enrolls/{id}", "/topics/{id}", "/assessment-results/{id}", "/medications/{id}", "/health-data/{id}"
     })
     public ApiResponse<Map<String, Object>> update(HttpServletRequest request, @PathVariable Long id, @RequestBody(required = false) Map<String, Object> payload) {
         return ApiResponse.success(dataService.updateResource(resourceName(request), id, payload == null ? new LinkedHashMap<String, Object>() : payload));
@@ -55,7 +55,7 @@ public class PhaseResourceController {
     @DeleteMapping({
             "/health-settings/{id}", "/devices/{id}", "/reports/{id}", "/coupons/{id}", "/user-points/{id}", "/points-records/{id}",
             "/member-levels/{id}", "/points-rules/{id}", "/product-categories/{id}", "/service-items/{id}", "/banners/{id}",
-            "/activity-enrolls/{id}", "/topics/{id}", "/assessment-results/{id}"
+            "/activity-enrolls/{id}", "/topics/{id}", "/assessment-results/{id}", "/medications/{id}", "/health-data/{id}"
     })
     public ApiResponse<Map<String, Object>> delete(HttpServletRequest request, @PathVariable Long id) {
         return ApiResponse.success(dataService.deleteResource(resourceName(request), id));
@@ -73,6 +73,7 @@ public class PhaseResourceController {
         if ("service-items".equals(segment)) return "serviceItems";
         if ("activity-enrolls".equals(segment)) return "activityEnrolls";
         if ("assessment-results".equals(segment)) return "assessmentResults";
+        if ("health-data".equals(segment)) return "healthData";
         return segment;
     }
 }

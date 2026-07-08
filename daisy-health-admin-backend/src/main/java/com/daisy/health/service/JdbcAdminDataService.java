@@ -238,23 +238,23 @@ public class JdbcAdminDataService implements AdminDataService {
         Map<String, Object> row = rows.get(0);
         normalizeTags(Arrays.asList(row));
         row.put("medications", jdbcTemplate.queryForList(
-                "select period, drug_name as drugName, frequency, date_format(take_time, '%H:%i') as takeTime, dosage, reminder_enabled = 1 as reminderEnabled from medication_record where user_id = ? order by take_time",
+                "select id, period, drug_name as drugName, frequency, date_format(take_time, '%H:%i') as takeTime, dosage, reminder_enabled = 1 as reminderEnabled from medication_record where user_id = ? order by take_time",
                 id
         ));
         row.put("healthData", jdbcTemplate.queryForList(
-                "select date_format(record_date, '%m-%d') as day, " +
+                "select min(id) as id, date_format(record_date, '%m-%d') as day, date_format(record_date, '%Y-%m-%d') as recordDate, " +
                         "max(case when data_type = 'weight' then cast(value as decimal(8,2)) end) as weight, " +
                         "max(case when data_type = 'heart_rate' then cast(value as unsigned) end) as heartRate " +
                         "from health_data where user_id = ? group by record_date order by record_date",
                 id
         ));
-        row.put("devices", jdbcTemplate.queryForList("select device_name as deviceName, device_type as deviceType, device_code as deviceCode, if(status = 1, '绑定', '解绑') as status from device where user_id = ? order by id", id));
-        row.put("reports", jdbcTemplate.queryForList("select title, report_type as reportType, date_format(report_date, '%Y-%m-%d') as reportDate, doctor_name as doctorName from report where user_id = ? order by report_date desc", id));
-        row.put("orders", jdbcTemplate.queryForList("select order_no as orderNo, product_name as productName, amount, status from service_order where buyer_id = ? order by id desc", id));
-        row.put("coupons", jdbcTemplate.queryForList("select coupon_no as couponNo, name, type, discount, status, date_format(expire_date, '%Y-%m-%d') as expireDate from coupon where user_id = ? order by id desc", id));
-        row.put("points", jdbcTemplate.queryForList("select points, level, growth_value as growthValue from user_points where user_id = ?", id));
-        row.put("contents", jdbcTemplate.queryForList("select id, title, type, if(status = 1, '已发布', '草稿') as status from operation_content where publisher = ? order by id desc", row.get("realName")));
-        row.put("serviceRecords", jdbcTemplate.queryForList("select order_no as orderNo, service_item as serviceItem, amount, status from work_order where customer_id = ? order by id desc", id));
+        row.put("devices", jdbcTemplate.queryForList("select id, device_name as deviceName, device_type as deviceType, device_code as deviceCode, if(status = 1, '绑定', '解绑') as status from device where user_id = ? order by id", id));
+        row.put("reports", jdbcTemplate.queryForList("select id, title, report_type as reportType, date_format(report_date, '%Y-%m-%d') as reportDate, doctor_name as doctorName, summary from report where user_id = ? order by report_date desc", id));
+        row.put("orders", jdbcTemplate.queryForList("select id, order_no as orderNo, product_name as productName, amount, status, service_type as serviceType from service_order where buyer_id = ? order by id desc", id));
+        row.put("coupons", jdbcTemplate.queryForList("select id, coupon_no as couponNo, name, type, discount, status, date_format(expire_date, '%Y-%m-%d') as expireDate from coupon where user_id = ? order by id desc", id));
+        row.put("points", jdbcTemplate.queryForList("select id, points, total_earned as totalEarned, total_spent as totalSpent, level, growth_value as growthValue from user_points where user_id = ?", id));
+        row.put("contents", jdbcTemplate.queryForList("select id, title, type, publisher, author, if(status = 1, '已发布', '草稿') as status from operation_content where publisher = ? order by id desc", row.get("realName")));
+        row.put("serviceRecords", jdbcTemplate.queryForList("select id, order_no as orderNo, service_item as serviceItem, amount, status, date_format(service_time, '%Y-%m-%d %H:%i:%s') as serviceTime, date_format(complete_time, '%Y-%m-%d %H:%i:%s') as completeTime from work_order where customer_id = ? order by id desc", id));
         return row;
     }
 
@@ -380,7 +380,7 @@ public class JdbcAdminDataService implements AdminDataService {
             ));
         } else if ("orders".equals(name)) {
             long productId = longValue(payload, "productId", firstId("product"));
-            long buyerId = longValue(payload, "buyerId", firstId("user"));
+            long buyerId = userId(payload, "buyerId", firstId("user"));
             Map<String, Object> product = firstRow("select name, price, category from product where id = ?", productId);
             String productName = text(payload, "productName", stringValue(product.get("name")));
             BigDecimal amount = decimal(payload, "amount", toDecimal(product.get("price"), BigDecimal.valueOf(99)));
@@ -394,7 +394,7 @@ public class JdbcAdminDataService implements AdminDataService {
                     "service_type", text(payload, "serviceType", stringValue(product.get("category")))
             ));
         } else if ("appointments".equals(name)) {
-            long customerId = longValue(payload, "customerId", firstId("user"));
+            long customerId = userId(payload, "customerId", firstId("user"));
             id = insert("work_order", record(
                     "order_no", text(payload, "orderNo", "WO" + System.currentTimeMillis()),
                     "order_id", longValue(payload, "orderId", firstId("service_order")),
@@ -410,7 +410,7 @@ public class JdbcAdminDataService implements AdminDataService {
             ));
         } else if ("workOrders".equals(name)) {
             long orderId = longValue(payload, "orderId", firstId("service_order"));
-            long customerId = longValue(payload, "customerId", firstId("user"));
+            long customerId = userId(payload, "customerId", firstId("user"));
             id = insert("work_order", record(
                     "order_no", text(payload, "orderNo", "WO" + System.currentTimeMillis()),
                     "order_id", orderId,
@@ -427,7 +427,7 @@ public class JdbcAdminDataService implements AdminDataService {
         } else if ("afterSales".equals(name)) {
             id = insert("after_sale", record(
                     "order_id", longValue(payload, "orderId", firstId("service_order")),
-                    "applicant_id", longValue(payload, "applicantId", firstId("user")),
+                    "applicant_id", userId(payload, "applicantId", firstId("user")),
                     "reason", text(payload, "reason", "服务时间变更"),
                     "status", text(payload, "status", "处理中")
             ));
@@ -435,7 +435,7 @@ public class JdbcAdminDataService implements AdminDataService {
             id = insert("review", record(
                     "order_id", longValue(payload, "orderId", firstId("service_order")),
                     "product_id", longValue(payload, "productId", firstId("product")),
-                    "user_id", longValue(payload, "userId", firstId("user")),
+                    "user_id", userId(payload, "userId", firstId("user")),
                     "rating", longValue(payload, "rating", 5),
                     "content", text(payload, "content", "服务体验良好"),
                     "visible", 1
@@ -508,7 +508,7 @@ public class JdbcAdminDataService implements AdminDataService {
         } else if ("orders".equals(name)) {
             putIfPresent(values, "product_name", payload, "productName");
             if (payload.containsKey("amount")) values.put("amount", decimal(payload, "amount", BigDecimal.valueOf(99)));
-            if (payload.containsKey("buyerId")) values.put("buyer_id", longValue(payload, "buyerId", firstId("user")));
+            if (hasUserRef(payload, "buyerId")) values.put("buyer_id", userId(payload, "buyerId", firstId("user")));
             putIfPresent(values, "status", payload, "status");
             putIfPresent(values, "service_type", payload, "serviceType");
             updateById("service_order", id, values);
@@ -516,17 +516,19 @@ public class JdbcAdminDataService implements AdminDataService {
             putIfPresent(values, "service_item", payload, "serviceItem");
             putIfPresent(values, "service_item", payload, "serviceName");
             if (payload.containsKey("amount")) values.put("amount", decimal(payload, "amount", BigDecimal.valueOf(99)));
-            if (payload.containsKey("customerId")) values.put("customer_id", longValue(payload, "customerId", firstId("user")));
+            if (hasUserRef(payload, "customerId")) values.put("customer_id", userId(payload, "customerId", firstId("user")));
             if (payload.containsKey("personnelId")) values.put("personnel_id", longValue(payload, "personnelId", firstId("service_personnel")));
             putIfPresent(values, "status", payload, "status");
             putIfPresent(values, "service_time", payload, "serviceTime");
             putIfPresent(values, "complete_time", payload, "completeTime");
             updateById("work_order", id, values);
         } else if ("afterSales".equals(name)) {
+            if (hasUserRef(payload, "applicantId")) values.put("applicant_id", userId(payload, "applicantId", firstId("user")));
             putIfPresent(values, "reason", payload, "reason");
             putIfPresent(values, "status", payload, "status");
             updateById("after_sale", id, values);
         } else if ("reviews".equals(name)) {
+            if (hasUserRef(payload, "userId")) values.put("user_id", userId(payload, "userId", firstId("user")));
             if (payload.containsKey("rating")) values.put("rating", longValue(payload, "rating", 5));
             putIfPresent(values, "content", payload, "content");
             updateById("review", id, values);
@@ -688,6 +690,8 @@ public class JdbcAdminDataService implements AdminDataService {
 
     private String phaseTableName(String resourceName) {
         if ("healthSettings".equals(resourceName)) return "health_settings";
+        if ("healthData".equals(resourceName)) return "health_data";
+        if ("medications".equals(resourceName)) return "medication_record";
         if ("devices".equals(resourceName)) return "device";
         if ("reports".equals(resourceName)) return "report";
         if ("coupons".equals(resourceName)) return "coupon";
@@ -714,6 +718,8 @@ public class JdbcAdminDataService implements AdminDataService {
 
     private List<Map<String, Object>> phaseRows(String name) {
         if ("healthSettings".equals(name)) return jdbcTemplate.queryForList("select h.id, u.real_name as userName, h.step_goal as stepGoal, h.sleep_goal as sleepGoal, if(h.medication_reminder = 1, '启用', '禁用') as status from health_settings h left join `user` u on h.user_id = u.id order by h.id");
+        if ("healthData".equals(name)) return jdbcTemplate.queryForList("select h.id, u.real_name as userName, h.data_type as dataType, h.value, h.unit, date_format(h.record_date, '%Y-%m-%d') as recordDate, date_format(h.record_time, '%H:%i:%s') as recordTime, h.source from health_data h left join `user` u on h.user_id = u.id order by h.record_date desc, h.id desc");
+        if ("medications".equals(name)) return jdbcTemplate.queryForList("select m.id, u.real_name as userName, m.period, m.drug_name as drugName, m.frequency, date_format(m.take_time, '%H:%i:%s') as takeTime, m.dosage, if(m.reminder_enabled = 1, '启用', '禁用') as status from medication_record m left join `user` u on m.user_id = u.id order by m.id");
         if ("devices".equals(name)) return jdbcTemplate.queryForList("select d.id, u.real_name as userName, d.device_name as deviceName, d.device_type as deviceType, d.device_code as deviceCode, if(d.status = 1, '绑定', '解绑') as status from device d left join `user` u on d.user_id = u.id order by d.id");
         if ("reports".equals(name)) return jdbcTemplate.queryForList("select r.id, u.real_name as userName, r.title, r.report_type as reportType, date_format(r.report_date, '%Y-%m-%d') as reportDate, r.doctor_name as doctorName from report r left join `user` u on r.user_id = u.id order by r.id");
         if ("coupons".equals(name)) return jdbcTemplate.queryForList("select id, coupon_no as couponNo, name, type, discount, status, date_format(expire_date, '%Y-%m-%d') as expireDate from coupon order by id");
@@ -739,19 +745,21 @@ public class JdbcAdminDataService implements AdminDataService {
     }
 
     private Map<String, Object> phaseCreateValues(String name, Map<String, Object> payload) {
-        if ("healthSettings".equals(name)) return record("user_id", longValue(payload, "userId", firstId("user")), "heart_rate_upper", longValue(payload, "heartRateUpper", 110), "heart_rate_lower", longValue(payload, "heartRateLower", 55), "step_goal", longValue(payload, "stepGoal", 6000), "sleep_goal", decimal(payload, "sleepGoal", BigDecimal.valueOf(7)), "medication_reminder", statusCode(text(payload, "status", "启用")));
-        if ("devices".equals(name)) return record("user_id", longValue(payload, "userId", firstId("user")), "device_name", text(payload, "deviceName", "智能设备"), "device_type", text(payload, "deviceType", "band"), "device_code", text(payload, "deviceCode", "DEV" + uniqueDigits(6)), "bind_time", null, "last_sync_time", null, "status", statusCode(text(payload, "status", "启用")));
-        if ("reports".equals(name)) return record("user_id", longValue(payload, "userId", firstId("user")), "title", text(payload, "title", "健康报告"), "report_type", text(payload, "reportType", "健康评估"), "report_date", nullIfBlank(text(payload, "reportDate", LocalDate.now().toString())), "file_url", text(payload, "fileUrl", ""), "summary", text(payload, "summary", ""), "doctor_name", text(payload, "doctorName", "系统医生"));
-        if ("coupons".equals(name)) return record("user_id", nullableLong(payload, "userId"), "coupon_no", text(payload, "couponNo", "CP" + System.currentTimeMillis()), "name", text(payload, "name", "优惠券"), "type", text(payload, "type", "满减"), "discount", decimal(payload, "discount", BigDecimal.valueOf(10)), "min_amount", decimal(payload, "minAmount", BigDecimal.ZERO), "status", text(payload, "status", "未使用"), "expire_date", nullIfBlank(text(payload, "expireDate", LocalDate.now().plusDays(30).toString())));
-        if ("userPoints".equals(name)) return record("user_id", longValue(payload, "userId", firstId("user")), "points", longValue(payload, "points", 0), "total_earned", longValue(payload, "totalEarned", 0), "total_spent", longValue(payload, "totalSpent", 0), "level", text(payload, "level", "普通"), "growth_value", longValue(payload, "growthValue", 0));
-        if ("pointsRecords".equals(name)) return record("user_id", longValue(payload, "userId", firstId("user")), "change_value", longValue(payload, "changeValue", 1), "reason", text(payload, "reason", "后台调整"));
+        if ("healthSettings".equals(name)) return record("user_id", userId(payload, "userId", firstId("user")), "heart_rate_upper", longValue(payload, "heartRateUpper", 110), "heart_rate_lower", longValue(payload, "heartRateLower", 55), "step_goal", longValue(payload, "stepGoal", 6000), "sleep_goal", decimal(payload, "sleepGoal", BigDecimal.valueOf(7)), "medication_reminder", statusCode(text(payload, "status", "启用")));
+        if ("healthData".equals(name)) return record("user_id", userId(payload, "userId", firstId("user")), "data_type", text(payload, "dataType", "weight"), "value", text(payload, "value", "0"), "unit", text(payload, "unit", ""), "record_date", nullIfBlank(text(payload, "recordDate", LocalDate.now().toString())), "record_time", nullIfBlank(text(payload, "recordTime", "")), "source", text(payload, "source", "后台录入"), "device_id", nullableLong(payload, "deviceId"));
+        if ("medications".equals(name)) return record("user_id", userId(payload, "userId", firstId("user")), "period", text(payload, "period", "早餐"), "drug_name", text(payload, "drugName", "药品"), "frequency", text(payload, "frequency", "每天"), "take_time", nullIfBlank(text(payload, "takeTime", "")), "dosage", text(payload, "dosage", ""), "reminder_enabled", statusCode(text(payload, "status", "启用")), "source", text(payload, "source", "后台录入"), "creator", text(payload, "creator", "系统管理员"));
+        if ("devices".equals(name)) return record("user_id", userId(payload, "userId", firstId("user")), "device_name", text(payload, "deviceName", "智能设备"), "device_type", text(payload, "deviceType", "band"), "device_code", text(payload, "deviceCode", "DEV" + uniqueDigits(6)), "bind_time", null, "last_sync_time", null, "status", statusCode(text(payload, "status", "启用")));
+        if ("reports".equals(name)) return record("user_id", userId(payload, "userId", firstId("user")), "title", text(payload, "title", "健康报告"), "report_type", text(payload, "reportType", "健康评估"), "report_date", nullIfBlank(text(payload, "reportDate", LocalDate.now().toString())), "file_url", text(payload, "fileUrl", ""), "summary", text(payload, "summary", ""), "doctor_name", text(payload, "doctorName", "系统医生"));
+        if ("coupons".equals(name)) return record("user_id", nullableUserId(payload, "userId"), "coupon_no", text(payload, "couponNo", "CP" + System.currentTimeMillis()), "name", text(payload, "name", "优惠券"), "type", text(payload, "type", "满减"), "discount", decimal(payload, "discount", BigDecimal.valueOf(10)), "min_amount", decimal(payload, "minAmount", BigDecimal.ZERO), "status", text(payload, "status", "未使用"), "expire_date", nullIfBlank(text(payload, "expireDate", LocalDate.now().plusDays(30).toString())));
+        if ("userPoints".equals(name)) return record("user_id", userId(payload, "userId", firstId("user")), "points", longValue(payload, "points", 0), "total_earned", longValue(payload, "totalEarned", 0), "total_spent", longValue(payload, "totalSpent", 0), "level", text(payload, "level", "普通"), "growth_value", longValue(payload, "growthValue", 0));
+        if ("pointsRecords".equals(name)) return record("user_id", userId(payload, "userId", firstId("user")), "change_value", longValue(payload, "changeValue", 1), "reason", text(payload, "reason", "后台调整"));
         if ("memberLevels".equals(name)) return record("name", text(payload, "name", "新等级"), "min_growth", longValue(payload, "minGrowth", 0), "max_growth", nullableLong(payload, "maxGrowth"), "icon", text(payload, "icon", ""), "benefits", text(payload, "benefits", ""), "status", statusCode(text(payload, "status", "启用")));
         if ("pointsRules".equals(name)) return record("action_type", text(payload, "actionType", "action" + uniqueDigits(4)), "description", text(payload, "description", "积分规则"), "points", longValue(payload, "points", 1), "growth", longValue(payload, "growth", 1), "daily_limit", nullableLong(payload, "dailyLimit"), "status", statusCode(text(payload, "status", "启用")));
         if ("productCategories".equals(name)) return record("name", text(payload, "name", "新分类"), "code", text(payload, "code", "CAT" + uniqueDigits(4)), "description", text(payload, "description", ""), "sort_order", longValue(payload, "sortOrder", 0), "status", statusCode(text(payload, "status", "启用")));
         if ("serviceItems".equals(name)) return record("product_id", longValue(payload, "productId", firstId("product")), "name", text(payload, "name", "服务项目"), "description", text(payload, "description", ""), "duration", longValue(payload, "duration", 60), "price", decimal(payload, "price", BigDecimal.valueOf(99)), "status", statusCode(text(payload, "status", "启用")));
         if ("banners".equals(name)) return record("title", text(payload, "title", "轮播图"), "image_url", text(payload, "imageUrl", "https://example.com/banner.png"), "link_url", text(payload, "linkUrl", ""), "sort_order", longValue(payload, "sortOrder", 0), "location", text(payload, "location", "home"), "status", statusCode(text(payload, "status", "启用")));
         if ("activities".equals(name)) return record("title", text(payload, "title", "活动"), "cover_url", text(payload, "coverUrl", ""), "location", text(payload, "location", ""), "start_time", text(payload, "startTime", LocalDate.now().toString() + " 09:00:00"), "end_time", nullIfBlank(text(payload, "endTime", "")), "quota", longValue(payload, "quota", 50), "enrolled", longValue(payload, "enrolled", 0), "status", text(payload, "status", "published"), "content", text(payload, "content", ""));
-        if ("activityEnrolls".equals(name)) return record("activity_id", longValue(payload, "activityId", firstId("activity")), "user_id", longValue(payload, "userId", firstId("user")), "status", text(payload, "status", "enrolled"), "remark", text(payload, "remark", ""));
+        if ("activityEnrolls".equals(name)) return record("activity_id", longValue(payload, "activityId", firstId("activity")), "user_id", userId(payload, "userId", firstId("user")), "status", text(payload, "status", "enrolled"), "remark", text(payload, "remark", ""));
         if ("topics".equals(name)) return record("name", text(payload, "name", "新话题"), "description", text(payload, "description", ""), "icon", text(payload, "icon", ""), "post_count", longValue(payload, "postCount", 0), "status", statusCode(text(payload, "status", "启用")));
         if ("recipes".equals(name)) return record("name", text(payload, "title", text(payload, "name", "新菜谱")), "category", text(payload, "category", "午餐"), "ingredients", text(payload, "ingredients", "食材"), "steps", text(payload, "steps", "步骤"), "calories", longValue(payload, "calories", 300), "suitable_for", text(payload, "suitableFor", ""), "cover_url", text(payload, "coverUrl", ""), "status", statusCode(text(payload, "status", "启用")));
         if ("articles".equals(name)) return record("title", text(payload, "title", "新资讯"), "summary", text(payload, "summary", ""), "content", text(payload, "content", ""), "cover_url", text(payload, "coverUrl", ""), "author", text(payload, "author", "运营中心"), "category", text(payload, "category", "养生"), "tags", text(payload, "tags", ""), "view_count", longValue(payload, "viewCount", 0), "status", statusCode(text(payload, "status", "已发布")));
@@ -760,7 +768,7 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("videos".equals(name)) return record("title", text(payload, "title", "视频"), "description", text(payload, "description", ""), "cover_url", text(payload, "coverUrl", ""), "video_url", text(payload, "videoUrl", "https://example.com/video.mp4"), "duration", longValue(payload, "duration", 600), "lecturer", text(payload, "lecturer", ""), "category", text(payload, "category", "健康"), "view_count", longValue(payload, "viewCount", 0), "status", statusCode(text(payload, "status", "已发布")));
         if ("foods".equals(name)) return record("name", text(payload, "title", text(payload, "name", "食物")), "category", text(payload, "category", "主食"), "calories", longValue(payload, "calories", 100), "protein", decimal(payload, "protein", BigDecimal.ZERO), "fat", decimal(payload, "fat", BigDecimal.ZERO), "carbs", decimal(payload, "carbs", BigDecimal.ZERO), "fiber", decimal(payload, "fiber", BigDecimal.ZERO), "sodium", decimal(payload, "sodium", BigDecimal.ZERO), "suitable_for", text(payload, "suitableFor", ""), "status", statusCode(text(payload, "status", "启用")));
         if ("assessments".equals(name)) return record("title", text(payload, "title", "测评"), "description", text(payload, "description", ""), "type", text(payload, "type", "custom"), "questions", text(payload, "questions", "[]"), "scoring_rules", text(payload, "scoringRules", "{}"), "status", statusCode(text(payload, "status", "启用")));
-        if ("assessmentResults".equals(name)) return record("assessment_id", longValue(payload, "assessmentId", firstId("assessment")), "user_id", longValue(payload, "userId", firstId("user")), "score", longValue(payload, "score", 0), "result", text(payload, "result", ""), "answers", text(payload, "answers", "{}"));
+        if ("assessmentResults".equals(name)) return record("assessment_id", longValue(payload, "assessmentId", firstId("assessment")), "user_id", userId(payload, "userId", firstId("user")), "score", longValue(payload, "score", 0), "result", text(payload, "result", ""), "answers", text(payload, "answers", "{}"));
         return record("title", text(payload, "title", "新增内容"));
     }
 
@@ -802,6 +810,60 @@ public class JdbcAdminDataService implements AdminDataService {
             throw new IllegalArgumentException("基础数据不存在：" + tableName);
         }
         return ((Number) rows.get(0).get("id")).longValue();
+    }
+
+    private boolean hasUserRef(Map<String, Object> payload, String idKey) {
+        return payload != null && (payload.containsKey(idKey) || payload.containsKey("userRef") || payload.containsKey("userName") || payload.containsKey("customerName") || payload.containsKey("buyerName") || payload.containsKey("applicantName"));
+    }
+
+    private long userId(Map<String, Object> payload, String idKey, long fallback) {
+        if (payload == null) {
+            return fallback;
+        }
+        Long parsedId = parseLong(payload.get(idKey));
+        if (parsedId != null && parsedId > 0) {
+            return parsedId;
+        }
+        String ref = firstText(payload, "userRef", "userName", "customerName", "buyerName", "applicantName", idKey);
+        if (ref.length() == 0) {
+            return fallback;
+        }
+        Long refId = parseLong(ref);
+        if (refId != null && refId > 0) {
+            return refId;
+        }
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select id from `user` where real_name = ? or nickname = ? or phone = ? order by id limit 1",
+                ref, ref, ref
+        );
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("未找到用户：" + ref);
+        }
+        return ((Number) rows.get(0).get("id")).longValue();
+    }
+
+    private Object nullableUserId(Map<String, Object> payload, String idKey) {
+        if (!hasUserRef(payload, idKey)) {
+            return null;
+        }
+        Long parsedId = parseLong(payload.get(idKey));
+        String ref = firstText(payload, "userRef", "userName", "customerName", "buyerName", "applicantName", idKey);
+        if ((parsedId == null || parsedId <= 0) && ref.length() == 0) {
+            return null;
+        }
+        return userId(payload, idKey, firstId("user"));
+    }
+
+    private String firstText(Map<String, Object> payload, String... keys) {
+        for (String key : keys) {
+            if (payload.containsKey(key)) {
+                String value = stringValue(payload.get(key)).trim();
+                if (value.length() > 0) {
+                    return value;
+                }
+            }
+        }
+        return "";
     }
 
     private long roleIdByName(String roleName) {
