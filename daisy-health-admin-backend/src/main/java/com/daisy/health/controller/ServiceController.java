@@ -48,6 +48,11 @@ public class ServiceController {
         return ApiResponse.success(dataService.resource("audits"));
     }
 
+    @PutMapping("/audits/{id}")
+    public ApiResponse<Map<String, Object>> updateAudit(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        return ApiResponse.success(dataService.updateResource("audits", id, payload));
+    }
+
     @PostMapping("/audits/{id}/approve")
     public ApiResponse<Map<String, Object>> approve(@PathVariable Long id) {
         return ApiResponse.success(dataService.accepted("approveAudit:" + id));

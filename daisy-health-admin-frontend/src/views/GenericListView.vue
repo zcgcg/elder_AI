@@ -55,6 +55,36 @@
               :value="String(user.id)"
             />
           </el-select>
+          <el-select
+            v-else-if="field.type === 'product'"
+            v-model="form[field.prop]"
+            filterable
+            clearable
+            placeholder="请选择商品"
+            :disabled="readonly"
+          >
+            <el-option
+              v-for="product in productOptions"
+              :key="product.id"
+              :label="product.name"
+              :value="String(product.id)"
+            />
+          </el-select>
+          <el-select
+            v-else-if="field.type === 'activity'"
+            v-model="form[field.prop]"
+            filterable
+            clearable
+            placeholder="请选择活动"
+            :disabled="readonly"
+          >
+            <el-option
+              v-for="activity in activityOptions"
+              :key="activity.id"
+              :label="activity.title"
+              :value="String(activity.id)"
+            />
+          </el-select>
           <el-select v-else-if="field.type === 'select'" v-model="form[field.prop]" placeholder="请选择" :disabled="readonly">
             <el-option v-for="option in field.options" :key="option" :label="option" :value="option" />
           </el-select>
@@ -87,6 +117,8 @@ const saving = ref(false)
 const editingId = ref(null)
 const form = reactive({})
 const userOptions = ref([])
+const productOptions = ref([])
+const activityOptions = ref([])
 const readonly = ref(false)
 const resource = computed(() => route.meta.resourceFromParam ? route.params.resource : route.meta.resource)
 const title = computed(() => titleMap[resource.value] || route.meta.title)
@@ -161,7 +193,7 @@ const columnMap = {
   audits: [{ prop: 'name', label: '申请人' }, { prop: 'serviceType', label: '服务类型' }, { prop: 'auditStatus', label: '审核状态' }, { prop: 'phone', label: '手机号' }, { prop: 'updatedAt', label: '申请时间', width: 170 }],
   workOrders: [{ prop: 'orderNo', label: '工单编号', width: 170 }, { prop: 'serviceItem', label: '服务项目' }, { prop: 'customer', label: '服务客户' }, { prop: 'status', label: '状态' }, { prop: 'updatedAt', label: '派单时间', width: 170 }],
   products: [{ prop: 'name', label: '商品信息', width: 190 }, { prop: 'category', label: '分类' }, { prop: 'price', label: '价格' }, { prop: 'status', label: '状态' }, { prop: 'updatedAt', label: '更新时间', width: 170 }],
-  orders: [{ prop: 'orderNo', label: '订单编号', width: 170 }, { prop: 'productName', label: '商品信息' }, { prop: 'buyer', label: '买家' }, { prop: 'amount', label: '金额' }, { prop: 'status', label: '订单状态' }],
+  orders: [{ prop: 'orderNo', label: '订单编号', width: 170 }, { prop: 'productName', label: '商品信息' }, { prop: 'buyer', label: '买家' }, { prop: 'amount', label: '金额' }, { prop: 'serviceType', label: '服务类型' }, { prop: 'status', label: '订单状态' }],
   afterSales: [{ prop: 'orderNo', label: '订单编号', width: 170 }, { prop: 'applicant', label: '申请人' }, { prop: 'reason', label: '售后原因' }, { prop: 'status', label: '状态' }],
   reviews: [{ prop: 'productName', label: '商品' }, { prop: 'user', label: '用户' }, { prop: 'rating', label: '评分' }, { prop: 'status', label: '状态' }],
   staffs: [{ prop: 'staffNo', label: '员工编号' }, { prop: 'name', label: '姓名' }, { prop: 'role', label: '角色' }, { prop: 'status', label: '状态' }],
@@ -185,7 +217,7 @@ Object.assign(columnMap, {
   recipes: [{ prop: 'title', label: '菜谱名称' }, { prop: 'category', label: '分类' }, { prop: 'calories', label: '热量' }, { prop: 'suitableFor', label: '适宜人群' }, { prop: 'status', label: '状态' }],
   diseases: [{ prop: 'title', label: '疾病名称' }, { prop: 'category', label: '分类' }, { prop: 'summary', label: '简介', width: 220 }, { prop: 'status', label: '状态' }],
   institutions: [{ prop: 'title', label: '机构名称' }, { prop: 'type', label: '类型' }, { prop: 'address', label: '地址', width: 220 }, { prop: 'rating', label: '评分' }, { prop: 'capacity', label: '床位' }, { prop: 'status', label: '状态' }],
-  videos: [{ prop: 'title', label: '视频标题' }, { prop: 'lecturer', label: '讲师' }, { prop: 'category', label: '分类' }, { prop: 'duration', label: '时长' }, { prop: 'viewCount', label: '播放' }, { prop: 'status', label: '状态' }],
+  videos: [{ prop: 'title', label: '视频标题' }, { prop: 'lecturer', label: '讲师' }, { prop: 'category', label: '分类' }, { prop: 'duration', label: '时长' }, { prop: 'status', label: '状态' }],
   foods: [{ prop: 'title', label: '食物名称' }, { prop: 'category', label: '分类' }, { prop: 'calories', label: '热量' }, { prop: 'protein', label: '蛋白质' }, { prop: 'fat', label: '脂肪' }, { prop: 'carbs', label: '碳水' }, { prop: 'status', label: '状态' }],
   assessments: [{ prop: 'title', label: '测评名称' }, { prop: 'type', label: '类型' }, { prop: 'status', label: '状态' }],
   assessmentResults: [{ prop: 'assessmentTitle', label: '测评' }, { prop: 'userName', label: '用户' }, { prop: 'score', label: '得分' }, { prop: 'result', label: '结果' }]
@@ -202,7 +234,7 @@ const createFieldMap = {
     { prop: 'serviceItem', label: '服务项目', required: true, placeholder: '如：助浴护理' },
     { prop: 'amount', label: '金额', type: 'number' },
     { prop: 'userRef', label: '客户', type: 'user' },
-    { prop: 'status', label: '状态', type: 'select', options: ['pending', 'service_in', 'completed', 'cancelled'] }
+    { prop: 'status', label: '状态', type: 'select', options: ['待服务', '服务中', '已完成', '已取消'] }
   ],
   products: [
     { prop: 'name', label: '商品名称', required: true, placeholder: '如：助餐陪诊服务' },
@@ -215,7 +247,7 @@ const createFieldMap = {
     { prop: 'userRef', label: '买家', type: 'user' },
     { prop: 'amount', label: '金额', type: 'number' },
     { prop: 'serviceType', label: '服务类型', type: 'select', options: ['家政护理', '康复理疗', '上门体检'] },
-    { prop: 'status', label: '状态', type: 'select', options: ['pending_accept', 'pending_service', 'completed', 'closed', 'after_sale'] }
+    { prop: 'status', label: '状态', type: 'select', options: ['待接单', '待服务', '已完成', '已关闭', '售后中'] }
   ],
   afterSales: [
     { prop: 'orderId', label: '订单ID', type: 'number' },
@@ -225,7 +257,7 @@ const createFieldMap = {
   ],
   reviews: [
     { prop: 'userRef', label: '用户', type: 'user' },
-    { prop: 'productId', label: '商品ID', type: 'number' },
+    { prop: 'productId', label: '商品', type: 'product' },
     { prop: 'rating', label: '评分', type: 'number' },
     { prop: 'content', label: '评价内容', type: 'textarea', placeholder: '请输入评价内容' }
   ],
@@ -268,14 +300,13 @@ createFieldMap.institutions = createFieldMap.activities
 createFieldMap.videos = createFieldMap.articles
 createFieldMap.comments = createFieldMap.posts
 createFieldMap.foods = createFieldMap.articles
-createFieldMap.assessments = createFieldMap.articles
 Object.assign(createFieldMap, {
   devices: [
     { prop: 'userRef', label: '用户', type: 'user' },
     { prop: 'deviceName', label: '设备名称', required: true, placeholder: '如：小米手环8' },
     { prop: 'deviceType', label: '设备类型', placeholder: 'band/watch/scale' },
     { prop: 'deviceCode', label: '设备编号', placeholder: '设备编号或 MAC' },
-    { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
+    { prop: 'status', label: '状态', type: 'select', options: ['绑定', '解绑'] }
   ],
   reports: [
     { prop: 'userRef', label: '用户', type: 'user' },
@@ -308,22 +339,21 @@ Object.assign(createFieldMap, {
     { prop: 'points', label: '当前积分', type: 'number' },
     { prop: 'totalEarned', label: '累计获得', type: 'number' },
     { prop: 'totalSpent', label: '累计消耗', type: 'number' },
-    { prop: 'level', label: '等级', placeholder: '普通/银卡/金卡' },
+    { prop: 'level', label: '等级', type: 'select', options: ['普通', '银卡', '金卡'] },
     { prop: 'growthValue', label: '成长值', type: 'number' }
   ],
   memberLevels: [
-    { prop: 'name', label: '等级名称', required: true, placeholder: '如：银卡' },
+    { prop: 'name', label: '等级名称', required: true, type: 'select', options: ['普通', '银卡', '金卡'] },
     { prop: 'minGrowth', label: '成长值下限', type: 'number' },
     { prop: 'maxGrowth', label: '成长值上限', type: 'number' },
     { prop: 'benefits', label: '权益', type: 'textarea', placeholder: '权益说明' },
     { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
   ],
   pointsRules: [
-    { prop: 'actionType', label: '行为类型', required: true, placeholder: 'signin/order/review' },
+    { prop: 'actionType', label: '行为类型', required: true, type: 'select', options: ['签到', '完成订单', '发布评价'] },
     { prop: 'description', label: '说明', placeholder: '规则说明' },
     { prop: 'points', label: '积分', type: 'number' },
     { prop: 'growth', label: '成长值', type: 'number' },
-    { prop: 'dailyLimit', label: '每日上限', type: 'number' },
     { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
   ],
   productCategories: [
@@ -334,7 +364,7 @@ Object.assign(createFieldMap, {
     { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
   ],
   serviceItems: [
-    { prop: 'productId', label: '商品ID', type: 'number' },
+    { prop: 'productId', label: '商品', type: 'product' },
     { prop: 'name', label: '项目名称', required: true, placeholder: '服务项目名称' },
     { prop: 'description', label: '描述', type: 'textarea', placeholder: '服务项目描述' },
     { prop: 'duration', label: '时长分钟', type: 'number' },
@@ -356,9 +386,9 @@ Object.assign(createFieldMap, {
     { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
   ],
   activityEnrolls: [
-    { prop: 'activityId', label: '活动ID', type: 'number' },
+    { prop: 'activityId', label: '活动', type: 'activity' },
     { prop: 'userRef', label: '用户', type: 'user' },
-    { prop: 'status', label: '状态', type: 'select', options: ['enrolled', 'cancelled', 'attended'] },
+    { prop: 'status', label: '状态', type: 'select', options: ['已报名', '已取消', '已到场'] },
     { prop: 'remark', label: '备注', placeholder: '备注' }
   ],
   recipes: [
@@ -401,10 +431,9 @@ Object.assign(createFieldMap, {
   ],
   assessments: [
     { prop: 'title', label: '测评名称', required: true, placeholder: '测评名称' },
-    { prop: 'type', label: '类型', placeholder: 'sleep/fall/custom' },
+    { prop: 'type', label: '类型', type: 'select', options: ['睡眠测评', '跌倒风险', '综合测评'] },
     { prop: 'description', label: '说明', type: 'textarea', placeholder: '测评说明' },
-    { prop: 'questions', label: '题目JSON', type: 'textarea', placeholder: '[]' },
-    { prop: 'scoringRules', label: '规则JSON', type: 'textarea', placeholder: '{}' }
+    { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
   ]
 })
 
@@ -439,7 +468,7 @@ function openCreate() {
   Object.keys(form).forEach((key) => delete form[key])
   createFields.value.forEach((field) => {
     if (field.type === 'number') form[field.prop] = 0
-    else if (field.type === 'user') form[field.prop] = ''
+    else if (field.type === 'user' || field.type === 'product' || field.type === 'activity') form[field.prop] = ''
     else if (field.type === 'select') form[field.prop] = field.options[0]
     else form[field.prop] = ''
   })
@@ -462,7 +491,7 @@ function fillForm(row) {
   createFields.value.forEach((field) => {
     const value = field.type === 'user' ? userRefFromRow(row) : row[field.prop]
     if (field.type === 'number') form[field.prop] = Number(value || 0)
-    else if (field.type === 'user') form[field.prop] = String(value || '')
+    else if (field.type === 'user' || field.type === 'product' || field.type === 'activity') form[field.prop] = String(value || '')
     else if (field.type === 'select') form[field.prop] = value || field.options[0]
     else form[field.prop] = value || ''
   })
@@ -479,6 +508,11 @@ async function loadUsers() {
   } catch (error) {
     userOptions.value = []
   }
+}
+async function loadOptions() {
+  const [products, activities] = await Promise.allSettled([getResource('products'), getResource('activities')])
+  if (products.status === 'fulfilled') productOptions.value = products.value.list || products.value || []
+  if (activities.status === 'fulfilled') activityOptions.value = activities.value.list || activities.value || []
 }
 async function submitCreate() {
   const required = createFields.value.find((field) => field.required && !String(form[field.prop] || '').trim())
@@ -512,6 +546,6 @@ async function removeRow(row) {
 }
 watch(() => route.fullPath, load)
 onMounted(async () => {
-  await Promise.all([load(), loadUsers()])
+  await Promise.all([load(), loadUsers(), loadOptions()])
 })
 </script>
