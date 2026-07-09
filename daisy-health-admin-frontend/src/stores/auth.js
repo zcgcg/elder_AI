@@ -9,6 +9,11 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     isAuthenticated: (state) => Boolean(state.token),
+    homePath: (state) => {
+      if (state.user?.roleType === 'elderly') return '/portal/user'
+      if (state.user?.roleType === 'service') return '/portal/service'
+      return '/dashboard'
+    },
     canAccess: (state) => (module, action = 'view') => {
       const permissions = state.permissions || state.user?.permissions
       if (!permissions) return false
@@ -20,41 +25,25 @@ export const useAuthStore = defineStore('auth', {
   actions: {
     async signIn(payload) {
       const res = await login(payload)
-      if (!isAdminUser(res.user)) {
-        this.signOut()
-        throw new Error('该账号不是后台管理端账号')
-      }
       this.token = res.token
       this.user = res.user
       this.permissions = normalizePermissions(res.user?.permissions)
-      localStorage.setItem('daisy_token', this.token)
-      localStorage.setItem('daisy_user', JSON.stringify(this.user))
-      localStorage.setItem('daisy_permissions', JSON.stringify(this.permissions))
+      persist(this.token, this.user, this.permissions)
       return res
     },
     async loadProfile() {
       if (!this.token) return null
       const res = await profile()
-      if (!isAdminUser(res)) {
-        this.signOut()
-        throw new Error('该账号不是后台管理端账号')
-      }
       this.user = res
       this.permissions = normalizePermissions(res.permissions)
-      localStorage.setItem('daisy_user', JSON.stringify(res))
-      localStorage.setItem('daisy_permissions', JSON.stringify(this.permissions))
+      persist(this.token, this.user, this.permissions)
       return res
     },
     async saveProfile(payload) {
       const res = await updateProfile(payload)
-      if (!isAdminUser(res)) {
-        this.signOut()
-        throw new Error('该账号不是后台管理端账号')
-      }
       this.user = res
       this.permissions = normalizePermissions(res.permissions)
-      localStorage.setItem('daisy_user', JSON.stringify(res))
-      localStorage.setItem('daisy_permissions', JSON.stringify(this.permissions))
+      persist(this.token, this.user, this.permissions)
       return res
     },
     signOut() {
@@ -67,6 +56,12 @@ export const useAuthStore = defineStore('auth', {
     }
   }
 })
+
+function persist(token, user, permissions) {
+  localStorage.setItem('daisy_token', token)
+  localStorage.setItem('daisy_user', JSON.stringify(user))
+  localStorage.setItem('daisy_permissions', JSON.stringify(permissions))
+}
 
 function readJson(key) {
   const value = localStorage.getItem(key)
@@ -92,8 +87,4 @@ function normalizePermissions(value) {
     }
   }
   return value
-}
-
-function isAdminUser(user) {
-  return !user?.roleType || user.roleType === 'staff'
 }

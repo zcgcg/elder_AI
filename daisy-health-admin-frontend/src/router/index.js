@@ -8,9 +8,13 @@ import UsersView from '../views/UsersView.vue'
 import UserDetailView from '../views/UserDetailView.vue'
 import GenericListView from '../views/GenericListView.vue'
 import AnalyticsView from '../views/AnalyticsView.vue'
+import UserPortalView from '../views/UserPortalView.vue'
+import ServicePortalView from '../views/ServicePortalView.vue'
 
 const routes = [
   { path: '/login', component: LoginView },
+  { path: '/portal/user', component: UserPortalView },
+  { path: '/portal/service', component: ServicePortalView },
   {
     path: '/',
     component: AdminLayout,
@@ -44,14 +48,25 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   const auth = useAuthStore()
   if (to.path !== '/login' && !auth.isAuthenticated) return '/login'
-  if (to.path !== '/login' && auth.user?.roleType && auth.user.roleType !== 'staff') {
-    auth.signOut()
-    return '/login'
+  if (auth.isAuthenticated && !auth.user) {
+    try {
+      await auth.loadProfile()
+    } catch (error) {
+      auth.signOut()
+      return '/login'
+    }
   }
-  if (to.path === '/login' && auth.isAuthenticated) return '/dashboard'
+  if (to.path === '/login' && auth.isAuthenticated) return auth.homePath
+  if (auth.user?.roleType === 'elderly') {
+    return to.path === '/portal/user' ? true : '/portal/user'
+  }
+  if (auth.user?.roleType === 'service') {
+    return to.path === '/portal/service' ? true : '/portal/service'
+  }
+  if (to.path.startsWith('/portal/')) return '/dashboard'
   const module = moduleForPath(to.path)
   if (module && auth.permissions && !auth.canAccess(module, 'view')) {
     const fallback = firstAccessiblePath(auth)

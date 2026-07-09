@@ -90,7 +90,7 @@ async function submit() {
   loading.value = true
   try {
     await auth.signIn(form)
-    router.push('/dashboard')
+    router.push(auth.homePath)
   } catch (error) {
     ElMessage.error('登录失败，请确认后端服务已启动')
   } finally {
