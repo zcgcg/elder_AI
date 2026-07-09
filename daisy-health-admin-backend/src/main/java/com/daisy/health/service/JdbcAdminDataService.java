@@ -59,54 +59,51 @@ public class JdbcAdminDataService implements AdminDataService {
             throw new IllegalArgumentException("Account and password are required");
         }
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select a.id, a.phone, a.password_hash as passwordHash, a.role_type as roleType, " +
-                        "a.avatar_url as avatarUrl, p.staff_no as staffNo, p.real_name as name, p.remark, " +
-                        "p.role_id as roleId, r.name as role " +
-                        "from account a join admin_profile p on p.account_id = a.id " +
-                        "left join role r on p.role_id = r.id " +
-                        "where a.phone = ? and a.status = 1 and a.role_type = 'staff' limit 1",
+                "select id, phone, password_hash as passwordHash, role_type as roleType, nickname, avatar_url as avatarUrl " +
+                        "from account where phone = ? and status = 1 limit 1",
                 phone
         );
         if (rows.isEmpty()) {
             throw new IllegalArgumentException("Account or password is incorrect");
         }
-        Map<String, Object> user = rows.get(0);
-        String storedPassword = stringValue(user.get("passwordHash"));
+        Map<String, Object> account = rows.get(0);
+        String storedPassword = stringValue(account.get("passwordHash"));
         if (!passwordEncoder.matches(password, storedPassword) && !password.equals(storedPassword)) {
             throw new IllegalArgumentException("Account or password is incorrect");
         }
-        Long accountId = ((Number) user.get("id")).longValue();
+        Long accountId = ((Number) account.get("id")).longValue();
         if (password.equals(storedPassword)) {
             String encoded = passwordEncoder.encode(password);
             jdbcTemplate.update("update account set password_hash = ? where id = ?", encoded, accountId);
-            jdbcTemplate.update("update staff set password_hash = ? where id = ?", encoded, accountId);
+            if ("staff".equals(stringValue(account.get("roleType")))) {
+                jdbcTemplate.update("update staff set password_hash = ? where id = ?", encoded, accountId);
+            }
         }
         jdbcTemplate.update("update account set last_login_time = now() where id = ?", accountId);
+        Map<String, Object> user = loginUser(accountId, stringValue(account.get("roleType")));
+        if (user.isEmpty()) {
+            throw new IllegalArgumentException("Account profile is not configured");
+        }
         user.remove("passwordHash");
-        user.put("permissions", permissionService.loadPermissions(accountId));
-        String token = jwtService.createToken(accountId, stringValue(user.get("roleType")), phone);
+        String roleType = stringValue(user.get("roleType"));
+        user.put("permissions", "staff".equals(roleType) ? permissionService.loadPermissions(accountId) : Collections.emptyMap());
+        String token = jwtService.createToken(accountId, roleType, phone);
         return record("token", token, "user", user);
     }
 
     @Override
     public Map<String, Object> profile() {
         AuthenticatedUser current = currentUser();
+        if (current != null && !"staff".equals(current.getRoleType())) {
+            Map<String, Object> profile = loginUser(current.getAccountId(), current.getRoleType());
+            profile.put("permissions", Collections.emptyMap());
+            return profile;
+        }
         List<Map<String, Object>> rows = current == null
-                ? jdbcTemplate.queryForList(
-                        "select a.id, p.staff_no as staffNo, p.real_name as name, a.phone, a.avatar_url as avatarUrl, p.remark, " +
-                                "p.role_id as roleId, r.name as role, r.permissions, date_format(a.updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt " +
-                                "from account a join admin_profile p on p.account_id = a.id left join role r on p.role_id = r.id " +
-                                "where a.status = 1 and a.role_type = 'staff' order by a.id limit 1"
-                )
-                : jdbcTemplate.queryForList(
-                        "select a.id, p.staff_no as staffNo, p.real_name as name, a.phone, a.avatar_url as avatarUrl, p.remark, " +
-                                "p.role_id as roleId, r.name as role, r.permissions, date_format(a.updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt " +
-                                "from account a join admin_profile p on p.account_id = a.id left join role r on p.role_id = r.id " +
-                                "where a.id = ? and a.status = 1 limit 1",
-                        current.getAccountId()
-                );
+                ? jdbcTemplate.queryForList(staffProfileSql() + " where a.status = 1 and a.role_type = 'staff' order by a.id limit 1")
+                : jdbcTemplate.queryForList(staffProfileSql() + " where a.id = ? and a.status = 1 limit 1", current.getAccountId());
         if (rows.isEmpty()) {
-            return record("id", 1, "staffNo", "S0001", "name", "System Admin", "phone", "13800000000", "role", "Admin", "avatarUrl", "", "remark", "");
+            return record("id", 1, "staffNo", "S0001", "name", "System Admin", "phone", "13800000000", "role", "Admin", "roleType", "staff", "avatarUrl", "", "remark", "", "permissions", Collections.emptyMap());
         }
         Map<String, Object> row = rows.get(0);
         row.put("permissions", permissionsMap(row.remove("permissions")));
@@ -960,6 +957,43 @@ public class JdbcAdminDataService implements AdminDataService {
         } catch (Exception ex) {
             return null;
         }
+    }
+
+    private Map<String, Object> loginUser(Long accountId, String roleType) {
+        if ("staff".equals(roleType)) {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(staffProfileSql() + " where a.id = ? and a.status = 1 limit 1", accountId);
+            return rows.isEmpty() ? new LinkedHashMap<String, Object>() : rows.get(0);
+        }
+        if ("elderly".equals(roleType)) {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "select a.id, a.phone, a.role_type as roleType, a.nickname, a.avatar_url as avatarUrl, " +
+                            "p.legacy_user_id as legacyUserId, p.real_name as name, 'elderly' as role, " +
+                            "date_format(a.updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt " +
+                            "from account a join elderly_profile p on p.account_id = a.id " +
+                            "where a.id = ? and a.status = 1 limit 1",
+                    accountId
+            );
+            return rows.isEmpty() ? new LinkedHashMap<String, Object>() : rows.get(0);
+        }
+        if ("service".equals(roleType)) {
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "select a.id, a.phone, a.role_type as roleType, a.nickname, a.avatar_url as avatarUrl, " +
+                            "p.legacy_personnel_id as legacyPersonnelId, p.real_name as name, 'service' as role, " +
+                            "p.service_type as serviceType, p.area, p.audit_status as auditStatus, " +
+                            "date_format(a.updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt " +
+                            "from account a join service_profile p on p.account_id = a.id " +
+                            "where a.id = ? and a.status = 1 limit 1",
+                    accountId
+            );
+            return rows.isEmpty() ? new LinkedHashMap<String, Object>() : rows.get(0);
+        }
+        return new LinkedHashMap<String, Object>();
+    }
+
+    private String staffProfileSql() {
+        return "select a.id, a.role_type as roleType, p.staff_no as staffNo, p.real_name as name, a.phone, a.avatar_url as avatarUrl, p.remark, " +
+                "p.role_id as roleId, r.name as role, r.permissions, date_format(a.updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt " +
+                "from account a join admin_profile p on p.account_id = a.id left join role r on p.role_id = r.id";
     }
 
     private Map<String, List<String>> permissionsMap(Object value) {

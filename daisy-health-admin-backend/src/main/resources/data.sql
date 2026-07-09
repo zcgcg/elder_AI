@@ -619,9 +619,10 @@ on duplicate key update
   updated_at = values(updated_at);
 
 insert into account(id, phone, password_hash, role_type, nickname, avatar_url, status, last_login_time, created_at, updated_at)
-select id, phone, 'admin123', 'elderly', nickname, avatar_url, status, last_login_time, created_at, updated_at from `user`
+select id, phone, '753951', 'elderly', nickname, avatar_url, status, last_login_time, created_at, updated_at from `user`
 on duplicate key update
   phone = values(phone),
+  password_hash = values(password_hash),
   nickname = values(nickname),
   avatar_url = values(avatar_url),
   status = values(status),
@@ -651,9 +652,10 @@ on duplicate key update
   last_buy_time = values(last_buy_time);
 
 insert into account(id, phone, password_hash, role_type, nickname, avatar_url, status, created_at, updated_at)
-select 200000 + id, phone, 'admin123', 'service', name, avatar_url, status, created_at, created_at from service_personnel
+select 200000 + id, phone, '753951', 'service', name, avatar_url, status, created_at, created_at from service_personnel
 on duplicate key update
   phone = values(phone),
+  password_hash = values(password_hash),
   nickname = values(nickname),
   avatar_url = values(avatar_url),
   status = values(status),

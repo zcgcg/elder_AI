@@ -31,6 +31,12 @@ public class PermissionService {
         if (module == null || AUTHENTICATED_ONLY.contains(module)) {
             return true;
         }
+        if ("elderly".equals(module)) {
+            return user != null && "elderly".equals(user.getRoleType());
+        }
+        if ("service-app".equals(module)) {
+            return user != null && "service".equals(user.getRoleType());
+        }
         if (user == null || !"staff".equals(user.getRoleType())) {
             return false;
         }
@@ -85,6 +91,8 @@ public class PermissionService {
             return null;
         }
         if ("auth".equals(segment) || "uploads".equals(segment)) return segment;
+        if ("elderly".equals(segment)) return "elderly";
+        if ("service-app".equals(segment)) return "service-app";
         if ("dashboard".equals(segment) || "appointments".equals(segment)) return "dashboard";
         if ("analytics".equals(segment)) return "analytics";
         if ("users".equals(segment) || "tags".equals(segment) || "messages".equals(segment)

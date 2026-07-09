@@ -781,7 +781,68 @@ GET/POST/PUT/DELETE /api/v1/agreements
 建议后续优先处理：
 
 - 把 `JdbcAdminDataService` 拆分为多个模块 Service。
-- 实现用户端和服务人员端前端入口。
-- 为用户端和服务人员端增加数据归属权限，例如老人只能看自己的健康数据、服务人员只能看自己的工单。
+- 继续细化用户端和服务人员端的业务操作，例如用户端预约/下单、服务人员端服务记录表单和异常上报。
+- 为用户端和服务人员端增加自动化接口测试，覆盖跨角色、跨归属访问拒绝场景。
 - 增加更细的按钮级权限控制和接口自动化测试。
 - 接入 Redis 缓存或会话能力，目前 Redis 依赖存在但业务未强依赖。
+# 用户端与服务人员端新增说明
+
+本次新增了两个完整独立前端和对应后端归属权限接口：
+
+```text
+用户端前端：daisy-health-user-frontend
+服务人员端前端：daisy-health-service-frontend
+```
+
+运行入口：
+
+```bat
+cd D:\agent_project\elder_AI\daisy-health-user-frontend
+cmd /c npm run dev
+```
+
+```text
+用户端访问：http://127.0.0.1:5174
+```
+
+```bat
+cd D:\agent_project\elder_AI\daisy-health-service-frontend
+cmd /c npm run dev
+```
+
+```text
+服务人员端访问：http://127.0.0.1:5175
+```
+
+测试账号：
+
+```text
+后台超级管理员：13402832834 / 753951
+用户端账号：13800010001 / 753951
+服务人员端账号：13900020001 / 753951
+```
+
+本次实现内容：
+
+- 登录改为读取统一账号表 `account`，支持 `staff`、`elderly`、`service` 三类账号登录并签发 JWT。
+- 后台管理端继续使用 `role.permissions` 做 RBAC；用户端和服务人员端不复用后台菜单权限，而是按 `roleType` 进入独立业务接口。
+- 用户端新增接口前缀 `GET /api/v1/elderly/**`，只能由 `role_type = elderly` 的账号访问。
+- 服务人员端新增接口前缀 `GET/PUT /api/v1/service-app/**`，只能由 `role_type = service` 的账号访问。
+- 用户端数据归属由后端根据 token 中的 `accountId` 反查 `elderly_profile.legacy_user_id`，再读取本人健康数据、用药、设备、报告、订单、优惠券和积分；前端不能传入其他用户 ID 越权查看。
+- 服务人员端数据归属由后端根据 token 中的 `accountId` 反查 `service_profile.legacy_personnel_id`，只返回 `work_order.personnel_id` 等于当前服务人员的工单；访问未分配给自己的工单会返回权限错误。
+- 初始化数据会把用户和服务人员账号密码同步为 `753951`，并由 `PasswordMigrationRunner` 在启动后迁移为 BCrypt 哈希。
+
+新增后端文件：
+
+```text
+daisy-health-admin-backend/src/main/java/com/daisy/health/controller/ElderlyPortalController.java
+daisy-health-admin-backend/src/main/java/com/daisy/health/controller/ServiceAppController.java
+daisy-health-admin-backend/src/main/java/com/daisy/health/service/PortalDataService.java
+daisy-health-admin-backend/src/main/java/com/daisy/health/service/JdbcPortalDataService.java
+daisy-health-admin-backend/src/main/java/com/daisy/health/service/MockPortalDataService.java
+```
+
+新增前端页面能力：
+
+- 用户端：登录、总览、个人资料、健康数据、用药记录、设备、报告、订单、优惠券和积分资产。
+- 服务人员端：登录、总览、个人资料、我的工单、工单详情、开始服务、完成服务、取消工单。
