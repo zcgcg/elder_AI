@@ -15,10 +15,18 @@ service.interceptors.response.use(
   (response) => {
     const body = response.data
     if (body && body.code === 0) return body.data
+    if (body && body.message) throw new Error(body.message)
     return body
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(normalizeHttpError(error))
 )
+
+function normalizeHttpError(error) {
+  const message = error?.response?.data?.message || error?.message || ''
+  if (error?.code === 'ECONNABORTED') return new Error('请求超时，请确认后端服务 8080 已启动')
+  if (message === 'Network Error' || !error?.response) return new Error('无法连接后端服务，请先启动 8080 后端')
+  return new Error(message || '请求失败')
+}
 
 export const login = (payload) => service.post('/auth/login', payload)
 export const profile = () => service.get('/auth/profile')

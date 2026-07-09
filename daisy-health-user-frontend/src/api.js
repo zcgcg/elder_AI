@@ -19,8 +19,15 @@ http.interceptors.response.use(
     if (body && body.code === 0) return body.data
     throw new Error(body?.message || '请求失败')
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(normalizeHttpError(error))
 )
+
+function normalizeHttpError(error) {
+  const message = error?.response?.data?.message || error?.message || ''
+  if (error?.code === 'ECONNABORTED') return new Error('请求超时，请确认后端服务 8080 已启动')
+  if (message === 'Network Error' || !error?.response) return new Error('无法连接后端服务，请先启动 8080 后端')
+  return new Error(message || '请求失败')
+}
 
 export const login = (payload) => http.post('/auth/login', payload)
 export const getAuthProfile = () => http.get('/auth/profile')

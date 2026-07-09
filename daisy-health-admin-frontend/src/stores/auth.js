@@ -19,23 +19,7 @@ export const useAuthStore = defineStore('auth', {
   },
   actions: {
     async signIn(payload) {
-      let res
-      try {
-        res = await login(payload)
-      } catch (error) {
-        if (!payload.phone || !payload.password) throw error
-        res = {
-          token: 'local-preview-token',
-          user: {
-            id: 1,
-            name: '系统管理员',
-            phone: payload.phone,
-            role: '超级管理员',
-            roleType: 'staff',
-            permissions: { '*': ['*'] }
-          }
-        }
-      }
+      const res = await login(payload)
       if (!isAdminUser(res.user)) {
         this.signOut()
         throw new Error('该账号不是后台管理端账号')
