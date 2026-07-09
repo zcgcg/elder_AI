@@ -278,9 +278,10 @@ async function submit() {
   display: inline-block;
   box-sizing: border-box;
   position: relative;
-  border: 0;
+  border: 1px solid #dcdfe6;
   border-radius: 3px;
-  background: #54d4ad;
+  background-color: #ffffff;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .agreement-row :deep(.el-checkbox__inner::after) {
@@ -290,8 +291,9 @@ async function submit() {
   top: 2px;
   border-color: #ffffff;
   border-width: 0 3px 3px 0;
-  transform: rotate(45deg) scaleY(1);
+  transform: rotate(45deg) scaleY(0);
   transform-origin: center;
+  transition: transform 0.15s ease;
 }
 
 .agreement-row :deep(.el-checkbox__input.is-checked .el-checkbox__inner::after) {

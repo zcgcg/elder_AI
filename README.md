@@ -13,6 +13,7 @@
 - 新增统一账号表设计：新增 `account`、`admin_profile`、`elderly_profile`、`service_profile`，启动数据会从既有 `staff`、`user`、`service_personnel` 表镜像生成账号资料。
 - 新增密码迁移能力：启动时会把 `staff`、`account` 中仍为明文的 `password_hash` 自动转换为 BCrypt 哈希。
 - 修复前端本地登录缓存容错：`localStorage` 中如果存在旧的 `"undefined"` 用户或权限缓存，前端会自动清理，不再导致 Vue Router 启动失败。
+- 改为统一前端登录入口：管理员、用户、服务人员都从 `http://127.0.0.1:5173` 登录，登录后按 `roleType` 分流到后台管理端、用户工作台或服务人员工作台；已删除独立的 `daisy-health-user-frontend` 和 `daisy-health-service-frontend`。
 - 用户模块的等级管理仅保留普通、银卡、金卡三种等级，后端保存时增加等级名称白名单校验。
 - 积分规则仅保留签到、完成订单、发布评价三种行为，清理初始化数据中的多余等级和多余规则。
 - 等级管理和积分规则页面关闭新增入口，并在编辑时禁用已被其他配置占用的选项，避免唯一键冲突导致保存失败。
@@ -290,16 +291,19 @@ service_profile  服务人员资料镜像，当前用于统一账号设计预留
 
 重要说明：
 
-- 目前真正可登录并进入界面的只有“后台管理端员工账号”，也就是 `role_type = staff` 且存在 `admin_profile` 的账号。
-- `user` 和 `service_personnel` 已被镜像到 `account`、`elderly_profile`、`service_profile`，并预留了默认密码迁移能力，但当前没有实现用户端 App/H5 前端，也没有实现服务人员端前端。
-- 当前 `JwtAuthFilter + PermissionService` 对后台管理端做 RBAC；用户端和服务人员端的业务权限规则还没有落地，例如“老人只能看自己的健康数据”“服务人员只能看分配给自己的工单”。
-- 因此，用户端和服务人员端现在不能通过现有 Vue 管理后台进入。现有 Vue 项目是后台管理系统，不是老人用户端或服务人员工作台。
+- 当前只有一个前端入口：`daisy-health-admin-frontend`，所有账号都在同一个登录页登录。
+- `staff` 后台员工账号登录后进入 `/dashboard`，按 `role.permissions` 做 RBAC，可管理授权范围内的数据。
+- `elderly` 用户账号登录后进入 `/portal/user`，只能查看本人健康数据、用药、设备、报告、订单、优惠券和积分。
+- `service` 服务人员账号登录后进入 `/portal/service`，只能查看和更新分配给自己的工单。
+- `user` 和 `service_personnel` 已被镜像到 `account`、`elderly_profile`、`service_profile`，用户和服务人员初始密码统一为 `753951`。
+- 用户端和服务人员端的数据归属权限由后端按 token 中的 `accountId` 反查资料表完成，前端不传入 owner id。
 
-如果后续要实现用户端和服务人员端，建议新增：
+当前角色入口：
 
 ```text
-用户端入口：/elderly 或单独 daisy-health-user-frontend
-服务人员端入口：/service-app 或单独 daisy-health-service-frontend
+后台管理端：/dashboard
+用户工作台：/portal/user
+服务人员工作台：/portal/service
 后端接口：/api/v1/elderly/**、/api/v1/service-app/**
 权限规则：按 roleType 分支校验数据归属，而不是复用后台管理端模块权限
 ```
@@ -781,8 +785,8 @@ GET/POST/PUT/DELETE /api/v1/agreements
 建议后续优先处理：
 
 - 把 `JdbcAdminDataService` 拆分为多个模块 Service。
-- 实现用户端和服务人员端前端入口。
-- 为用户端和服务人员端增加数据归属权限，例如老人只能看自己的健康数据、服务人员只能看自己的工单。
+- 继续完善用户端可操作业务，例如预约/下单、资料编辑、用药打卡。
+- 继续完善服务人员端可操作业务，例如服务记录表单、异常上报、位置/时间签到。
 - 增加更细的按钮级权限控制和接口自动化测试。
 - 接入 Redis 缓存或会话能力，目前 Redis 依赖存在但业务未强依赖。
 
@@ -816,3 +820,24 @@ service  -> /portal/service  服务人员端，只能查看和更新分配给自
 - 用户端根据 token 中的 `accountId` 反查 `elderly_profile.legacy_user_id`，不会相信前端传入的用户 ID。
 - 服务人员端根据 token 中的 `accountId` 反查 `service_profile.legacy_personnel_id`，工单查询和状态更新都限定 `work_order.personnel_id = 当前服务人员 ID`。
 - 后台管理员仍通过 `role.permissions` 控制模块权限，超级管理员拥有 `{"*":["*"]}`。
+
+## 日志文件说明
+
+`.log` 后缀文件仅用于本地调试和运行验证，不属于业务源码，也不需要提交到 Git。
+
+当前仓库 `.gitignore` 已忽略：
+
+```text
+*.log
+```
+
+此前用于尝试后台启动独立前端的空日志文件已经删除：
+
+```text
+user-frontend-dev.log
+user-frontend-dev.err.log
+service-frontend-dev.log
+service-frontend-dev.err.log
+```
+
+如需排查后端启动问题，可以临时保留本地运行日志；问题解决后可直接删除。
