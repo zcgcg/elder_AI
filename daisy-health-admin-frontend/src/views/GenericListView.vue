@@ -143,7 +143,12 @@ const dialogTitle = computed(() => readonly.value ? `${title.value}详情` : (ed
 const descriptor = computed(() => descriptors[resource.value] || '列表筛选、批量操作、状态流转与数据维护')
 const columns = computed(() => columnMap[resource.value] || defaultColumns)
 const createFields = computed(() => createFieldMap[resource.value] || createFieldMap.posts)
-const canCreate = computed(() => !['audits', 'logs', 'memberLevels', 'pointsRules'].includes(resource.value))
+const canCreate = computed(() => {
+  if (['audits', 'logs'].includes(resource.value)) return false
+  if (resource.value === 'memberLevels') return hasAvailableOption('name')
+  if (resource.value === 'pointsRules') return hasAvailableOption('actionType')
+  return true
+})
 
 const descriptors = {
   personnel: '服务人员生命周期、负责区域与启用状态管理',
@@ -487,7 +492,7 @@ function openCreate() {
   createFields.value.forEach((field) => {
     if (field.type === 'number') form[field.prop] = 0
     else if (field.type === 'user' || field.type === 'product' || field.type === 'activity') form[field.prop] = ''
-    else if (field.type === 'select') form[field.prop] = field.options[0]
+    else if (field.type === 'select') form[field.prop] = firstAvailableOption(field) || field.options[0]
     else form[field.prop] = ''
   })
   dialogVisible.value = true
@@ -521,12 +526,23 @@ function userRefFromRow(row) {
 }
 function isSelectOptionDisabled(field, option) {
   if (resource.value === 'memberLevels' && field.prop === 'name') {
-    return rows.value.some((row) => row.id !== editingId.value && row.name === option)
+    return isOptionTaken('name', option)
   }
   if (resource.value === 'pointsRules' && field.prop === 'actionType') {
-    return rows.value.some((row) => row.id !== editingId.value && row.actionType === option)
+    return isOptionTaken('actionType', option)
   }
   return false
+}
+function isOptionTaken(prop, option) {
+  return rows.value.some((row) => row.id !== editingId.value && row[prop] === option)
+}
+function firstAvailableOption(field) {
+  if (!Array.isArray(field.options)) return ''
+  return field.options.find((option) => !isSelectOptionDisabled(field, option)) || ''
+}
+function hasAvailableOption(prop) {
+  const field = createFields.value.find((item) => item.prop === prop)
+  return Boolean(field && field.options?.some((option) => !rows.value.some((row) => row[prop] === option)))
 }
 async function handleFieldUpload(field, options) {
   try {

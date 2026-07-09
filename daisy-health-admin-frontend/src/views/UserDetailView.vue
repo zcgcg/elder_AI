@@ -336,6 +336,8 @@ async function handleProfileAvatarUpload(options) {
   try {
     const data = await uploadFile(options.file, 'avatar')
     profileForm.avatarUrl = data.url
+    await updateUser(route.params.id, { avatarUrl: data.url })
+    await loadUser()
     options.onSuccess?.(data)
     ElMessage.success('头像上传成功')
   } catch (error) {

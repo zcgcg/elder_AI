@@ -292,6 +292,10 @@ async function handleAvatarUpload(options) {
   try {
     const data = await uploadFile(options.file, 'avatar')
     newUser.avatarUrl = data.url
+    if (editingId.value) {
+      await updateUser(editingId.value, { avatarUrl: data.url })
+      await load()
+    }
     options.onSuccess?.(data)
     ElMessage.success('头像上传成功')
   } catch (error) {
