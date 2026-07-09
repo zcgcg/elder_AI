@@ -47,9 +47,23 @@ const router = createRouter({
 router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.path !== '/login' && !auth.isAuthenticated) return '/login'
+  if (to.path !== '/login' && auth.user?.roleType && auth.user.roleType !== 'staff') {
+    auth.signOut()
+    return '/login'
+  }
   if (to.path === '/login' && auth.isAuthenticated) return '/dashboard'
   const module = moduleForPath(to.path)
-  if (module && auth.permissions && !auth.canAccess(module, 'view')) return '/dashboard'
+  if (module && auth.permissions && !auth.canAccess(module, 'view')) {
+    const fallback = firstAccessiblePath(auth)
+    if (!fallback) {
+      auth.signOut()
+      return '/login'
+    }
+    if (to.path !== fallback) {
+      return fallback
+    }
+    return false
+  }
   return true
 })
 
@@ -63,6 +77,20 @@ function moduleForPath(path) {
   if (path.startsWith('/analytics')) return 'analytics'
   if (path.startsWith('/system')) return 'system'
   return null
+}
+
+function firstAccessiblePath(auth) {
+  const candidates = [
+    { path: '/dashboard', module: 'dashboard' },
+    { path: '/users', module: 'users' },
+    { path: '/service/personnel', module: 'service' },
+    { path: '/products', module: 'products' },
+    { path: '/operations/posts', module: 'operations' },
+    { path: '/trade/orders', module: 'trade' },
+    { path: '/analytics', module: 'analytics' },
+    { path: '/system/staffs', module: 'system' }
+  ]
+  return candidates.find((item) => auth.canAccess(item.module, 'view'))?.path || ''
 }
 
 export default router

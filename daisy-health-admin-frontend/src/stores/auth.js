@@ -26,8 +26,19 @@ export const useAuthStore = defineStore('auth', {
         if (!payload.phone || !payload.password) throw error
         res = {
           token: 'local-preview-token',
-          user: { id: 1, name: '系统管理员', phone: payload.phone, role: '超级管理员' }
+          user: {
+            id: 1,
+            name: '系统管理员',
+            phone: payload.phone,
+            role: '超级管理员',
+            roleType: 'staff',
+            permissions: { '*': ['*'] }
+          }
         }
+      }
+      if (!isAdminUser(res.user)) {
+        this.signOut()
+        throw new Error('该账号不是后台管理端账号')
       }
       this.token = res.token
       this.user = res.user
@@ -40,6 +51,10 @@ export const useAuthStore = defineStore('auth', {
     async loadProfile() {
       if (!this.token) return null
       const res = await profile()
+      if (!isAdminUser(res)) {
+        this.signOut()
+        throw new Error('该账号不是后台管理端账号')
+      }
       this.user = res
       this.permissions = normalizePermissions(res.permissions)
       localStorage.setItem('daisy_user', JSON.stringify(res))
@@ -48,6 +63,10 @@ export const useAuthStore = defineStore('auth', {
     },
     async saveProfile(payload) {
       const res = await updateProfile(payload)
+      if (!isAdminUser(res)) {
+        this.signOut()
+        throw new Error('该账号不是后台管理端账号')
+      }
       this.user = res
       this.permissions = normalizePermissions(res.permissions)
       localStorage.setItem('daisy_user', JSON.stringify(res))
@@ -89,4 +108,8 @@ function normalizePermissions(value) {
     }
   }
   return value
+}
+
+function isAdminUser(user) {
+  return !user?.roleType || user.roleType === 'staff'
 }
