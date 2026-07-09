@@ -204,6 +204,68 @@ create table if not exists role (
   created_at datetime not null default current_timestamp
 ) default charset = utf8mb4;
 
+create table if not exists account (
+  id bigint primary key auto_increment,
+  phone varchar(20) not null unique,
+  password_hash varchar(255) not null,
+  role_type varchar(20) not null,
+  nickname varchar(50) null,
+  avatar_url varchar(255) null,
+  status tinyint not null default 1,
+  last_login_time datetime null,
+  created_at datetime not null default current_timestamp,
+  updated_at datetime not null default current_timestamp on update current_timestamp,
+  index idx_account_role_type (role_type),
+  index idx_account_status (status)
+) default charset = utf8mb4;
+
+create table if not exists admin_profile (
+  account_id bigint primary key,
+  staff_no varchar(20) not null unique,
+  real_name varchar(50) not null,
+  role_id bigint not null,
+  remark varchar(200) null,
+  updated_at datetime not null default current_timestamp on update current_timestamp,
+  index idx_admin_profile_role (role_id)
+) default charset = utf8mb4;
+
+create table if not exists elderly_profile (
+  account_id bigint primary key,
+  legacy_user_id bigint not null unique,
+  real_name varchar(50) not null,
+  gender tinyint default 0,
+  birthday date null,
+  id_card varchar(18) null,
+  address varchar(200) null,
+  bio varchar(500) null,
+  height decimal(5,1) null,
+  weight decimal(5,1) null,
+  ethnicity varchar(20) null,
+  education varchar(20) null,
+  blood_type varchar(5) null,
+  rh_negative tinyint default 0,
+  chronic_disease varchar(200) null,
+  sleep_quality varchar(10) null,
+  smoking_freq varchar(20) null,
+  drinking_freq varchar(20) null,
+  exercise_freq varchar(20) null,
+  diet_preference varchar(20) null,
+  emergency_contact varchar(20) null,
+  emergency_phone varchar(20) null,
+  last_buy_time datetime null
+) default charset = utf8mb4;
+
+create table if not exists service_profile (
+  account_id bigint primary key,
+  legacy_personnel_id bigint not null unique,
+  real_name varchar(50) not null,
+  service_type varchar(20) not null,
+  area varchar(100) null,
+  join_time datetime null,
+  audit_status varchar(20) not null,
+  rating decimal(2,1) null
+) default charset = utf8mb4;
+
 create table if not exists operation_log (
   id bigint primary key auto_increment,
   operator varchar(50) not null,

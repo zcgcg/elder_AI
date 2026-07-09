@@ -7,7 +7,7 @@
           <strong>黛西健康</strong>
         </div>
         <button
-          v-for="group in menuGroups"
+          v-for="group in visibleMenuGroups"
           :key="group.key"
           type="button"
           :class="['rail-item', { active: activeGroup === group.key }]"
@@ -112,16 +112,22 @@ const profileSaving = ref(false)
 const profileForm = reactive({ id: '', name: '', staffNo: '', phone: '', avatarUrl: '', role: '', remark: '' })
 const activeGroup = ref('home')
 const menuGroups = [
-  { key: 'home', label: '首页', icon: 'House', children: [{ label: '工作台', path: '/dashboard' }, { label: '预约看板', path: '/schedule' }] },
+  { key: 'home', module: 'dashboard', label: '首页', icon: 'House', children: [{ label: '工作台', path: '/dashboard' }, { label: '预约看板', path: '/schedule' }] },
   { key: 'users', label: '用户', icon: 'User', children: [{ label: '全部用户', path: '/users' }, { label: '设备信息', path: '/user-health/devices' }, { label: '报告信息', path: '/user-health/reports' }, { label: '健康设置', path: '/user-health/healthSettings' }, { label: '优惠券管理', path: '/user-assets/coupons' }, { label: '用户积分', path: '/user-assets/userPoints' }, { label: '等级管理', path: '/user-assets/memberLevels' }, { label: '积分规则', path: '/user-assets/pointsRules' }] },
   { key: 'service', label: '服务', icon: 'Service', children: [{ label: '服务人员', path: '/service/personnel' }, { label: '审核管理', path: '/service/audits' }, { label: '工单管理', path: '/service/work-orders' }] },
   { key: 'products', label: '商品', icon: 'Goods', children: [{ label: '商品管理', path: '/products' }, { label: '分类管理', path: '/product-ext/productCategories' }, { label: '服务项目', path: '/product-ext/serviceItems' }] },
   { key: 'operations', label: '运营', icon: 'Star', children: [{ label: '动态管理', path: '/operations/posts' }, { label: '话题管理', path: '/operations/topics' }, { label: '轮播图管理', path: '/operations/banners' }, { label: '活动管理', path: '/operations/activities' }, { label: '活动报名', path: '/operations/activityEnrolls' }, { label: '食谱管理', path: '/operations/recipes' }, { label: '健康资讯', path: '/operations/articles' }, { label: '疾病宝典', path: '/operations/diseases' }, { label: '养老机构', path: '/operations/institutions' }, { label: '健康讲堂', path: '/operations/videos' }, { label: '食物管理', path: '/operations/foods' }, { label: '测评管理', path: '/operations/assessments' }] },
   { key: 'trade', label: '交易', icon: 'Wallet', children: [{ label: '订单管理', path: '/trade/orders' }, { label: '售后管理', path: '/trade/after-sales' }, { label: '评价管理', path: '/trade/reviews' }] },
-  { key: 'analytics', label: '数据', icon: 'TrendCharts', children: [{ label: '数据分析', path: '/analytics' }] },
+  { key: 'analytics', module: 'analytics', label: '数据', icon: 'TrendCharts', children: [{ label: '数据分析', path: '/analytics' }] },
   { key: 'system', label: '系统', icon: 'Setting', children: [{ label: '员工管理', path: '/system/staffs' }, { label: '角色管理', path: '/system/roles' }, { label: '操作日志', path: '/system/logs' }] }
 ]
-const currentGroup = computed(() => menuGroups.find((group) => group.key === activeGroup.value) || menuGroups[0])
+const visibleMenuGroups = computed(() => menuGroups
+  .map((group) => ({
+    ...group,
+    children: group.children.filter((item) => auth.canAccess(item.module || group.module || group.key, 'view'))
+  }))
+  .filter((group) => group.children.length > 0))
+const currentGroup = computed(() => visibleMenuGroups.value.find((group) => group.key === activeGroup.value) || visibleMenuGroups.value[0] || menuGroups[0])
 
 function selectGroup(key) {
   activeGroup.value = key

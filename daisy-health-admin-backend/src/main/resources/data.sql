@@ -587,3 +587,76 @@ insert ignore into assessment_result(id, assessment_id, user_id, score, result, 
 (108, 108, 10010, 69, '居家安全需改善', '{}');
 
 update user_tag t set user_count = (select count(*) from user_tag_rel r where r.tag_id = t.id);
+
+update role set permissions = '{"*":["*"]}' where id = 1;
+update role set permissions = '{"dashboard":["view","edit"],"users":["view","edit","delete"],"service":["view","edit"],"products":["view","edit"],"trade":["view","edit"],"operations":["view","edit"],"analytics":["view"],"system":["view"]}' where id = 2;
+update role set permissions = '{"dashboard":["view"],"users":["view"],"service":["view","edit"],"trade":["view","edit"],"products":["view"],"operations":["view"],"analytics":["view"]}' where id = 3;
+
+insert into account(id, phone, password_hash, role_type, nickname, avatar_url, status, created_at, updated_at)
+select id, phone, password_hash, 'staff', name, avatar_url, status, created_at, updated_at from staff
+on duplicate key update
+  phone = values(phone),
+  password_hash = values(password_hash),
+  nickname = values(nickname),
+  avatar_url = values(avatar_url),
+  status = values(status),
+  updated_at = values(updated_at);
+
+insert into admin_profile(account_id, staff_no, real_name, role_id, remark, updated_at)
+select id, staff_no, name, role_id, remark, updated_at from staff
+on duplicate key update
+  staff_no = values(staff_no),
+  real_name = values(real_name),
+  role_id = values(role_id),
+  remark = values(remark),
+  updated_at = values(updated_at);
+
+insert into account(id, phone, password_hash, role_type, nickname, avatar_url, status, last_login_time, created_at, updated_at)
+select id, phone, 'admin123', 'elderly', nickname, avatar_url, status, last_login_time, created_at, updated_at from `user`
+on duplicate key update
+  phone = values(phone),
+  nickname = values(nickname),
+  avatar_url = values(avatar_url),
+  status = values(status),
+  last_login_time = values(last_login_time),
+  updated_at = values(updated_at);
+
+insert into elderly_profile(
+  account_id, legacy_user_id, real_name, gender, birthday, id_card, address, bio, height, weight,
+  ethnicity, education, blood_type, rh_negative, chronic_disease, sleep_quality, smoking_freq,
+  drinking_freq, exercise_freq, diet_preference, emergency_contact, emergency_phone, last_buy_time
+)
+select id, id, real_name, gender, birthday, id_card, address, bio, height, weight,
+       ethnicity, education, blood_type, rh_negative, chronic_disease, sleep_quality, smoking_freq,
+       drinking_freq, exercise_freq, diet_preference, emergency_contact, emergency_phone, last_buy_time
+from `user`
+on duplicate key update
+  real_name = values(real_name),
+  gender = values(gender),
+  birthday = values(birthday),
+  address = values(address),
+  bio = values(bio),
+  height = values(height),
+  weight = values(weight),
+  chronic_disease = values(chronic_disease),
+  emergency_contact = values(emergency_contact),
+  emergency_phone = values(emergency_phone),
+  last_buy_time = values(last_buy_time);
+
+insert into account(id, phone, password_hash, role_type, nickname, avatar_url, status, created_at, updated_at)
+select 200000 + id, phone, 'admin123', 'service', name, avatar_url, status, created_at, created_at from service_personnel
+on duplicate key update
+  phone = values(phone),
+  nickname = values(nickname),
+  avatar_url = values(avatar_url),
+  status = values(status),
+  updated_at = values(updated_at);
+
+insert into service_profile(account_id, legacy_personnel_id, real_name, service_type, area, join_time, audit_status)
+select 200000 + id, id, name, service_type, area, join_time, audit_status from service_personnel
+on duplicate key update
+  real_name = values(real_name),
+  service_type = values(service_type),
+  area = values(area),
+  join_time = values(join_time),
+  audit_status = values(audit_status);

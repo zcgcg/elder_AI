@@ -57,3 +57,6 @@ knife4j:
 
 daisy:
   upload-dir: uploads
+  security:
+    jwt-secret: ${DAISY_JWT_SECRET:daisy-health-local-dev-secret-please-change-32}
+    jwt-expiration-ms: ${DAISY_JWT_EXPIRATION_MS:7200000}

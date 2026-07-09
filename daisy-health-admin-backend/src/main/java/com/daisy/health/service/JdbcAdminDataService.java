@@ -1,12 +1,22 @@
 package com.daisy.health.service;
 
+import com.daisy.health.common.AuthenticatedUser;
+import com.daisy.health.common.JwtAuthFilter;
+import com.daisy.health.common.JwtService;
 import com.daisy.health.common.PageResult;
+import com.daisy.health.common.PermissionService;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
+import javax.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Date;
@@ -15,6 +25,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,10 +36,19 @@ public class JdbcAdminDataService implements AdminDataService {
     private static final List<String> MEMBER_LEVEL_NAMES = Arrays.asList("普通", "银卡", "金卡");
 
     private final JdbcTemplate jdbcTemplate;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final PermissionService permissionService;
+    private final ObjectMapper objectMapper;
     private final DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("MM-dd");
 
-    public JdbcAdminDataService(JdbcTemplate jdbcTemplate) {
+    public JdbcAdminDataService(JdbcTemplate jdbcTemplate, PasswordEncoder passwordEncoder, JwtService jwtService,
+                                PermissionService permissionService, ObjectMapper objectMapper) {
         this.jdbcTemplate = jdbcTemplate;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.permissionService = permissionService;
+        this.objectMapper = objectMapper;
     }
 
     @Override
@@ -36,29 +56,61 @@ public class JdbcAdminDataService implements AdminDataService {
         String phone = stringValue(payload.get("phone"));
         String password = stringValue(payload.get("password"));
         if (phone.length() == 0 || password.length() == 0) {
-            throw new IllegalArgumentException("账号或密码不能为空");
+            throw new IllegalArgumentException("Account and password are required");
         }
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select s.id, s.staff_no as staffNo, s.name, s.phone, s.avatar_url as avatarUrl, s.remark, r.name as role " +
-                        "from staff s left join role r on s.role_id = r.id where s.phone = ? and s.status = 1 limit 1",
+                "select a.id, a.phone, a.password_hash as passwordHash, a.role_type as roleType, " +
+                        "a.avatar_url as avatarUrl, p.staff_no as staffNo, p.real_name as name, p.remark, " +
+                        "p.role_id as roleId, r.name as role " +
+                        "from account a join admin_profile p on p.account_id = a.id " +
+                        "left join role r on p.role_id = r.id " +
+                        "where a.phone = ? and a.status = 1 and a.role_type = 'staff' limit 1",
                 phone
         );
-        Map<String, Object> user = rows.isEmpty()
-                ? record("id", 1, "staffNo", "S0001", "name", "系统管理员", "phone", phone, "role", "超级管理员", "avatarUrl", "", "remark", "初始化管理员")
-                : rows.get(0);
-        return record("token", "db-token-admin", "user", user);
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("Account or password is incorrect");
+        }
+        Map<String, Object> user = rows.get(0);
+        String storedPassword = stringValue(user.get("passwordHash"));
+        if (!passwordEncoder.matches(password, storedPassword) && !password.equals(storedPassword)) {
+            throw new IllegalArgumentException("Account or password is incorrect");
+        }
+        Long accountId = ((Number) user.get("id")).longValue();
+        if (password.equals(storedPassword)) {
+            String encoded = passwordEncoder.encode(password);
+            jdbcTemplate.update("update account set password_hash = ? where id = ?", encoded, accountId);
+            jdbcTemplate.update("update staff set password_hash = ? where id = ?", encoded, accountId);
+        }
+        jdbcTemplate.update("update account set last_login_time = now() where id = ?", accountId);
+        user.remove("passwordHash");
+        user.put("permissions", permissionService.loadPermissions(accountId));
+        String token = jwtService.createToken(accountId, stringValue(user.get("roleType")), phone);
+        return record("token", token, "user", user);
     }
 
     @Override
     public Map<String, Object> profile() {
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select s.id, s.staff_no as staffNo, s.name, s.phone, s.avatar_url as avatarUrl, s.remark, r.name as role, date_format(s.updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt " +
-                        "from staff s left join role r on s.role_id = r.id where s.status = 1 order by s.id limit 1"
-        );
+        AuthenticatedUser current = currentUser();
+        List<Map<String, Object>> rows = current == null
+                ? jdbcTemplate.queryForList(
+                        "select a.id, p.staff_no as staffNo, p.real_name as name, a.phone, a.avatar_url as avatarUrl, p.remark, " +
+                                "p.role_id as roleId, r.name as role, r.permissions, date_format(a.updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt " +
+                                "from account a join admin_profile p on p.account_id = a.id left join role r on p.role_id = r.id " +
+                                "where a.status = 1 and a.role_type = 'staff' order by a.id limit 1"
+                )
+                : jdbcTemplate.queryForList(
+                        "select a.id, p.staff_no as staffNo, p.real_name as name, a.phone, a.avatar_url as avatarUrl, p.remark, " +
+                                "p.role_id as roleId, r.name as role, r.permissions, date_format(a.updated_at, '%Y-%m-%d %H:%i:%s') as updatedAt " +
+                                "from account a join admin_profile p on p.account_id = a.id left join role r on p.role_id = r.id " +
+                                "where a.id = ? and a.status = 1 limit 1",
+                        current.getAccountId()
+                );
         if (rows.isEmpty()) {
-            return record("id", 1, "staffNo", "S0001", "name", "系统管理员", "phone", "13800000000", "role", "超级管理员", "avatarUrl", "", "remark", "初始化管理员");
+            return record("id", 1, "staffNo", "S0001", "name", "System Admin", "phone", "13800000000", "role", "Admin", "avatarUrl", "", "remark", "");
         }
-        return rows.get(0);
+        Map<String, Object> row = rows.get(0);
+        row.put("permissions", permissionsMap(row.remove("permissions")));
+        return row;
     }
 
     @Override
@@ -73,10 +125,11 @@ public class JdbcAdminDataService implements AdminDataService {
         if (payload.containsKey("roleId")) {
             values.put("role_id", longValue(payload, "roleId", firstId("role")));
         } else if (payload.containsKey("role")) {
-            values.put("role_id", roleIdByName(text(payload, "role", "超级管理员")));
+            values.put("role_id", roleIdByName(text(payload, "role", "Admin")));
         }
-        values.put("updater", "系统管理员");
+        values.put("updater", "System");
         updateById("staff", id, values);
+        syncAdminAccount(id);
         accepted("updateProfile:" + id);
         return profile();
     }
@@ -88,7 +141,7 @@ public class JdbcAdminDataService implements AdminDataService {
                         metric("新增用户", count("select count(*) from `user` where created_at >= date_sub(curdate(), interval 7 day)"), "+12.4%", "success"),
                         metric("新增工单", count("select count(*) from work_order where created_at >= date_sub(curdate(), interval 7 day)"), "+8.7%", "warning"),
                         metric("新增订单", count("select count(*) from service_order where created_at >= date_sub(curdate(), interval 7 day)"), "+16.1%", "success"),
-                        metric("新增动态", count("select count(*) from operation_content where type = 'posts' and created_at >= date_sub(curdate(), interval 7 day)"), "-3.2%", "danger")
+                        metric("New posts", count("select count(*) from operation_content where type = 'posts' and created_at >= date_sub(curdate(), interval 7 day)"), "-3.2%", "danger")
                 ),
                 "tagDistribution", jdbcTemplate.queryForList(
                         "select t.name, count(rel.user_id) as value " +
@@ -108,7 +161,7 @@ public class JdbcAdminDataService implements AdminDataService {
                 "select w.id, hour(w.service_time) as hour, w.service_item as serviceName, " +
                         "concat(date_format(w.service_time, '%H:%i'), '-', date_format(coalesce(w.complete_time, date_add(w.service_time, interval 1 hour)), '%H:%i')) as timeRange, " +
                         "u.real_name as userName, " +
-                        "case w.status when 'pending' then '待服务' when 'service_in' then '服务中' when 'completed' then '已完成' when 'cancelled' then '已取消' else w.status end as status " +
+                        "w.status as status " +
                         "from work_order w left join `user` u on w.customer_id = u.id " +
                         "where date(w.service_time) = curdate() order by w.service_time"
         );
@@ -144,19 +197,19 @@ public class JdbcAdminDataService implements AdminDataService {
                 "gender", genderCode(text(payload, "gender", "未知")),
                 "birthday", nullIfBlank(text(payload, "birthday", "")),
                 "phone", phone,
-                "address", text(payload, "address", "上海市"),
-                "bio", text(payload, "bio", "后台新增用户"),
+                "address", text(payload, "address", "Shanghai"),
+                "bio", text(payload, "bio", "Created from admin"),
                 "height", decimal(payload, "height", BigDecimal.valueOf(160)),
                 "weight", decimal(payload, "weight", BigDecimal.valueOf(60)),
                 "ethnicity", text(payload, "ethnicity", "汉族"),
                 "education", text(payload, "education", "高中"),
                 "blood_type", text(payload, "bloodType", "A"),
                 "rh_negative", 0,
-                "chronic_disease", text(payload, "chronicDisease", "无"),
+                "chronic_disease", text(payload, "chronicDisease", "None"),
                 "sleep_quality", text(payload, "sleepQuality", "良好"),
-                "smoking_freq", text(payload, "smokingFreq", "不吸烟"),
-                "drinking_freq", text(payload, "drinkingFreq", "不饮酒"),
-                "exercise_freq", text(payload, "exerciseFreq", "每周2次"),
+                "smoking_freq", text(payload, "smokingFreq", "None"),
+                "drinking_freq", text(payload, "drinkingFreq", "None"),
+                "exercise_freq", text(payload, "exerciseFreq", "Weekly"),
                 "diet_preference", text(payload, "dietPreference", "清淡"),
                 "avatar_url", text(payload, "avatarUrl", ""),
                 "last_login_time", null,
@@ -448,7 +501,7 @@ public class JdbcAdminDataService implements AdminDataService {
                     "staff_no", text(payload, "staffNo", "S" + uniqueDigits(4)),
                     "name", text(payload, "name", ""),
                     "phone", text(payload, "phone", "137" + uniqueDigits(8)),
-                    "password_hash", text(payload, "password", "admin123"),
+                    "password_hash", passwordEncoder.encode(text(payload, "password", "admin123")),
                     "role_id", longValue(payload, "roleId", firstId("role")),
                     "remark", text(payload, "remark", "后台新增员工"),
                     "status", statusCode(text(payload, "status", "启用")),
@@ -481,6 +534,9 @@ public class JdbcAdminDataService implements AdminDataService {
                     "likes", longValue(payload, "likes", 0),
                     "status", statusCode(text(payload, "status", "已发布"))
             ));
+        }
+        if ("staffs".equals(name)) {
+            syncAdminAccount(id.longValue());
         }
         accepted("createResource:" + name + ":" + id);
         return record("accepted", true, "id", id.longValue(), "resource", name);
@@ -566,12 +622,25 @@ public class JdbcAdminDataService implements AdminDataService {
             if (payload.containsKey("status")) values.put("status", statusCode(text(payload, "status", "已发布")));
             updateById("operation_content", id, values);
         }
+        if ("staffs".equals(name)) {
+            if (payload.containsKey("password")) {
+                jdbcTemplate.update("update staff set password_hash = ? where id = ?", passwordEncoder.encode(text(payload, "password", "admin123")), id);
+            }
+            syncAdminAccount(id);
+        }
+        if ("roles".equals(name) && payload.containsKey("permissions")) {
+            jdbcTemplate.update("update role set permissions = ? where id = ?", text(payload, "permissions", "{}"), id);
+        }
         accepted("updateResource:" + name + ":" + id);
         return record("accepted", true, "id", id, "resource", name);
     }
 
     @Override
     public Map<String, Object> deleteResource(String name, Long id) {
+        if ("staffs".equals(name)) {
+            jdbcTemplate.update("delete from admin_profile where account_id = ?", id);
+            jdbcTemplate.update("delete from account where id = ? and role_type = 'staff'", id);
+        }
         String table = tableName(name);
         jdbcTemplate.update("delete from `" + table + "` where id = ?", id);
         accepted("deleteResource:" + name + ":" + id);
@@ -877,6 +946,49 @@ public class JdbcAdminDataService implements AdminDataService {
     private long count(String sql, Object... args) {
         Number value = jdbcTemplate.queryForObject(sql, args, Number.class);
         return value == null ? 0 : value.longValue();
+    }
+
+    private AuthenticatedUser currentUser() {
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes == null) {
+                return null;
+            }
+            HttpServletRequest request = attributes.getRequest();
+            Object value = request.getAttribute(JwtAuthFilter.USER_ATTRIBUTE);
+            return value instanceof AuthenticatedUser ? (AuthenticatedUser) value : null;
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    private Map<String, List<String>> permissionsMap(Object value) {
+        String json = stringValue(value);
+        if (json.trim().length() == 0) {
+            return Collections.emptyMap();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<Map<String, List<String>>>() {});
+        } catch (Exception ex) {
+            return Collections.emptyMap();
+        }
+    }
+
+    private void syncAdminAccount(Long staffId) {
+        jdbcTemplate.update(
+                "insert into account(id, phone, password_hash, role_type, nickname, avatar_url, status, created_at, updated_at) " +
+                        "select id, phone, password_hash, 'staff', name, avatar_url, status, created_at, updated_at from staff where id = ? " +
+                        "on duplicate key update phone = values(phone), password_hash = values(password_hash), nickname = values(nickname), " +
+                        "avatar_url = values(avatar_url), status = values(status), updated_at = values(updated_at)",
+                staffId
+        );
+        jdbcTemplate.update(
+                "insert into admin_profile(account_id, staff_no, real_name, role_id, remark, updated_at) " +
+                        "select id, staff_no, name, role_id, remark, updated_at from staff where id = ? " +
+                        "on duplicate key update staff_no = values(staff_no), real_name = values(real_name), " +
+                        "role_id = values(role_id), remark = values(remark), updated_at = values(updated_at)",
+                staffId
+        );
     }
 
     private long firstId(String tableName) {

@@ -1,5 +1,6 @@
 package com.daisy.health.service;
 
+import com.daisy.health.common.JwtService;
 import com.daisy.health.common.PageResult;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,12 @@ import java.util.Map;
 @Service
 @Profile("mock")
 public class MockDataService implements AdminDataService {
+    private final JwtService jwtService;
+
+    public MockDataService(JwtService jwtService) {
+        this.jwtService = jwtService;
+    }
+
     public Map<String, Object> login(Map<String, Object> payload) {
         String phone = stringValue(payload.get("phone"));
         String password = stringValue(payload.get("password"));
@@ -20,7 +27,7 @@ public class MockDataService implements AdminDataService {
             throw new IllegalArgumentException("账号或密码不能为空");
         }
         return record(
-                "token", "mock-token-admin",
+                "token", jwtService.createToken(1L, "staff", phone),
                 "user", record("id", 1, "name", "系统管理员", "phone", phone, "role", "超级管理员")
         );
     }

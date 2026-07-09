@@ -16,6 +16,11 @@ public class GlobalExceptionHandler {
         return ApiResponse.error(1001, "参数错误");
     }
 
+    @ExceptionHandler(SecurityException.class)
+    public ApiResponse<Void> handleSecurity(SecurityException ex) {
+        return ApiResponse.error(1003, ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ApiResponse<Void> handleException(Exception ex) {
         return ApiResponse.error(5000, ex.getMessage());

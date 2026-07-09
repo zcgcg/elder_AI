@@ -48,7 +48,21 @@ router.beforeEach((to) => {
   const auth = useAuthStore()
   if (to.path !== '/login' && !auth.isAuthenticated) return '/login'
   if (to.path === '/login' && auth.isAuthenticated) return '/dashboard'
+  const module = moduleForPath(to.path)
+  if (module && auth.permissions && !auth.canAccess(module, 'view')) return '/dashboard'
   return true
 })
+
+function moduleForPath(path) {
+  if (path.startsWith('/dashboard') || path.startsWith('/schedule')) return 'dashboard'
+  if (path.startsWith('/users') || path.startsWith('/user-assets') || path.startsWith('/user-health')) return 'users'
+  if (path.startsWith('/service')) return 'service'
+  if (path.startsWith('/products') || path.startsWith('/product-ext')) return 'products'
+  if (path.startsWith('/operations')) return 'operations'
+  if (path.startsWith('/trade')) return 'trade'
+  if (path.startsWith('/analytics')) return 'analytics'
+  if (path.startsWith('/system')) return 'system'
+  return null
+}
 
 export default router
