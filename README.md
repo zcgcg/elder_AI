@@ -8,6 +8,11 @@
 
 ## 最近修改
 
+- 新增后台安全登录体系：后台登录改为查询 `account + admin_profile`，密码使用 BCrypt 校验，登录成功后返回 JWT；后端 API 统一通过 `Authorization: Bearer <token>` 鉴权。
+- 新增 RBAC 权限体系：`role.permissions` 使用 JSON 定义模块权限，后端按 token 中的账号身份和请求路径校验模块权限，前端菜单和路由按权限过滤。
+- 新增统一账号表设计：新增 `account`、`admin_profile`、`elderly_profile`、`service_profile`，启动数据会从既有 `staff`、`user`、`service_personnel` 表镜像生成账号资料。
+- 新增密码迁移能力：启动时会把 `staff`、`account` 中仍为明文的 `password_hash` 自动转换为 BCrypt 哈希。
+- 修复前端本地登录缓存容错：`localStorage` 中如果存在旧的 `"undefined"` 用户或权限缓存，前端会自动清理，不再导致 Vue Router 启动失败。
 - 用户模块的等级管理仅保留普通、银卡、金卡三种等级，后端保存时增加等级名称白名单校验。
 - 积分规则仅保留签到、完成订单、发布评价三种行为，清理初始化数据中的多余等级和多余规则。
 - 等级管理和积分规则页面关闭新增入口，并在编辑时禁用已被其他配置占用的选项，避免唯一键冲突导致保存失败。
@@ -80,9 +85,11 @@ http://127.0.0.1:5173
 默认登录账号：
 
 ```text
-手机号：13800000000
-密码：admin123
+手机号：13402832834
+密码：753951
 ```
+
+当前登录入口是后台管理端：`http://127.0.0.1:5173`。
 
 无数据库临时演示模式：
 
@@ -236,6 +243,67 @@ D:\agent_project\elder_AI
 
 ## 后端设计
 
+## 安全认证与角色体系
+
+本次新增的是后台管理端的安全登录和 RBAC 权限控制，重点解决原来固定 token、明文密码、接口无权限拦截的问题。
+
+已实现内容：
+
+- `PasswordConfig`：提供 BCrypt `PasswordEncoder`。
+- `JwtService`：生成和解析 JWT，token 中包含 `accountId`、`roleType`、`phone`。
+- `JwtAuthFilter`：拦截 `/api/v1/**` 请求，放行 `/api/v1/auth/login`，其余接口必须携带 `Authorization: Bearer <token>`。
+- `PermissionService`：按请求路径映射权限模块，读取 `role.permissions` 判断是否允许 `view`、`edit`、`delete`。
+- `PasswordMigrationRunner`：启动后自动把 `staff`、`account` 中仍为明文的密码迁移成 BCrypt 哈希。
+- `JdbcAdminDataService.login()`：改为查询 `account + admin_profile`，校验 BCrypt 密码后签发 JWT。
+- `auth.js`、`AdminLayout.vue`、`router/index.js`：前端保存权限，并按权限过滤菜单和路由。
+
+默认后台超级管理员：
+
+```text
+手机号：13402832834
+密码：753951
+角色：超级管理员
+权限：{"*":["*"]}
+```
+
+当前角色权限模块：
+
+```text
+dashboard   工作台、预约看板
+users       用户、标签、用户资产、用户健康扩展
+service     服务人员、审核、工单
+products    商品、分类、服务项目
+trade       订单、售后、评价
+operations  运营内容、活动、轮播、食谱、文章等
+analytics   数据分析
+system      员工、角色、日志、协议
+```
+
+当前账号体系：
+
+```text
+account          统一登录账号表，保存手机号、密码哈希、角色类型、通用头像/昵称
+admin_profile    后台管理员资料，关联 account.id 和 role.id
+elderly_profile  老人/用户资料镜像，当前用于统一账号设计预留
+service_profile  服务人员资料镜像，当前用于统一账号设计预留
+```
+
+重要说明：
+
+- 目前真正可登录并进入界面的只有“后台管理端员工账号”，也就是 `role_type = staff` 且存在 `admin_profile` 的账号。
+- `user` 和 `service_personnel` 已被镜像到 `account`、`elderly_profile`、`service_profile`，并预留了默认密码迁移能力，但当前没有实现用户端 App/H5 前端，也没有实现服务人员端前端。
+- 当前 `JwtAuthFilter + PermissionService` 对后台管理端做 RBAC；用户端和服务人员端的业务权限规则还没有落地，例如“老人只能看自己的健康数据”“服务人员只能看分配给自己的工单”。
+- 因此，用户端和服务人员端现在不能通过现有 Vue 管理后台进入。现有 Vue 项目是后台管理系统，不是老人用户端或服务人员工作台。
+
+如果后续要实现用户端和服务人员端，建议新增：
+
+```text
+用户端入口：/elderly 或单独 daisy-health-user-frontend
+服务人员端入口：/service-app 或单独 daisy-health-service-frontend
+后端接口：/api/v1/elderly/**、/api/v1/service-app/**
+权限规则：按 roleType 分支校验数据归属，而不是复用后台管理端模块权限
+```
+
 后端入口：
 
 ```text
@@ -249,6 +317,11 @@ ApiResponse<T>      统一返回 code/message/data
 PageResult<T>       列表返回 total/list
 GlobalExceptionHandler 统一异常转 API 响应
 WebConfig           CORS 和 Web 配置
+PasswordConfig      BCrypt 密码编码器配置
+JwtService          JWT 签发和解析
+JwtAuthFilter       API token 鉴权和 RBAC 拦截
+PermissionService   后台角色权限解析与校验
+PasswordMigrationRunner 明文密码启动迁移
 ```
 
 Controller 分工：
@@ -411,6 +484,16 @@ daisy-health-admin-backend/src/main/resources/schema.sql
 daisy-health-admin-backend/src/main/resources/data.sql
 ```
 
+统一账号与角色扩展表：
+
+```text
+account              统一登录账号表，区分 role_type=staff/elderly/service
+admin_profile        后台管理员扩展资料，account_id 同时关联后台员工身份和 role.id
+elderly_profile      老人/用户扩展资料，从既有 user 表镜像生成
+service_profile      服务人员扩展资料，从既有 service_personnel 表镜像生成
+role                 后台 RBAC 角色，permissions 保存 JSON 权限
+```
+
 核心用户和健康表：
 
 ```text
@@ -478,8 +561,10 @@ service_item          商品下属服务项目，product_id 关联 product
 系统表：
 
 ```text
-staff                 后台员工，个人资料也保存在这里
-role                  角色
+staff                 后台员工 legacy 业务表，新增/更新员工时会同步到 account/admin_profile
+account               统一账号表，后台登录实际读取这里的 phone/password_hash/role_type
+admin_profile         后台员工账号资料，关联 account.id 和 role.id
+role                  后台角色，permissions JSON 控制 RBAC 权限
 operation_log         操作日志
 agreement             协议
 ```
@@ -676,17 +761,17 @@ GET/POST/PUT/DELETE /api/v1/agreements
 最近一次验证：
 
 ```text
-后端：mvn -DskipTests compile 通过
+后端：mvn -q test 通过
 前端：npm.cmd run build 通过
-接口验证：临时启动后端，抽样验证并恢复数据，覆盖优惠券门槛、健康设置心率、用户积分累计、等级权益、积分规则、服务项目、活动报名、测评、订单、评价、员工、服务人员、审核管理
-进程清理：验证后已关闭本次启动的 8080 后端进程；5173 未残留监听
+安全验证：后端编译测试通过，前端构建通过；JWT/RBAC 相关代码已进入构建链路
 ```
 
 最近本地提交：
 
 ```text
-f6a96c0 Fix admin edit field persistence
-b6fdca5 Fix read-only details and report summary persistence
+737cb9a Handle invalid auth cache
+82077d4 Set super admin seed credentials
+534a6eb Implement secure auth and RBAC
 ```
 
 前端构建目前仍有 Vite/Rollup 大 chunk 警告，属于体积优化提示，不影响运行。
@@ -696,8 +781,7 @@ b6fdca5 Fix read-only details and report summary persistence
 建议后续优先处理：
 
 - 把 `JdbcAdminDataService` 拆分为多个模块 Service。
-- 增加真实登录鉴权、JWT、密码加密。
-- 增加文件上传：头像、报告、轮播图、视频封面。
-- 增加更细的 RBAC 权限控制。
-- 增加接口自动化测试。
+- 实现用户端和服务人员端前端入口。
+- 为用户端和服务人员端增加数据归属权限，例如老人只能看自己的健康数据、服务人员只能看自己的工单。
+- 增加更细的按钮级权限控制和接口自动化测试。
 - 接入 Redis 缓存或会话能力，目前 Redis 依赖存在但业务未强依赖。

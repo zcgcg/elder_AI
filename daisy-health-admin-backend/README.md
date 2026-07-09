@@ -85,6 +85,29 @@ mvn spring-boot:run -Dspring-boot.run.profiles=mock
 
 `mock` 模式不依赖 MySQL/Redis。
 
+## 安全认证与账号
+
+后台管理端登录已接入 BCrypt + JWT + RBAC：
+
+```text
+默认后台超级管理员账号：13402832834
+默认后台超级管理员密码：753951
+登录接口：POST /api/v1/auth/login
+鉴权方式：Authorization: Bearer <JWT>
+```
+
+账号与角色相关表：
+
+```text
+account          统一账号表，区分 role_type=staff/elderly/service
+admin_profile    后台管理员资料，关联 role.id
+elderly_profile  老人/用户资料镜像，当前预留给用户端
+service_profile  服务人员资料镜像，当前预留给服务人员端
+role             后台 RBAC 角色，permissions 保存 JSON 权限
+```
+
+当前只有后台管理端员工账号可以登录现有 Vue 管理后台。老人用户端和服务人员端的前端入口、专属 API、数据归属权限尚未实现。
+
 ## 核心接口
 
 ```text
