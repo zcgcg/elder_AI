@@ -588,6 +588,13 @@ insert ignore into assessment_result(id, assessment_id, user_id, score, result, 
 
 update user_tag t set user_count = (select count(*) from user_tag_rel r where r.tag_id = t.id);
 
+update staff
+set phone = '13402832834',
+    password_hash = '753951',
+    role_id = 1,
+    status = 1
+where id = 1;
+
 update role set permissions = '{"*":["*"]}' where id = 1;
 update role set permissions = '{"dashboard":["view","edit"],"users":["view","edit","delete"],"service":["view","edit"],"products":["view","edit"],"trade":["view","edit"],"operations":["view","edit"],"analytics":["view"],"system":["view"]}' where id = 2;
 update role set permissions = '{"dashboard":["view"],"users":["view"],"service":["view","edit"],"trade":["view","edit"],"products":["view"],"operations":["view"],"analytics":["view"]}' where id = 3;
