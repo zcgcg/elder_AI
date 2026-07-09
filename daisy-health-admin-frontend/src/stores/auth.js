@@ -4,8 +4,8 @@ import { login, profile, updateProfile } from '../api/http'
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     token: localStorage.getItem('daisy_token') || '',
-    user: JSON.parse(localStorage.getItem('daisy_user') || 'null'),
-    permissions: JSON.parse(localStorage.getItem('daisy_permissions') || 'null')
+    user: readJson('daisy_user'),
+    permissions: readJson('daisy_permissions')
   }),
   getters: {
     isAuthenticated: (state) => Boolean(state.token),
@@ -64,6 +64,20 @@ export const useAuthStore = defineStore('auth', {
     }
   }
 })
+
+function readJson(key) {
+  const value = localStorage.getItem(key)
+  if (!value || value === 'undefined') {
+    localStorage.removeItem(key)
+    return null
+  }
+  try {
+    return JSON.parse(value)
+  } catch (error) {
+    localStorage.removeItem(key)
+    return null
+  }
+}
 
 function normalizePermissions(value) {
   if (!value) return null
