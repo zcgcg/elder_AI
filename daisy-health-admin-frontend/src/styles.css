@@ -583,30 +583,44 @@ body {
   padding: 12px 18px;
 }
 
-.time-row {
-  min-height: 72px;
+.timeline-wrapper {
   display: grid;
   grid-template-columns: 80px minmax(0, 1fr);
-  border-bottom: 1px solid #edf0f2;
 }
 
-.time-row time {
-  padding-top: 18px;
+.time-labels {
+  display: flex;
+  flex-direction: column;
+}
+
+.time-label {
+  height: 84px;
+  display: flex;
+  align-items: flex-start;
+  padding-top: 14px;
+  border-bottom: 1px solid #edf0f2;
   color: var(--muted);
 }
 
-.appointment-lane {
-  display: flex;
-  gap: 12px;
-  align-items: center;
+.appointment-area {
+  position: relative;
+  overflow: hidden;
+}
+
+.hour-line {
+  height: 84px;
+  border-bottom: 1px solid #edf0f2;
 }
 
 .appointment-card {
-  min-width: 220px;
-  padding: 12px;
+  position: absolute;
+  box-sizing: border-box;
+  padding: 10px 12px;
   border-left: 4px solid var(--brand);
   background: #f8fffd;
   border-radius: 8px;
+  overflow: hidden;
+  z-index: 1;
 }
 
 .appointment-card span,

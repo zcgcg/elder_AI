@@ -13,15 +13,25 @@
       </div>
     </div>
     <section class="timeline-panel">
-      <div v-for="hour in hours" :key="hour" class="time-row">
-        <time>{{ hour }}:00</time>
-        <div class="appointment-lane">
-          <article v-for="item in appointmentsByHour(hour)" :key="item.id" class="appointment-card">
+      <div class="timeline-wrapper">
+        <div class="time-labels">
+          <div v-for="hour in hours" :key="hour" class="time-label">
+            <time>{{ hour }}:00</time>
+          </div>
+        </div>
+        <div class="appointment-area">
+          <div v-for="hour in hours" :key="hour" class="hour-line"></div>
+          <article
+            v-for="item in laidOut"
+            :key="item.id"
+            class="appointment-card"
+            :style="cardStyle(item)"
+          >
             <strong>{{ item.serviceName }}</strong>
             <span>{{ item.timeRange }} · {{ item.userName }}</span>
             <div class="appointment-card-footer">
-              <el-tag :type="tagType(item.status)">{{ item.status }}</el-tag>
-              <el-button link type="danger" @click="removeAppointment(item)">删除</el-button>
+              <el-tag :type="tagType(item.status)" size="small">{{ item.status }}</el-tag>
+              <el-button link type="danger" size="small" @click="removeAppointment(item)">删除</el-button>
             </div>
           </article>
         </div>
@@ -76,9 +86,69 @@ const appointments = ref([
 ])
 const filtered = computed(() => filters.serviceType ? appointments.value.filter((item) => item.serviceName?.includes(filters.serviceType)) : appointments.value)
 
-function appointmentsByHour(hour) {
-  return filtered.value.filter((item) => item.hour === hour)
+const ROW_HEIGHT = 84
+const START_HOUR = 9
+const END_HOUR = 19
+
+function parseTimeRange(timeRange) {
+  if (!timeRange || typeof timeRange !== 'string') return null
+  const parts = timeRange.split('-')
+  if (parts.length !== 2) return null
+  const [sh, sm] = parts[0].split(':').map(Number)
+  const [eh, em] = parts[1].split(':').map(Number)
+  if ([sh, sm, eh, em].some(isNaN)) return null
+  return { startMinutes: sh * 60 + sm, endMinutes: eh * 60 + em }
 }
+
+const laidOut = computed(() => {
+  const baseMinutes = START_HOUR * 60
+  const maxMinutes = END_HOUR * 60
+  const items = filtered.value
+    .map((item) => {
+      const parsed = parseTimeRange(item.timeRange)
+      if (!parsed) return null
+      const start = Math.max(parsed.startMinutes, baseMinutes)
+      const end = Math.min(parsed.endMinutes, maxMinutes)
+      if (end <= start) return null
+      return {
+        ...item,
+        _start: start,
+        _end: end,
+        _top: ((start - baseMinutes) / 60) * ROW_HEIGHT,
+        _height: ((end - start) / 60) * ROW_HEIGHT
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => a._start - b._start || a._end - b._end)
+  // 为重叠的预约分配不同列
+  const columnEnds = []
+  for (const item of items) {
+    let col = columnEnds.findIndex((end) => end <= item._start)
+    if (col === -1) {
+      col = columnEnds.length
+      columnEnds.push(item._end)
+    } else {
+      columnEnds[col] = item._end
+    }
+    item._col = col
+  }
+  const colCount = Math.max(columnEnds.length, 1)
+  for (const item of items) {
+    item._colCount = colCount
+  }
+  return items
+})
+
+function cardStyle(item) {
+  const colWidth = 100 / item._colCount
+  return {
+    top: `${item._top + 2}px`,
+    height: `${Math.max(item._height - 4, 36)}px`,
+    left: `calc(${item._col * colWidth}% + 4px)`,
+    width: `calc(${colWidth}% - 8px)`
+  }
+}
+
 function tagType(status) {
   return { 已完成: 'success', 服务中: 'primary', 待服务: 'warning', 已取消: 'info' }[status] || 'info'
 }
