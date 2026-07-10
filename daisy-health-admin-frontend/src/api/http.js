@@ -15,7 +15,7 @@ service.interceptors.response.use(
   (response) => {
     const body = response.data
     if (body && body.code === 0) return body.data
-    if (body && body.message) throw new Error(body.message)
+    if (body && body.message) throw apiError(body.message, body.code, response.status)
     return body
   },
   (error) => Promise.reject(normalizeHttpError(error))
@@ -23,9 +23,16 @@ service.interceptors.response.use(
 
 function normalizeHttpError(error) {
   const message = error?.response?.data?.message || error?.message || ''
-  if (error?.code === 'ECONNABORTED') return new Error('请求超时，请确认后端服务 8080 已启动')
-  if (message === 'Network Error' || !error?.response) return new Error('无法连接后端服务，请先启动 8080 后端')
-  return new Error(message || '请求失败')
+  if (error?.code === 'ECONNABORTED') return apiError('请求超时，请确认后端服务 8080 已启动', error.code)
+  if (message === 'Network Error' || !error?.response) return apiError('无法连接后端服务，请先启动 8080 后端', error?.code)
+  return apiError(message || '请求失败', error?.response?.data?.code, error?.response?.status)
+}
+
+function apiError(message, code, status) {
+  const error = new Error(message)
+  error.code = code
+  error.status = status
+  return error
 }
 
 export const login = (payload) => service.post('/auth/login', payload)
@@ -50,7 +57,7 @@ export const uploadFile = (file, category) => {
   const data = new FormData()
   data.append('file', file)
   data.append('category', category)
-  return service.post('/uploads', data, { headers: { 'Content-Type': 'multipart/form-data' } })
+  return service.post('/uploads', data)
 }
 export const assetUrl = (url) => {
   if (!url || !String(url).startsWith('/uploads/')) return url
@@ -76,6 +83,7 @@ export const updateResource = (resource, id, payload) => service.put(`/${resourc
 export const deleteResource = (resource, id) => service.delete(`/${resourcePaths[resource] || resource}/${id}`)
 export const getAnalytics = () => service.get('/analytics/overview')
 export const getElderlyProfile = () => service.get('/elderly/profile')
+export const updateElderlyAvatar = (payload) => service.put('/elderly/profile/avatar', payload)
 export const getElderlyHealthData = () => service.get('/elderly/health-data')
 export const getElderlyMedications = () => service.get('/elderly/medications')
 export const getElderlyDevices = () => service.get('/elderly/devices')

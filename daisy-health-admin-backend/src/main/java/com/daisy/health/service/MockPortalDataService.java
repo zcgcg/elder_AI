@@ -17,6 +17,12 @@ public class MockPortalDataService implements PortalDataService {
     }
 
     @Override
+    public Map<String, Object> updateElderlyAvatar(Map<String, Object> payload) {
+        return record("realName", "演示用户", "phone", "13800010001", "userId", 10001,
+                "avatarUrl", payload == null ? "" : payload.get("avatarUrl"));
+    }
+
+    @Override
     public List<Map<String, Object>> elderlyHealthData() {
         return list(record("dataType", "heart_rate", "value", "73", "unit", "bpm", "recordDate", "2026-07-09"));
     }

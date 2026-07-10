@@ -43,6 +43,28 @@ public class JdbcPortalDataService implements PortalDataService {
     }
 
     @Override
+    public Map<String, Object> updateElderlyAvatar(Map<String, Object> payload) {
+        String avatarUrl = stringValue(payload == null ? null : payload.get("avatarUrl")).trim();
+        validateAvatarUrl(avatarUrl);
+        AuthenticatedUser current = requireRole("elderly");
+        long userId = currentLegacyUserId();
+        int accountUpdated = jdbcTemplate.update(
+                "update account set avatar_url = ?, updated_at = now() where id = ? and role_type = 'elderly'",
+                avatarUrl,
+                current.getAccountId()
+        );
+        int userUpdated = jdbcTemplate.update(
+                "update `user` set avatar_url = ?, updated_at = now() where id = ?",
+                avatarUrl,
+                userId
+        );
+        if (accountUpdated != 1 || userUpdated != 1) {
+            throw new IllegalArgumentException("用户头像更新失败");
+        }
+        return elderlyProfile();
+    }
+
+    @Override
     public List<Map<String, Object>> elderlyHealthData() {
         return jdbcTemplate.queryForList(
                 "select id, data_type as dataType, value, unit, date_format(record_date, '%Y-%m-%d') as recordDate, " +
@@ -266,6 +288,18 @@ public class JdbcPortalDataService implements PortalDataService {
 
     private String uniqueNo(String prefix) {
         return prefix + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+    }
+
+    private void validateAvatarUrl(String avatarUrl) {
+        boolean preset = avatarUrl.matches("/default-avatars/avatar-0[1-6]\\.svg");
+        boolean uploaded = avatarUrl.startsWith("/uploads/avatar/")
+                && !avatarUrl.contains("..")
+                && !avatarUrl.contains("\\\\")
+                && !avatarUrl.contains("?")
+                && !avatarUrl.contains("#");
+        if (!preset && !uploaded) {
+            throw new IllegalArgumentException("头像地址无效");
+        }
     }
 
     private long currentLegacyUserId() {

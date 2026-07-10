@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -68,7 +69,7 @@ public class UploadController {
         return ApiResponse.success(data);
     }
 
-    private void validateFile(MultipartFile file, String category) {
+    private void validateFile(MultipartFile file, String category) throws IOException {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("请选择要上传的文件");
         }
@@ -80,7 +81,10 @@ public class UploadController {
         }
         long maxSize = maxSize(category);
         if (file.getSize() > maxSize) {
-            throw new IllegalArgumentException("文件大小超过限制");
+            throw new IllegalArgumentException(sizeMessage(category));
+        }
+        if ("avatar".equals(category) && !hasExpectedImageSignature(file, extension)) {
+            throw new IllegalArgumentException("文件格式不支持");
         }
     }
 
@@ -96,6 +100,42 @@ public class UploadController {
         if ("report".equals(category)) return REPORT_MAX_SIZE;
         if ("banner".equals(category)) return BANNER_MAX_SIZE;
         return AVATAR_MAX_SIZE;
+    }
+
+    private String sizeMessage(String category) {
+        if ("report".equals(category)) return "报告文件不能超过 20MB";
+        if ("banner".equals(category)) return "轮播图文件不能超过 5MB";
+        return "头像文件不能超过 2MB";
+    }
+
+    private boolean hasExpectedImageSignature(MultipartFile file, String extension) throws IOException {
+        byte[] header = new byte[12];
+        int length = 0;
+        try (InputStream input = file.getInputStream()) {
+            while (length < header.length) {
+                int read = input.read(header, length, header.length - length);
+                if (read < 0) break;
+                length += read;
+            }
+        }
+        if ("jpg".equals(extension) || "jpeg".equals(extension)) {
+            return length >= 3 && unsigned(header[0]) == 0xff && unsigned(header[1]) == 0xd8 && unsigned(header[2]) == 0xff;
+        }
+        if ("png".equals(extension)) {
+            return length >= 8
+                    && unsigned(header[0]) == 0x89 && header[1] == 0x50 && header[2] == 0x4e && header[3] == 0x47
+                    && header[4] == 0x0d && header[5] == 0x0a && header[6] == 0x1a && header[7] == 0x0a;
+        }
+        if ("webp".equals(extension)) {
+            return length >= 12
+                    && header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F'
+                    && header[8] == 'W' && header[9] == 'E' && header[10] == 'B' && header[11] == 'P';
+        }
+        return false;
+    }
+
+    private int unsigned(byte value) {
+        return value & 0xff;
     }
 
     private String extensionOf(String fileName) {

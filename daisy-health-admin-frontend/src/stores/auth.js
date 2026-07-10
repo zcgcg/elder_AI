@@ -46,6 +46,11 @@ export const useAuthStore = defineStore('auth', {
       persist(this.token, this.user, this.permissions)
       return res
     },
+    updateCachedAvatar(avatarUrl) {
+      if (!this.user) return
+      this.user = { ...this.user, avatarUrl }
+      persist(this.token, this.user, this.permissions)
+    },
     signOut() {
       this.token = ''
       this.user = null

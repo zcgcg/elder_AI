@@ -71,24 +71,7 @@
         <el-form-item label="真实姓名" required><el-input v-model="profileForm.realName" /></el-form-item>
         <el-form-item label="手机号"><el-input v-model="profileForm.phone" /></el-form-item>
         <el-form-item label="头像">
-          <div class="avatar-picker">
-            <el-avatar :size="64" :src="assetUrl(profileForm.avatarUrl)">{{ profileForm.realName?.slice(0, 1) || '用' }}</el-avatar>
-            <div class="avatar-choice-grid">
-              <button
-                v-for="avatar in defaultAvatars"
-                :key="avatar"
-                type="button"
-                class="avatar-choice"
-                :class="{ active: profileForm.avatarUrl === avatar }"
-                @click="profileForm.avatarUrl = avatar"
-              >
-                <img :src="avatar" alt="默认头像" />
-              </button>
-            </div>
-            <el-upload :show-file-list="false" :http-request="handleProfileAvatarUpload" accept=".jpg,.jpeg,.png,.webp">
-              <el-button>上传头像</el-button>
-            </el-upload>
-          </div>
+          <avatar-picker ref="avatarPickerRef" :model-value="profileForm.avatarUrl" :fallback="profileForm.realName?.slice(0, 1) || '用'" />
         </el-form-item>
         <el-form-item label="性别"><el-radio-group v-model="profileForm.gender"><el-radio label="女" /><el-radio label="男" /><el-radio label="未知" /></el-radio-group></el-form-item>
         <el-form-item label="出生日期"><el-date-picker v-model="profileForm.birthday" type="date" value-format="YYYY-MM-DD" /></el-form-item>
@@ -153,6 +136,7 @@ import { computed, defineComponent, h, nextTick, onMounted, reactive, ref } from
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { ElButton, ElMessage, ElMessageBox, ElTable, ElTableColumn } from 'element-plus'
+import AvatarPicker from '../components/AvatarPicker.vue'
 import { assetUrl, createResource, deleteResource, getResource, getUser, updateResource, updateUser, uploadFile } from '../api/http'
 
 const EditableTable = defineComponent({
@@ -190,6 +174,7 @@ const profileDialogVisible = ref(false)
 const sectionDialogVisible = ref(false)
 const savingProfile = ref(false)
 const savingSection = ref(false)
+const avatarPickerRef = ref(null)
 const editingSection = ref('')
 const editingId = ref(null)
 const sectionForm = reactive({})
@@ -198,7 +183,6 @@ const profileForm = reactive({
   nickname: '', realName: '', phone: '', avatarUrl: '', gender: '未知', birthday: '', address: '', ethnicity: '', education: '',
   height: 0, weight: 0, bloodType: 'A', chronicDisease: '', sleepQuality: '良好', exerciseFreq: '', dietPreference: '', emergencyContact: '', emergencyPhone: ''
 })
-const defaultAvatars = ['/default-avatars/avatar-01.svg', '/default-avatars/avatar-02.svg', '/default-avatars/avatar-03.svg', '/default-avatars/avatar-04.svg', '/default-avatars/avatar-05.svg', '/default-avatars/avatar-06.svg']
 const user = ref({ id: route.params.id, nickname: '', realName: '', tags: [], medications: [], healthData: [], devices: [], reports: [], orders: [], coupons: [], points: [], contents: [], serviceRecords: [] })
 
 const sectionMap = {
@@ -298,6 +282,7 @@ function openProfileEdit() {
   Object.keys(profileForm).forEach((key) => { profileForm[key] = user.value[key] ?? profileForm[key] })
   profileForm.phone = String(user.value.phone || '').includes('****') ? '' : user.value.phone || ''
   profileDialogVisible.value = true
+  nextTick(() => avatarPickerRef.value?.reset(profileForm.avatarUrl))
 }
 function openSectionCreate(section) {
   editingSection.value = section
@@ -339,27 +324,15 @@ async function saveProfile() {
   }
   savingProfile.value = true
   try {
-    await updateUser(route.params.id, profileForm)
+    const avatarUrl = await avatarPickerRef.value?.commitSelection()
+    await updateUser(route.params.id, { ...profileForm, avatarUrl: avatarUrl || '' })
     await loadUser()
     profileDialogVisible.value = false
     ElMessage.success('个人信息已保存')
   } catch (error) {
-    ElMessage.error('保存失败，请确认后端和数据库已启动')
+    ElMessage.error(error.message || '保存失败，请确认后端和数据库已启动')
   } finally {
     savingProfile.value = false
-  }
-}
-async function handleProfileAvatarUpload(options) {
-  try {
-    const data = await uploadFile(options.file, 'avatar')
-    profileForm.avatarUrl = data.url
-    await updateUser(route.params.id, { avatarUrl: data.url })
-    await loadUser()
-    options.onSuccess?.(data)
-    ElMessage.success('头像上传成功')
-  } catch (error) {
-    options.onError?.(error)
-    ElMessage.error(error?.response?.data?.message || '头像上传失败')
   }
 }
 async function handleSectionUpload(field, options) {
@@ -370,7 +343,7 @@ async function handleSectionUpload(field, options) {
     ElMessage.success('上传成功')
   } catch (error) {
     options.onError?.(error)
-    ElMessage.error(error?.response?.data?.message || '上传失败')
+    ElMessage.error(error.message || '上传失败')
   }
 }
 function openFile(url) {

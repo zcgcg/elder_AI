@@ -4,6 +4,7 @@ import com.daisy.health.common.ApiResponse;
 import com.daisy.health.service.PortalDataService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,6 +24,11 @@ public class ElderlyPortalController {
     @GetMapping("/profile")
     public ApiResponse<Map<String, Object>> profile() {
         return ApiResponse.success(portalDataService.elderlyProfile());
+    }
+
+    @PutMapping("/profile/avatar")
+    public ApiResponse<Map<String, Object>> updateAvatar(@RequestBody Map<String, Object> payload) {
+        return ApiResponse.success(portalDataService.updateElderlyAvatar(payload));
     }
 
     @GetMapping("/health-data")

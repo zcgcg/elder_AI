@@ -562,7 +562,7 @@ async function handleFieldUpload(field, options) {
     ElMessage.success('上传成功')
   } catch (error) {
     options.onError?.(error)
-    ElMessage.error(error?.response?.data?.message || '上传失败')
+    ElMessage.error(error.message || '上传失败')
   }
 }
 function openFile(url) {

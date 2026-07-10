@@ -6,6 +6,8 @@ import java.util.Map;
 public interface PortalDataService {
     Map<String, Object> elderlyProfile();
 
+    Map<String, Object> updateElderlyAvatar(Map<String, Object> payload);
+
     List<Map<String, Object>> elderlyHealthData();
 
     List<Map<String, Object>> elderlyMedications();

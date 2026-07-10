@@ -2,7 +2,10 @@
   <main class="portal-page">
     <header class="portal-header">
       <div class="portal-identity">
-        <el-avatar :size="54" :src="assetUrl(profile.avatarUrl)">{{ profile.realName?.slice(0, 1) || '用' }}</el-avatar>
+        <div class="portal-avatar-control">
+          <el-avatar :size="54" :src="assetUrl(profile.avatarUrl)">{{ profile.realName?.slice(0, 1) || '用' }}</el-avatar>
+          <el-button link type="primary" @click="openAvatarEditor">修改头像</el-button>
+        </div>
         <div>
         <p>用户端</p>
         <h1>{{ profile.realName || auth.user?.name || '我的健康' }}</h1>
@@ -100,6 +103,14 @@
       </el-tab-pane>
     </el-tabs>
 
+    <el-dialog v-model="avatarDialogVisible" title="修改头像" width="680px">
+      <avatar-picker ref="avatarPickerRef" :model-value="profile.avatarUrl" :fallback="profile.realName?.slice(0, 1) || '用'" />
+      <template #footer>
+        <el-button @click="avatarDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="avatarSaving" @click="saveAvatar">保存</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="workOrderVisible" title="创建工单" width="560px">
       <el-form :model="workOrderForm" label-width="96px">
         <el-form-item label="商品服务" required>
@@ -120,9 +131,10 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import AvatarPicker from '../components/AvatarPicker.vue'
 import { useAuthStore } from '../stores/auth'
 import {
   assetUrl,
@@ -136,7 +148,8 @@ import {
   getElderlyPoints,
   getElderlyProfile,
   getElderlyReports,
-  getElderlyWorkOrders
+  getElderlyWorkOrders,
+  updateElderlyAvatar
 } from '../api/http'
 
 const DataTable = {
@@ -167,6 +180,9 @@ const catalogItems = ref([])
 const workOrders = ref([])
 const workOrderVisible = ref(false)
 const workOrderSaving = ref(false)
+const avatarDialogVisible = ref(false)
+const avatarSaving = ref(false)
+const avatarPickerRef = ref(null)
 const today = new Date().toISOString().slice(0, 10)
 const workOrderForm = reactive({ productId: '', amount: 0, date: today, time: '09:00:00' })
 
@@ -280,6 +296,30 @@ async function submitWorkOrder() {
   }
 }
 
+function openAvatarEditor() {
+  avatarDialogVisible.value = true
+  nextTick(() => avatarPickerRef.value?.reset(profile.value.avatarUrl))
+}
+
+async function saveAvatar() {
+  avatarSaving.value = true
+  try {
+    const avatarUrl = await avatarPickerRef.value?.commitSelection()
+    if (!avatarUrl) {
+      ElMessage.warning('请选择一个头像')
+      return
+    }
+    profile.value = await updateElderlyAvatar({ avatarUrl })
+    auth.updateCachedAvatar(profile.value.avatarUrl)
+    avatarDialogVisible.value = false
+    ElMessage.success('头像已更新并同步到管理端')
+  } catch (err) {
+    ElMessage.error(err.message || '头像保存失败')
+  } finally {
+    avatarSaving.value = false
+  }
+}
+
 function logout() {
   auth.signOut()
   router.push('/login')
@@ -316,6 +356,13 @@ onMounted(loadData)
   display: flex;
   align-items: center;
   gap: 14px;
+}
+
+.portal-avatar-control {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .summary-grid {

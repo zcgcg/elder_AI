@@ -77,24 +77,7 @@
         <el-form-item label="真实姓名" required><el-input v-model="newUser.realName" placeholder="请输入真实姓名" /></el-form-item>
         <el-form-item label="手机号"><el-input v-model="newUser.phone" placeholder="请输入手机号" /></el-form-item>
         <el-form-item label="头像">
-          <div class="avatar-picker">
-            <el-avatar :size="64" :src="assetUrl(newUser.avatarUrl)">{{ newUser.realName?.slice(0, 1) || '用' }}</el-avatar>
-            <div class="avatar-choice-grid">
-              <button
-                v-for="avatar in defaultAvatars"
-                :key="avatar"
-                type="button"
-                class="avatar-choice"
-                :class="{ active: newUser.avatarUrl === avatar }"
-                @click="newUser.avatarUrl = avatar"
-              >
-                <img :src="avatar" alt="默认头像" />
-              </button>
-            </div>
-            <el-upload :show-file-list="false" :http-request="handleAvatarUpload" accept=".jpg,.jpeg,.png,.webp">
-              <el-button>上传头像</el-button>
-            </el-upload>
-          </div>
+          <avatar-picker ref="avatarPickerRef" :model-value="newUser.avatarUrl" :fallback="newUser.realName?.slice(0, 1) || '用'" />
         </el-form-item>
         <el-form-item label="性别">
           <el-radio-group v-model="newUser.gender"><el-radio label="女" /><el-radio label="男" /><el-radio label="未知" /></el-radio-group>
@@ -160,10 +143,11 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { Delete, Plus, PriceTag } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { assetUrl, createTag, createUser, deleteTag, deleteUser, getTags, getUsers, updateTag, updateUser, updateUserTags, uploadFile } from '../api/http'
+import AvatarPicker from '../components/AvatarPicker.vue'
+import { assetUrl, createTag, createUser, deleteTag, deleteUser, getTags, getUsers, updateTag, updateUser, updateUserTags } from '../api/http'
 
 const viewMode = ref('卡片')
 const filters = reactive({ tag: '', dateRange: [], keyword: '' })
@@ -178,6 +162,7 @@ const editingId = ref(null)
 const selectedUser = ref(null)
 const selectedTagIds = ref([])
 const tagEditingId = ref(null)
+const avatarPickerRef = ref(null)
 const newUser = reactive({
   nickname: '',
   realName: '',
@@ -189,7 +174,6 @@ const newUser = reactive({
   chronicDisease: '',
   tagNames: []
 })
-const defaultAvatars = ['/default-avatars/avatar-01.svg', '/default-avatars/avatar-02.svg', '/default-avatars/avatar-03.svg', '/default-avatars/avatar-04.svg', '/default-avatars/avatar-05.svg', '/default-avatars/avatar-06.svg']
 const tagForm = reactive({ name: '', color: 'green' })
 const fallbackUsers = [
   { id: 10001, nickname: '笑看人生', realName: '王强', phone: '19233664486', tags: ['高血压', '糖尿病', '多次购买'], tagIds: [1, 5], createdAt: '2024-10-09 10:09:09' },
@@ -252,6 +236,7 @@ function openCreate() {
   editingId.value = null
   Object.assign(newUser, { nickname: '', realName: '', phone: '', avatarUrl: '', gender: '女', birthday: '', address: '', chronicDisease: '', tagNames: [] })
   dialogVisible.value = true
+  nextTick(() => avatarPickerRef.value?.reset(newUser.avatarUrl))
 }
 function openEdit(row) {
   editingId.value = row.id
@@ -267,6 +252,7 @@ function openEdit(row) {
     tagNames: Array.isArray(row.tags) ? [...row.tags] : []
   })
   dialogVisible.value = true
+  nextTick(() => avatarPickerRef.value?.reset(newUser.avatarUrl))
 }
 async function submitCreate() {
   if (!newUser.realName.trim()) {
@@ -275,7 +261,8 @@ async function submitCreate() {
   }
   saving.value = true
   try {
-    const payload = { ...newUser, tags: newUser.tagNames.join(',') }
+    const avatarUrl = await avatarPickerRef.value?.commitSelection()
+    const payload = { ...newUser, avatarUrl: avatarUrl || '', tags: newUser.tagNames.join(',') }
     if (editingId.value) await updateUser(editingId.value, payload)
     else await createUser(payload)
     ElMessage.success(editingId.value ? '用户已更新' : '用户已新增')
@@ -283,24 +270,9 @@ async function submitCreate() {
     await loadTags()
     await load()
   } catch (error) {
-    ElMessage.error('保存失败，请确认后端和数据库已启动')
+    ElMessage.error(error.message || '保存失败，请确认后端和数据库已启动')
   } finally {
     saving.value = false
-  }
-}
-async function handleAvatarUpload(options) {
-  try {
-    const data = await uploadFile(options.file, 'avatar')
-    newUser.avatarUrl = data.url
-    if (editingId.value) {
-      await updateUser(editingId.value, { avatarUrl: data.url })
-      await load()
-    }
-    options.onSuccess?.(data)
-    ElMessage.success('头像上传成功')
-  } catch (error) {
-    options.onError?.(error)
-    ElMessage.error(error?.response?.data?.message || '头像上传失败')
   }
 }
 async function removeUser(row) {
