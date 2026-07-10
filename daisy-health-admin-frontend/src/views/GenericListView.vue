@@ -39,7 +39,7 @@
     <div class="pagination"><el-pagination layout="prev, pager, next, total" :total="total" /></div>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="620px">
-      <el-form :model="form" label-width="96px">
+      <el-form :model="form" label-width="112px">
         <el-form-item v-for="field in createFields" :key="field.prop" :label="field.label" :required="field.required">
           <el-input-number v-if="field.type === 'number'" v-model="form[field.prop]" :min="0" controls-position="right" :disabled="readonly || field.readonly" />
           <el-select

@@ -28,7 +28,19 @@
             <strong>{{ item.serviceName }}</strong>
             <span>{{ item.timeRange }} · {{ item.userName }}</span>
             <div class="appointment-card-footer">
-              <el-tag :type="tagType(statusLabel(item.status))" size="small">{{ statusLabel(item.status) }}</el-tag>
+              <el-dropdown trigger="click" @command="(status) => changeStatus(item, status)">
+                <el-tag :type="tagType(statusLabel(item.status))" size="small" effect="dark" class="status-dropdown-tag">
+                  {{ statusLabel(item.status) }}<el-icon class="el-icon--right"><arrow-down /></el-icon>
+                </el-tag>
+                <template #dropdown>
+                  <el-dropdown-menu>
+                    <el-dropdown-item command="pending">待服务</el-dropdown-item>
+                    <el-dropdown-item command="service_in">服务中</el-dropdown-item>
+                    <el-dropdown-item command="completed">已完成</el-dropdown-item>
+                    <el-dropdown-item command="cancelled">已取消</el-dropdown-item>
+                  </el-dropdown-menu>
+                </template>
+              </el-dropdown>
               <el-button link type="danger" size="small" @click="removeAppointment(item)">删除</el-button>
             </div>
           </article>
@@ -74,9 +86,9 @@
 
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createAppointment, deleteAppointment, getAppointments, getResource, getUsers } from '../api/http'
+import { createAppointment, deleteAppointment, getAppointments, getResource, getUsers, updateAppointment } from '../api/http'
 
 const filters = reactive({ date: new Date(), productId: '' })
 const hours = Array.from({ length: 10 }, (_, index) => index + 9)
@@ -226,8 +238,27 @@ async function removeAppointment(item) {
     if (error !== 'cancel') ElMessage.error('删除失败')
   }
 }
+async function changeStatus(item, status) {
+  try {
+    await updateAppointment(item.id, { status: statusLabel(status) })
+    ElMessage.success('状态已更新')
+    await load()
+  } catch (error) {
+    ElMessage.error('状态更新失败')
+  }
+}
 
 onMounted(async () => {
   await Promise.all([load(), loadUsers(), loadCatalog()])
 })
 </script>
+
+<style scoped>
+.status-dropdown-tag {
+  cursor: pointer;
+}
+.status-dropdown-tag .el-icon--right {
+  margin-left: 4px;
+  font-size: 12px;
+}
+</style>
