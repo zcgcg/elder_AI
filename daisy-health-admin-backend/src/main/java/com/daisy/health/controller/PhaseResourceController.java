@@ -27,7 +27,7 @@ public class PhaseResourceController {
 
     @GetMapping({
             "/health-settings", "/devices", "/reports", "/coupons", "/user-points", "/points-records",
-            "/member-levels", "/points-rules", "/product-categories", "/service-items", "/banners",
+            "/member-levels", "/points-rules", "/banners",
             "/activity-enrolls", "/topics", "/assessment-results", "/medications", "/health-data"
     })
     public ApiResponse<PageResult<Map<String, Object>>> list(HttpServletRequest request) {
@@ -36,7 +36,7 @@ public class PhaseResourceController {
 
     @PostMapping({
             "/health-settings", "/devices", "/reports", "/coupons", "/user-points", "/points-records",
-            "/member-levels", "/points-rules", "/product-categories", "/service-items", "/banners",
+            "/member-levels", "/points-rules", "/banners",
             "/activity-enrolls", "/topics", "/assessment-results", "/medications", "/health-data"
     })
     public ApiResponse<Map<String, Object>> create(HttpServletRequest request, @RequestBody Map<String, Object> payload) {
@@ -45,7 +45,7 @@ public class PhaseResourceController {
 
     @PutMapping({
             "/health-settings/{id}", "/devices/{id}", "/reports/{id}", "/coupons/{id}", "/user-points/{id}", "/points-records/{id}",
-            "/member-levels/{id}", "/points-rules/{id}", "/product-categories/{id}", "/service-items/{id}", "/banners/{id}",
+            "/member-levels/{id}", "/points-rules/{id}", "/banners/{id}",
             "/activity-enrolls/{id}", "/topics/{id}", "/assessment-results/{id}", "/medications/{id}", "/health-data/{id}"
     })
     public ApiResponse<Map<String, Object>> update(HttpServletRequest request, @PathVariable Long id, @RequestBody(required = false) Map<String, Object> payload) {
@@ -54,7 +54,7 @@ public class PhaseResourceController {
 
     @DeleteMapping({
             "/health-settings/{id}", "/devices/{id}", "/reports/{id}", "/coupons/{id}", "/user-points/{id}", "/points-records/{id}",
-            "/member-levels/{id}", "/points-rules/{id}", "/product-categories/{id}", "/service-items/{id}", "/banners/{id}",
+            "/member-levels/{id}", "/points-rules/{id}", "/banners/{id}",
             "/activity-enrolls/{id}", "/topics/{id}", "/assessment-results/{id}", "/medications/{id}", "/health-data/{id}"
     })
     public ApiResponse<Map<String, Object>> delete(HttpServletRequest request, @PathVariable Long id) {

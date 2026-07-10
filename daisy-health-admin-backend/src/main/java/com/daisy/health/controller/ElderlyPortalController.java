@@ -3,6 +3,8 @@ package com.daisy.health.controller;
 import com.daisy.health.common.ApiResponse;
 import com.daisy.health.service.PortalDataService;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -56,5 +58,20 @@ public class ElderlyPortalController {
     @GetMapping("/points")
     public ApiResponse<Map<String, Object>> points() {
         return ApiResponse.success(portalDataService.elderlyPoints());
+    }
+
+    @GetMapping("/catalog-items")
+    public ApiResponse<List<Map<String, Object>>> catalogItems() {
+        return ApiResponse.success(portalDataService.elderlyCatalogItems());
+    }
+
+    @GetMapping("/work-orders")
+    public ApiResponse<List<Map<String, Object>>> workOrders() {
+        return ApiResponse.success(portalDataService.elderlyWorkOrders());
+    }
+
+    @PostMapping("/work-orders")
+    public ApiResponse<Map<String, Object>> createWorkOrder(@RequestBody Map<String, Object> payload) {
+        return ApiResponse.success(portalDataService.createElderlyWorkOrder(payload));
     }
 }

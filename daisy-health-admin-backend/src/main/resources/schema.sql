@@ -93,13 +93,43 @@ create table if not exists product (
   id bigint primary key auto_increment,
   name varchar(100) not null,
   code varchar(30) not null unique,
+  item_type varchar(20) not null default '商品',
   category varchar(30) not null,
+  description varchar(500) null,
+  duration int null,
   price decimal(10,2) not null,
   status tinyint not null default 1,
   updater varchar(50) null,
   updated_at datetime not null default current_timestamp on update current_timestamp,
   created_at datetime not null default current_timestamp
 ) default charset = utf8mb4;
+
+set @add_product_item_type = if(
+  (select count(*) from information_schema.columns where table_schema = database() and table_name = 'product' and column_name = 'item_type') = 0,
+  'alter table product add column item_type varchar(20) not null default ''商品'' after code',
+  'select 1'
+);
+prepare stmt from @add_product_item_type;
+execute stmt;
+deallocate prepare stmt;
+
+set @add_product_description = if(
+  (select count(*) from information_schema.columns where table_schema = database() and table_name = 'product' and column_name = 'description') = 0,
+  'alter table product add column description varchar(500) null after category',
+  'select 1'
+);
+prepare stmt from @add_product_description;
+execute stmt;
+deallocate prepare stmt;
+
+set @add_product_duration = if(
+  (select count(*) from information_schema.columns where table_schema = database() and table_name = 'product' and column_name = 'duration') = 0,
+  'alter table product add column duration int null after description',
+  'select 1'
+);
+prepare stmt from @add_product_duration;
+execute stmt;
+deallocate prepare stmt;
 
 create table if not exists service_order (
   id bigint primary key auto_increment,
@@ -117,17 +147,50 @@ create table if not exists work_order (
   id bigint primary key auto_increment,
   order_no varchar(30) not null unique,
   order_id bigint not null,
+  product_id bigint null,
   service_item varchar(100) not null,
   amount decimal(10,2) not null,
   personnel_id bigint null,
   customer_id bigint not null,
+  created_by_account_id bigint null,
+  created_by_role varchar(20) null,
   status varchar(20) not null,
-  dispatch_time datetime null,
+  dispatch_time datetime not null default current_timestamp,
   service_time datetime null,
   complete_time datetime null,
   cancel_reason varchar(200) null,
   created_at datetime not null default current_timestamp
 ) default charset = utf8mb4;
+
+set @add_work_order_product_id = if(
+  (select count(*) from information_schema.columns where table_schema = database() and table_name = 'work_order' and column_name = 'product_id') = 0,
+  'alter table work_order add column product_id bigint null after order_id',
+  'select 1'
+);
+prepare stmt from @add_work_order_product_id;
+execute stmt;
+deallocate prepare stmt;
+
+set @add_work_order_creator_account = if(
+  (select count(*) from information_schema.columns where table_schema = database() and table_name = 'work_order' and column_name = 'created_by_account_id') = 0,
+  'alter table work_order add column created_by_account_id bigint null after customer_id',
+  'select 1'
+);
+prepare stmt from @add_work_order_creator_account;
+execute stmt;
+deallocate prepare stmt;
+
+set @add_work_order_creator_role = if(
+  (select count(*) from information_schema.columns where table_schema = database() and table_name = 'work_order' and column_name = 'created_by_role') = 0,
+  'alter table work_order add column created_by_role varchar(20) null after created_by_account_id',
+  'select 1'
+);
+prepare stmt from @add_work_order_creator_role;
+execute stmt;
+deallocate prepare stmt;
+
+update work_order set dispatch_time = coalesce(dispatch_time, created_at, now()) where dispatch_time is null;
+alter table work_order modify column dispatch_time datetime not null default current_timestamp;
 
 create table if not exists after_sale (
   id bigint primary key auto_increment,
@@ -566,4 +629,9 @@ create table if not exists assessment_result (
   result text null,
   answers text null,
   created_at datetime not null default current_timestamp
+) default charset = utf8mb4;
+
+create table if not exists data_migration (
+  migration_key varchar(100) primary key,
+  applied_at datetime not null default current_timestamp
 ) default charset = utf8mb4;

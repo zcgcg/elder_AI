@@ -669,3 +669,41 @@ on duplicate key update
   area = values(area),
   join_time = values(join_time),
   audit_status = values(audit_status);
+
+insert into product(name, code, item_type, category, description, duration, price, status, updater, created_at)
+select s.name, concat('SVC-', s.id), '服务', coalesce(p.category, '其他'), s.description, s.duration,
+       coalesce(s.price, 0), s.status, '服务项目迁移', s.created_at
+from service_item s
+left join product p on p.id = s.product_id
+on duplicate key update
+  name = values(name),
+  item_type = values(item_type),
+  category = values(category),
+  description = values(description),
+  duration = values(duration),
+  price = values(price),
+  status = values(status),
+  updater = values(updater);
+
+update work_order w
+join service_order o on o.id = w.order_id
+set w.product_id = o.product_id
+where w.product_id is null;
+
+update work_order w
+join product p on p.name = w.service_item
+set w.product_id = p.id
+where w.product_id is null;
+
+update work_order w
+set w.created_by_account_id = null,
+    w.created_by_role = null
+where w.created_by_role = 'elderly'
+  and w.created_by_account_id = w.customer_id
+  and not exists (
+    select 1 from data_migration m
+    where m.migration_key = '20260710_clear_inferred_work_order_creators'
+  );
+
+insert ignore into data_migration(migration_key)
+values ('20260710_clear_inferred_work_order_creators');

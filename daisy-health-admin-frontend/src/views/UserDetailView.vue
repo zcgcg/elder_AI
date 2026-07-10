@@ -114,7 +114,10 @@
     <el-dialog v-model="sectionDialogVisible" :title="sectionDialogTitle" width="640px">
       <el-form :model="sectionForm" label-width="104px">
         <el-form-item v-for="field in currentSection.fields" :key="field.prop" :label="field.label" :required="field.required">
-          <el-input-number v-if="field.type === 'number'" v-model="sectionForm[field.prop]" :min="0" controls-position="right" />
+          <el-input-number v-if="field.type === 'number'" v-model="sectionForm[field.prop]" :min="0" controls-position="right" :disabled="field.readonly" />
+          <el-select v-else-if="field.type === 'product'" v-model="sectionForm[field.prop]" filterable placeholder="请选择商品服务" @change="syncSectionProductAmount">
+            <el-option v-for="item in productOptions" :key="item.id" :label="`${item.name} · ¥${item.price}`" :value="String(item.id)" />
+          </el-select>
           <el-select v-else-if="field.type === 'select'" v-model="sectionForm[field.prop]" placeholder="请选择">
             <el-option v-for="option in field.options" :key="option" :label="option" :value="option" />
           </el-select>
@@ -150,7 +153,7 @@ import { computed, defineComponent, h, nextTick, onMounted, reactive, ref } from
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { ElButton, ElMessage, ElMessageBox, ElTable, ElTableColumn } from 'element-plus'
-import { assetUrl, createResource, deleteResource, getUser, updateResource, updateUser, uploadFile } from '../api/http'
+import { assetUrl, createResource, deleteResource, getResource, getUser, updateResource, updateUser, uploadFile } from '../api/http'
 
 const EditableTable = defineComponent({
   props: { section: String, rows: Array, columns: Array },
@@ -190,6 +193,7 @@ const savingSection = ref(false)
 const editingSection = ref('')
 const editingId = ref(null)
 const sectionForm = reactive({})
+const productOptions = ref([])
 const profileForm = reactive({
   nickname: '', realName: '', phone: '', avatarUrl: '', gender: '未知', birthday: '', address: '', ethnicity: '', education: '',
   height: 0, weight: 0, bloodType: 'A', chronicDisease: '', sleepQuality: '良好', exerciseFreq: '', dietPreference: '', emergencyContact: '', emergencyPhone: ''
@@ -229,9 +233,9 @@ const sectionMap = {
   orders: {
     title: '订单信息',
     resource: 'orders',
-    defaults: () => ({ userRef: String(user.value.id), productName: '', amount: 99, serviceType: '家政护理', status: 'pending_accept' }),
+    defaults: () => ({ userRef: String(user.value.id), productId: productOptions.value[0]?.id ? String(productOptions.value[0].id) : '', amount: Number(productOptions.value[0]?.price || 0), status: '待接单' }),
     columns: [{ prop: 'orderNo', label: '订单编号', width: 160 }, { prop: 'productName', label: '商品' }, { prop: 'amount', label: '金额' }, { prop: 'status', label: '状态' }],
-    fields: [{ prop: 'productName', label: '商品名称' }, { prop: 'amount', label: '金额', type: 'number' }, { prop: 'serviceType', label: '服务类型', type: 'select', options: ['家政护理', '康复理疗', '上门体检'] }, { prop: 'status', label: '状态', type: 'select', options: ['pending_accept', 'pending_service', 'completed', 'closed', 'after_sale'] }]
+    fields: [{ prop: 'productId', label: '商品服务', type: 'product', required: true }, { prop: 'amount', label: '金额', type: 'number', readonly: true }, { prop: 'status', label: '状态', type: 'select', options: ['待接单', '待服务', '已完成', '已关闭', '售后中'] }]
   },
   coupons: {
     title: '优惠券',
@@ -257,9 +261,9 @@ const sectionMap = {
   workOrders: {
     title: '服务记录',
     resource: 'workOrders',
-    defaults: () => ({ userRef: String(user.value.id), serviceItem: '', amount: 99, status: 'pending', serviceTime: '', completeTime: '' }),
+    defaults: () => ({ userRef: String(user.value.id), productId: productOptions.value[0]?.id ? String(productOptions.value[0].id) : '', amount: Number(productOptions.value[0]?.price || 0), status: '待服务', serviceTime: '', completeTime: '' }),
     columns: [{ prop: 'orderNo', label: '工单编号', width: 160 }, { prop: 'serviceItem', label: '服务项目' }, { prop: 'amount', label: '金额' }, { prop: 'status', label: '状态' }],
-    fields: [{ prop: 'serviceItem', label: '服务项目', required: true }, { prop: 'amount', label: '金额', type: 'number' }, { prop: 'status', label: '状态', type: 'select', options: ['pending', 'service_in', 'completed', 'cancelled'] }, { prop: 'serviceTime', label: '服务时间' }, { prop: 'completeTime', label: '结束时间' }]
+    fields: [{ prop: 'productId', label: '商品服务', type: 'product', required: true }, { prop: 'amount', label: '金额', type: 'number', readonly: true }, { prop: 'status', label: '状态', type: 'select', options: ['待服务', '服务中', '已完成', '已取消'] }, { prop: 'serviceTime', label: '服务时间' }, { prop: 'completeTime', label: '结束时间' }]
   }
 }
 
@@ -307,13 +311,26 @@ function openSectionEdit(section, row) {
   editingId.value = row.id
   Object.keys(sectionForm).forEach((key) => delete sectionForm[key])
   Object.assign(sectionForm, sectionMap[section].defaults(), row)
+  if (section === 'orders' || section === 'workOrders') sectionForm.productId = String(row.productId || '')
   sectionForm.userRef = String(user.value.id)
   sectionDialogVisible.value = true
+}
+function syncSectionProductAmount(productId) {
+  const selected = productOptions.value.find((item) => String(item.id) === String(productId))
+  sectionForm.amount = Number(selected?.price || 0)
 }
 async function loadUser() {
   user.value = await getUser(route.params.id)
   await nextTick()
   drawHealthChart()
+}
+async function loadProductOptions() {
+  try {
+    const data = await getResource('products')
+    productOptions.value = (data.list || data || []).filter((item) => item.status !== '下架')
+  } catch (error) {
+    productOptions.value = []
+  }
 }
 async function saveProfile() {
   if (!profileForm.realName.trim()) {
@@ -395,7 +412,7 @@ async function removeSectionRow(section, row) {
 
 onMounted(async () => {
   try {
-    await loadUser()
+    await Promise.all([loadUser(), loadProductOptions()])
   } catch (error) {
     drawHealthChart()
   }

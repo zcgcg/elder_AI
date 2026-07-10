@@ -20,6 +20,12 @@ public interface PortalDataService {
 
     Map<String, Object> elderlyPoints();
 
+    List<Map<String, Object>> elderlyCatalogItems();
+
+    List<Map<String, Object>> elderlyWorkOrders();
+
+    Map<String, Object> createElderlyWorkOrder(Map<String, Object> payload);
+
     Map<String, Object> serviceProfile();
 
     List<Map<String, Object>> serviceWorkOrders();

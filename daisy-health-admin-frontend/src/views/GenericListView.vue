@@ -41,7 +41,7 @@
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="620px">
       <el-form :model="form" label-width="96px">
         <el-form-item v-for="field in createFields" :key="field.prop" :label="field.label" :required="field.required">
-          <el-input-number v-if="field.type === 'number'" v-model="form[field.prop]" :min="0" controls-position="right" :disabled="readonly" />
+          <el-input-number v-if="field.type === 'number'" v-model="form[field.prop]" :min="0" controls-position="right" :disabled="readonly || field.readonly" />
           <el-select
             v-else-if="field.type === 'user'"
             v-model="form[field.prop]"
@@ -62,13 +62,14 @@
             v-model="form[field.prop]"
             filterable
             clearable
-            placeholder="请选择商品"
+            placeholder="请选择商品服务"
             :disabled="readonly"
+            @change="handleProductChange(field, $event)"
           >
             <el-option
               v-for="product in productOptions"
               :key="product.id"
-              :label="product.name"
+              :label="`${product.name} · ¥${product.price} · ${product.itemType || '商品'}`"
               :value="String(product.id)"
             />
           </el-select>
@@ -154,7 +155,7 @@ const descriptors = {
   personnel: '服务人员生命周期、负责区域与启用状态管理',
   audits: '服务人员资质审核，通过或驳回申请',
   workOrders: '待服务、服务中、已完成、已取消工单流转',
-  products: '家政护理、康复理疗、上门体检服务商品管理',
+  products: '统一维护商品与服务，工单金额以此处价格为准',
   orders: '订单从待接单到服务完成的全生命周期管理',
   afterSales: '售后申请审核、处理和关闭',
   reviews: '服务评价回复、隐藏与统计',
@@ -214,7 +215,7 @@ const columnMap = {
   personnel: [{ prop: 'name', label: '服务人员' }, { prop: 'serviceType', label: '服务类型' }, { prop: 'area', label: '负责区域' }, { prop: 'status', label: '状态' }, { prop: 'updatedAt', label: '更新时间', width: 170 }],
   audits: [{ prop: 'name', label: '申请人' }, { prop: 'serviceType', label: '服务类型' }, { prop: 'auditStatus', label: '审核状态' }, { prop: 'phone', label: '手机号' }, { prop: 'updatedAt', label: '申请时间', width: 170 }],
   workOrders: [{ prop: 'orderNo', label: '工单编号', width: 170 }, { prop: 'serviceItem', label: '服务项目' }, { prop: 'customer', label: '服务客户' }, { prop: 'status', label: '状态' }, { prop: 'updatedAt', label: '派单时间', width: 170 }],
-  products: [{ prop: 'name', label: '商品信息', width: 190 }, { prop: 'category', label: '分类' }, { prop: 'price', label: '价格' }, { prop: 'status', label: '状态' }, { prop: 'updatedAt', label: '更新时间', width: 170 }],
+  products: [{ prop: 'name', label: '商品服务', width: 190 }, { prop: 'itemType', label: '类型' }, { prop: 'category', label: '分类' }, { prop: 'duration', label: '时长(分钟)' }, { prop: 'price', label: '价格' }, { prop: 'status', label: '状态' }, { prop: 'updatedAt', label: '更新时间', width: 170 }],
   orders: [{ prop: 'orderNo', label: '订单编号', width: 170 }, { prop: 'productName', label: '商品信息' }, { prop: 'buyer', label: '买家' }, { prop: 'amount', label: '金额' }, { prop: 'serviceType', label: '服务类型' }, { prop: 'status', label: '订单状态' }],
   afterSales: [{ prop: 'orderNo', label: '订单编号', width: 170 }, { prop: 'applicant', label: '申请人' }, { prop: 'reason', label: '售后原因' }, { prop: 'status', label: '状态' }],
   reviews: [{ prop: 'productName', label: '商品' }, { prop: 'user', label: '用户' }, { prop: 'rating', label: '评分' }, { prop: 'status', label: '状态' }],
@@ -253,22 +254,26 @@ const createFieldMap = {
     { prop: 'auditStatus', label: '审核状态', type: 'select', options: ['待审核', '已通过', '已驳回'] }
   ],
   workOrders: [
-    { prop: 'serviceItem', label: '服务项目', required: true, placeholder: '如：助浴护理' },
-    { prop: 'amount', label: '金额', type: 'number' },
+    { prop: 'productId', label: '商品服务', type: 'product', required: true },
+    { prop: 'amount', label: '金额', type: 'number', readonly: true },
     { prop: 'userRef', label: '客户', type: 'user' },
+    { prop: 'serviceTime', label: '服务时间', placeholder: 'YYYY-MM-DD HH:mm:ss' },
     { prop: 'status', label: '状态', type: 'select', options: ['待服务', '服务中', '已完成', '已取消'] }
   ],
   products: [
-    { prop: 'name', label: '商品名称', required: true, placeholder: '如：助餐陪诊服务' },
+    { prop: 'name', label: '商品服务名称', required: true, placeholder: '如：助餐陪诊服务' },
+    { prop: 'code', label: '编码', placeholder: '不填则自动生成' },
+    { prop: 'itemType', label: '类型', type: 'select', options: ['服务', '商品'] },
     { prop: 'category', label: '分类', type: 'select', options: ['家政护理', '康复理疗', '上门体检'] },
+    { prop: 'description', label: '说明', type: 'textarea', placeholder: '商品或服务说明' },
+    { prop: 'duration', label: '时长分钟', type: 'number' },
     { prop: 'price', label: '价格', type: 'number' },
     { prop: 'status', label: '状态', type: 'select', options: ['上架', '下架'] }
   ],
   orders: [
-    { prop: 'productName', label: '商品名称', placeholder: '不填则使用默认商品' },
+    { prop: 'productId', label: '商品服务', type: 'product', required: true },
     { prop: 'userRef', label: '买家', type: 'user' },
-    { prop: 'amount', label: '金额', type: 'number' },
-    { prop: 'serviceType', label: '服务类型', type: 'select', options: ['家政护理', '康复理疗', '上门体检'] },
+    { prop: 'amount', label: '金额', type: 'number', readonly: true },
     { prop: 'status', label: '状态', type: 'select', options: ['待接单', '待服务', '已完成', '已关闭', '售后中'] }
   ],
   afterSales: [
@@ -519,6 +524,11 @@ function fillForm(row) {
     else form[field.prop] = value || ''
   })
 }
+function handleProductChange(field, value) {
+  if (field.prop !== 'productId' || !['workOrders', 'orders'].includes(resource.value)) return
+  const selected = productOptions.value.find((item) => String(item.id) === String(value))
+  form.amount = selected ? Number(selected.price || 0) : 0
+}
 function userRefFromRow(row) {
   const name = row.userName || row.customer || row.buyer || row.applicant || row.user
   const matched = userOptions.value.find((item) => item.realName === name || item.nickname === name)
@@ -572,7 +582,10 @@ async function loadUsers() {
 }
 async function loadOptions() {
   const [products, activities] = await Promise.allSettled([getResource('products'), getResource('activities')])
-  if (products.status === 'fulfilled') productOptions.value = products.value.list || products.value || []
+  if (products.status === 'fulfilled') {
+    const options = products.value.list || products.value || []
+    productOptions.value = options.filter((item) => item.status !== '下架')
+  }
   if (activities.status === 'fulfilled') activityOptions.value = activities.value.list || activities.value || []
 }
 async function submitCreate() {

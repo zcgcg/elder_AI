@@ -5,6 +5,7 @@ import com.daisy.health.common.JwtAuthFilter;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -13,9 +14,11 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Profile("mysql")
+@Transactional
 public class JdbcPortalDataService implements PortalDataService {
     private static final List<String> SERVICE_STATUSES = Arrays.asList("pending", "service_in", "completed", "cancelled");
 
@@ -116,6 +119,74 @@ public class JdbcPortalDataService implements PortalDataService {
     }
 
     @Override
+    public List<Map<String, Object>> elderlyCatalogItems() {
+        return jdbcTemplate.queryForList(
+                "select id, name, item_type as itemType, category, description, duration, price " +
+                        "from product where status = 1 order by item_type desc, category, id"
+        );
+    }
+
+    @Override
+    public List<Map<String, Object>> elderlyWorkOrders() {
+        AuthenticatedUser current = requireRole("elderly");
+        long userId = currentLegacyUserId();
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                workOrderSelect() + " where w.customer_id = ? and w.created_by_account_id = ? and w.created_by_role = 'elderly' order by w.created_at desc, w.id desc",
+                userId,
+                current.getAccountId()
+        );
+        normalizeWorkOrderStatuses(rows);
+        return rows;
+    }
+
+    @Override
+    public Map<String, Object> createElderlyWorkOrder(Map<String, Object> payload) {
+        AuthenticatedUser current = requireRole("elderly");
+        long userId = currentLegacyUserId();
+        long productId = requiredLong(payload, "productId", "请选择商品服务");
+        Map<String, Object> product = one(
+                "select id, name, category, price from product where id = ? and status = 1 limit 1",
+                productId
+        );
+        if (product.isEmpty()) {
+            throw new IllegalArgumentException("所选商品服务不存在或已下架");
+        }
+
+        String serviceOrderNo = uniqueNo("OD");
+        jdbcTemplate.update(
+                "insert into service_order(order_no, product_id, product_name, amount, buyer_id, status, service_type) " +
+                        "values(?, ?, ?, ?, ?, 'pending_service', ?)",
+                serviceOrderNo, productId, product.get("name"), product.get("price"), userId, product.get("category")
+        );
+        Number orderId = jdbcTemplate.queryForObject(
+                "select id from service_order where order_no = ? limit 1",
+                Number.class,
+                serviceOrderNo
+        );
+
+        List<Long> personnelIds = jdbcTemplate.queryForList(
+                "select id from service_personnel where status = 1 order by id limit 1",
+                Long.class
+        );
+        Long personnelId = personnelIds.isEmpty() ? null : personnelIds.get(0);
+        String workOrderNo = uniqueNo("WO");
+        String serviceTime = stringValue(payload == null ? null : payload.get("serviceTime")).trim();
+        jdbcTemplate.update(
+                "insert into work_order(order_no, order_id, product_id, service_item, amount, personnel_id, customer_id, created_by_account_id, created_by_role, status, dispatch_time, service_time, complete_time, cancel_reason) " +
+                        "values(?, ?, ?, ?, ?, ?, ?, ?, 'elderly', 'pending', now(), nullif(?, ''), null, null)",
+                workOrderNo, orderId, productId, product.get("name"), product.get("price"), personnelId, userId, current.getAccountId(), serviceTime
+        );
+
+        Map<String, Object> created = one(
+                workOrderSelect() + " where w.order_no = ? and w.customer_id = ? limit 1",
+                workOrderNo,
+                userId
+        );
+        normalizeWorkOrderStatus(created);
+        return created;
+    }
+
+    @Override
     public Map<String, Object> serviceProfile() {
         long personnelId = currentLegacyPersonnelId();
         return one(
@@ -162,11 +233,41 @@ public class JdbcPortalDataService implements PortalDataService {
     }
 
     private String workOrderSelect() {
-        return "select w.id, w.order_no as orderNo, w.service_item as serviceItem, w.amount, w.status, " +
+        return "select w.id, w.order_no as orderNo, w.product_id as productId, w.service_item as serviceItem, w.amount, w.status, " +
                 "date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as dispatchTime, date_format(w.service_time, '%Y-%m-%d %H:%i') as serviceTime, " +
                 "date_format(w.complete_time, '%Y-%m-%d %H:%i') as completeTime, u.real_name as customerName, u.phone as customerPhone, u.address as customerAddress, " +
                 "o.order_no as serviceOrderNo, o.product_name as productName, o.service_type as serviceType " +
                 "from work_order w left join `user` u on w.customer_id = u.id left join service_order o on w.order_id = o.id";
+    }
+
+    private void normalizeWorkOrderStatuses(List<Map<String, Object>> rows) {
+        for (Map<String, Object> row : rows) {
+            normalizeWorkOrderStatus(row);
+        }
+    }
+
+    private void normalizeWorkOrderStatus(Map<String, Object> row) {
+        String status = stringValue(row.get("status"));
+        if ("pending".equals(status)) row.put("status", "待服务");
+        if ("service_in".equals(status)) row.put("status", "服务中");
+        if ("completed".equals(status)) row.put("status", "已完成");
+        if ("cancelled".equals(status)) row.put("status", "已取消");
+    }
+
+    private long requiredLong(Map<String, Object> payload, String key, String message) {
+        Object value = payload == null ? null : payload.get(key);
+        try {
+            long parsed = value instanceof Number ? ((Number) value).longValue() : Long.parseLong(stringValue(value).trim());
+            if (parsed > 0) {
+                return parsed;
+            }
+        } catch (Exception ignored) {
+        }
+        throw new IllegalArgumentException(message);
+    }
+
+    private String uniqueNo(String prefix) {
+        return prefix + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
     }
 
     private long currentLegacyUserId() {

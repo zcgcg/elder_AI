@@ -17,6 +17,12 @@ spring:
     time-zone: Asia/Shanghai
     date-format: yyyy-MM-dd HH:mm:ss
 
+daisy:
+  upload-dir: uploads
+  security:
+    jwt-secret: ${DAISY_JWT_SECRET:daisy-health-local-dev-secret-please-change-32}
+    jwt-expiration-ms: ${DAISY_JWT_EXPIRATION_MS:28800000}
+
 ---
 spring:
   config:
@@ -54,9 +60,3 @@ mybatis:
 
 knife4j:
   enable: true
-
-daisy:
-  upload-dir: uploads
-  security:
-    jwt-secret: ${DAISY_JWT_SECRET:daisy-health-local-dev-secret-please-change-32}
-    jwt-expiration-ms: ${DAISY_JWT_EXPIRATION_MS:7200000}

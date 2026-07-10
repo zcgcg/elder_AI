@@ -52,6 +52,21 @@ public class MockPortalDataService implements PortalDataService {
     }
 
     @Override
+    public List<Map<String, Object>> elderlyCatalogItems() {
+        return list(record("id", 1, "name", "助浴护理", "itemType", "服务", "category", "家政护理", "price", 199));
+    }
+
+    @Override
+    public List<Map<String, Object>> elderlyWorkOrders() {
+        return list(record("id", 1, "orderNo", "WO20260706001", "productId", 1, "serviceItem", "助浴护理", "amount", 199, "status", "待服务"));
+    }
+
+    @Override
+    public Map<String, Object> createElderlyWorkOrder(Map<String, Object> payload) {
+        return record("id", 2, "orderNo", "WO20260710001", "productId", payload.get("productId"), "serviceItem", "助浴护理", "amount", 199, "status", "待服务", "dispatchTime", "2026-07-10 10:00");
+    }
+
+    @Override
     public Map<String, Object> serviceProfile() {
         return record("realName", "演示服务人员", "phone", "13900020001", "personnelId", 1);
     }

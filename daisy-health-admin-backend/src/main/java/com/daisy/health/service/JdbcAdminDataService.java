@@ -13,6 +13,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
@@ -21,7 +22,9 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Date;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,9 +32,11 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @Profile("mysql")
+@Transactional
 public class JdbcAdminDataService implements AdminDataService {
     private static final List<String> MEMBER_LEVEL_NAMES = Arrays.asList("普通", "银卡", "金卡");
 
@@ -155,11 +160,11 @@ public class JdbcAdminDataService implements AdminDataService {
     @Override
     public List<Map<String, Object>> appointments() {
         return jdbcTemplate.queryForList(
-                "select w.id, hour(w.service_time) as hour, w.service_item as serviceName, " +
+                "select w.id, w.product_id as productId, p.category, hour(w.service_time) as hour, w.service_item as serviceName, w.amount, " +
                         "concat(date_format(w.service_time, '%H:%i'), '-', date_format(coalesce(w.complete_time, date_add(w.service_time, interval 1 hour)), '%H:%i')) as timeRange, " +
                         "u.real_name as userName, " +
-                        "w.status as status " +
-                        "from work_order w left join `user` u on w.customer_id = u.id " +
+                        "case w.status when 'pending' then '待服务' when 'service_in' then '服务中' when 'completed' then '已完成' when 'cancelled' then '已取消' else w.status end as status " +
+                        "from work_order w left join `user` u on w.customer_id = u.id left join product p on w.product_id = p.id " +
                         "where date(w.service_time) = curdate() order by w.service_time"
         );
     }
@@ -214,6 +219,7 @@ public class JdbcAdminDataService implements AdminDataService {
                 "status", 1
         );
         Number id = insert("user", values);
+        syncElderlyAccount(id.longValue());
         Object tagsValue = payload.get("tags");
         if (tagsValue != null) {
             attachTags(id.longValue(), stringValue(tagsValue));
@@ -256,12 +262,15 @@ public class JdbcAdminDataService implements AdminDataService {
             attachTags(id, stringValue(payload.get("tags")));
             updateAllTagCounts();
         }
+        syncElderlyAccount(id);
         accepted("updateUser:" + id);
         return record("accepted", true, "id", id, "resource", "users");
     }
 
     @Override
     public Map<String, Object> deleteUser(Long id) {
+        jdbcTemplate.update("delete from account where id in (select account_id from elderly_profile where legacy_user_id = ?) and role_type = 'elderly'", id);
+        jdbcTemplate.update("delete from elderly_profile where legacy_user_id = ?", id);
         jdbcTemplate.update("delete from user_tag_rel where user_id = ?", id);
         jdbcTemplate.update("delete from health_data where user_id = ?", id);
         jdbcTemplate.update("delete from medication_record where user_id = ?", id);
@@ -302,11 +311,11 @@ public class JdbcAdminDataService implements AdminDataService {
         ));
         row.put("devices", jdbcTemplate.queryForList("select id, device_name as deviceName, device_type as deviceType, device_code as deviceCode, if(status = 1, '绑定', '解绑') as status from device where user_id = ? order by id", id));
         row.put("reports", jdbcTemplate.queryForList("select id, title, report_type as reportType, date_format(report_date, '%Y-%m-%d') as reportDate, file_url as fileUrl, doctor_name as doctorName, summary from report where user_id = ? order by report_date desc", id));
-        row.put("orders", jdbcTemplate.queryForList("select id, order_no as orderNo, product_name as productName, amount, status, service_type as serviceType from service_order where buyer_id = ? order by id desc", id));
+        row.put("orders", jdbcTemplate.queryForList("select id, order_no as orderNo, product_id as productId, product_name as productName, amount, case status when 'pending_accept' then '待接单' when 'pending_service' then '待服务' when 'completed' then '已完成' when 'closed' then '已关闭' when 'after_sale' then '售后中' else status end as status, service_type as serviceType from service_order where buyer_id = ? order by id desc", id));
         row.put("coupons", jdbcTemplate.queryForList("select id, coupon_no as couponNo, name, type, discount, status, date_format(expire_date, '%Y-%m-%d') as expireDate from coupon where user_id = ? order by id desc", id));
         row.put("points", jdbcTemplate.queryForList("select id, points, total_earned as totalEarned, total_spent as totalSpent, level, growth_value as growthValue from user_points where user_id = ?", id));
         row.put("contents", jdbcTemplate.queryForList("select id, title, type, publisher, author, if(status = 1, '已发布', '草稿') as status from operation_content where publisher = ? order by id desc", row.get("realName")));
-        row.put("serviceRecords", jdbcTemplate.queryForList("select id, order_no as orderNo, service_item as serviceItem, amount, status, date_format(service_time, '%Y-%m-%d %H:%i:%s') as serviceTime, date_format(complete_time, '%Y-%m-%d %H:%i:%s') as completeTime from work_order where customer_id = ? order by id desc", id));
+        row.put("serviceRecords", jdbcTemplate.queryForList("select id, order_no as orderNo, product_id as productId, service_item as serviceItem, amount, case status when 'pending' then '待服务' when 'service_in' then '服务中' when 'completed' then '已完成' when 'cancelled' then '已取消' else status end as status, date_format(service_time, '%Y-%m-%d %H:%i:%s') as serviceTime, date_format(complete_time, '%Y-%m-%d %H:%i:%s') as completeTime from work_order where customer_id = ? order by id desc", id));
         return row;
     }
 
@@ -380,11 +389,11 @@ public class JdbcAdminDataService implements AdminDataService {
         } else if ("audits".equals(name)) {
             rows = jdbcTemplate.queryForList("select id, name, phone, service_type as serviceType, area, audit_status as auditStatus, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as updatedAt from service_personnel order by id");
         } else if ("workOrders".equals(name)) {
-            rows = jdbcTemplate.queryForList("select w.id, w.order_no as orderNo, w.service_item as serviceItem, u.real_name as customer, case w.status when 'pending' then '待服务' when 'service_in' then '服务中' when 'completed' then '已完成' when 'cancelled' then '已取消' else w.status end as status, date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as updatedAt from work_order w left join `user` u on w.customer_id = u.id order by w.id");
+            rows = jdbcTemplate.queryForList("select w.id, w.order_no as orderNo, w.order_id as orderId, o.order_no as serviceOrderNo, w.product_id as productId, w.service_item as serviceItem, w.amount, u.real_name as customer, case w.status when 'pending' then '待服务' when 'service_in' then '服务中' when 'completed' then '已完成' when 'cancelled' then '已取消' else w.status end as status, date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as dispatchTime, date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as updatedAt, date_format(w.service_time, '%Y-%m-%d %H:%i:%s') as serviceTime from work_order w left join `user` u on w.customer_id = u.id left join service_order o on w.order_id = o.id order by w.id");
         } else if ("products".equals(name)) {
-            rows = jdbcTemplate.queryForList("select id, name, category, price, if(status = 1, '上架', '下架') as status, date_format(updated_at, '%Y-%m-%d %H:%i') as updatedAt from product order by id");
+            rows = jdbcTemplate.queryForList("select id, name, code, item_type as itemType, category, description, duration, price, if(status = 1, '上架', '下架') as status, date_format(updated_at, '%Y-%m-%d %H:%i') as updatedAt from product order by item_type desc, category, id");
         } else if ("orders".equals(name)) {
-            rows = jdbcTemplate.queryForList("select o.id, o.order_no as orderNo, o.product_name as productName, u.real_name as buyer, o.amount, o.service_type as serviceType, case o.status when 'pending_accept' then '待接单' when 'pending_service' then '待服务' when 'completed' then '已完成' when 'closed' then '已关闭' when 'after_sale' then '售后中' else o.status end as status from service_order o left join `user` u on o.buyer_id = u.id order by o.id");
+            rows = jdbcTemplate.queryForList("select o.id, o.order_no as orderNo, o.product_id as productId, o.product_name as productName, u.real_name as buyer, o.amount, o.service_type as serviceType, case o.status when 'pending_accept' then '待接单' when 'pending_service' then '待服务' when 'completed' then '已完成' when 'closed' then '已关闭' when 'after_sale' then '售后中' else o.status end as status from service_order o left join `user` u on o.buyer_id = u.id order by o.id");
         } else if ("afterSales".equals(name)) {
             rows = jdbcTemplate.queryForList("select a.id, o.order_no as orderNo, u.real_name as applicant, a.reason, a.status from after_sale a left join service_order o on a.order_id = o.id left join `user` u on a.applicant_id = u.id order by a.id");
         } else if ("reviews".equals(name)) {
@@ -420,62 +429,36 @@ public class JdbcAdminDataService implements AdminDataService {
                     "audit_status", text(payload, "auditStatus", "待审核")
             ));
         } else if ("products".equals(name)) {
-            require(payload, "name", "商品名称不能为空");
+            require(payload, "name", "商品服务名称不能为空");
             String category = text(payload, "category", "家政护理");
             id = insert("product", record(
                     "name", text(payload, "name", ""),
                     "code", text(payload, "code", "P-" + System.currentTimeMillis()),
+                    "item_type", catalogItemType(text(payload, "itemType", "服务")),
                     "category", category,
+                    "description", text(payload, "description", ""),
+                    "duration", nullableLong(payload, "duration"),
                     "price", decimal(payload, "price", BigDecimal.valueOf(99)),
                     "status", statusCode(text(payload, "status", "上架")),
                     "updater", "系统管理员"
             ));
         } else if ("orders".equals(name)) {
-            long productId = longValue(payload, "productId", firstId("product"));
+            Map<String, Object> product = catalogItem(payload);
+            long productId = ((Number) product.get("id")).longValue();
             long buyerId = userId(payload, "buyerId", firstId("user"));
-            Map<String, Object> product = firstRow("select name, price, category from product where id = ?", productId);
-            String productName = text(payload, "productName", stringValue(product.get("name")));
-            BigDecimal amount = decimal(payload, "amount", toDecimal(product.get("price"), BigDecimal.valueOf(99)));
             id = insert("service_order", record(
                     "order_no", text(payload, "orderNo", "OD" + System.currentTimeMillis()),
                     "product_id", productId,
-                    "product_name", productName,
-                    "amount", amount,
+                    "product_name", product.get("name"),
+                    "amount", product.get("price"),
                     "buyer_id", buyerId,
                     "status", orderStatus(text(payload, "status", "待接单")),
-                    "service_type", text(payload, "serviceType", stringValue(product.get("category")))
+                    "service_type", product.get("category")
             ));
         } else if ("appointments".equals(name)) {
-            long customerId = userId(payload, "customerId", firstId("user"));
-            id = insert("work_order", record(
-                    "order_no", text(payload, "orderNo", "WO" + System.currentTimeMillis()),
-                    "order_id", longValue(payload, "orderId", firstId("service_order")),
-                    "service_item", text(payload, "serviceName", "预约服务"),
-                    "amount", decimal(payload, "amount", BigDecimal.valueOf(99)),
-                    "personnel_id", longValue(payload, "personnelId", firstId("service_personnel")),
-                    "customer_id", customerId,
-                    "status", workOrderStatus(text(payload, "status", "待服务")),
-                    "dispatch_time", null,
-                    "service_time", nullIfBlank(text(payload, "serviceTime", "")),
-                    "complete_time", nullIfBlank(text(payload, "completeTime", "")),
-                    "cancel_reason", null
-            ));
+            id = createCatalogWorkOrder(payload);
         } else if ("workOrders".equals(name)) {
-            long orderId = longValue(payload, "orderId", firstId("service_order"));
-            long customerId = userId(payload, "customerId", firstId("user"));
-            id = insert("work_order", record(
-                    "order_no", text(payload, "orderNo", "WO" + System.currentTimeMillis()),
-                    "order_id", orderId,
-                    "service_item", text(payload, "serviceItem", "上门服务"),
-                    "amount", decimal(payload, "amount", BigDecimal.valueOf(99)),
-                    "personnel_id", longValue(payload, "personnelId", firstId("service_personnel")),
-                    "customer_id", customerId,
-                    "status", workOrderStatus(text(payload, "status", "待服务")),
-                    "dispatch_time", null,
-                    "service_time", null,
-                    "complete_time", null,
-                    "cancel_reason", null
-            ));
+            id = createCatalogWorkOrder(payload);
         } else if ("afterSales".equals(name)) {
             id = insert("after_sale", record(
                     "order_id", longValue(payload, "orderId", firstId("service_order")),
@@ -555,22 +538,33 @@ public class JdbcAdminDataService implements AdminDataService {
             updateById("service_personnel", id, values);
         } else if ("products".equals(name)) {
             putIfPresent(values, "name", payload, "name");
+            putIfPresent(values, "code", payload, "code");
+            if (payload.containsKey("itemType")) values.put("item_type", catalogItemType(text(payload, "itemType", "服务")));
             putIfPresent(values, "category", payload, "category");
+            putIfPresent(values, "description", payload, "description");
+            if (payload.containsKey("duration")) values.put("duration", nullableLong(payload, "duration"));
             if (payload.containsKey("price")) values.put("price", decimal(payload, "price", BigDecimal.valueOf(99)));
             if (payload.containsKey("status")) values.put("status", statusCode(text(payload, "status", "上架")));
             values.put("updater", "系统管理员");
             updateById("product", id, values);
         } else if ("orders".equals(name)) {
-            putIfPresent(values, "product_name", payload, "productName");
-            if (payload.containsKey("amount")) values.put("amount", decimal(payload, "amount", BigDecimal.valueOf(99)));
+            if (payload.containsKey("productId")) {
+                Map<String, Object> product = catalogItem(payload);
+                values.put("product_id", product.get("id"));
+                values.put("product_name", product.get("name"));
+                values.put("amount", product.get("price"));
+                values.put("service_type", product.get("category"));
+            }
             if (hasUserRef(payload, "buyerId")) values.put("buyer_id", userId(payload, "buyerId", firstId("user")));
             if (payload.containsKey("status")) values.put("status", orderStatus(text(payload, "status", "待接单")));
-            putIfPresent(values, "service_type", payload, "serviceType");
             updateById("service_order", id, values);
         } else if ("workOrders".equals(name) || "appointments".equals(name)) {
-            putIfPresent(values, "service_item", payload, "serviceItem");
-            putIfPresent(values, "service_item", payload, "serviceName");
-            if (payload.containsKey("amount")) values.put("amount", decimal(payload, "amount", BigDecimal.valueOf(99)));
+            if (payload.containsKey("productId")) {
+                Map<String, Object> product = catalogItem(payload);
+                values.put("product_id", product.get("id"));
+                values.put("service_item", product.get("name"));
+                values.put("amount", product.get("price"));
+            }
             if (hasUserRef(payload, "customerId")) values.put("customer_id", userId(payload, "customerId", firstId("user")));
             if (payload.containsKey("personnelId")) values.put("personnel_id", longValue(payload, "personnelId", firstId("service_personnel")));
             if (payload.containsKey("status")) values.put("status", workOrderStatus(text(payload, "status", "待服务")));
@@ -1025,6 +1019,111 @@ public class JdbcAdminDataService implements AdminDataService {
         );
     }
 
+    private void syncElderlyAccount(Long userId) {
+        List<Long> accountIds = jdbcTemplate.queryForList(
+                "select account_id from elderly_profile where legacy_user_id = ? limit 1",
+                Long.class,
+                userId
+        );
+        if (accountIds.isEmpty()) {
+            accountIds = jdbcTemplate.queryForList(
+                    "select a.id from account a join `user` u on u.phone = a.phone where u.id = ? and a.role_type = 'elderly' limit 1",
+                    Long.class,
+                    userId
+            );
+        }
+        Long accountId = accountIds.isEmpty() ? userId : accountIds.get(0);
+        jdbcTemplate.update(
+                "insert into account(id, phone, password_hash, role_type, nickname, avatar_url, status, last_login_time, created_at, updated_at) " +
+                        "select ?, phone, ?, 'elderly', nickname, avatar_url, status, last_login_time, created_at, updated_at from `user` where id = ? " +
+                        "on duplicate key update phone = values(phone), nickname = values(nickname), avatar_url = values(avatar_url), " +
+                        "status = values(status), last_login_time = values(last_login_time), updated_at = values(updated_at)",
+                accountId,
+                passwordEncoder.encode("753951"),
+                userId
+        );
+        jdbcTemplate.update(
+                "insert into elderly_profile(account_id, legacy_user_id, real_name, gender, birthday, id_card, address, bio, height, weight, " +
+                        "ethnicity, education, blood_type, rh_negative, chronic_disease, sleep_quality, smoking_freq, drinking_freq, exercise_freq, " +
+                        "diet_preference, emergency_contact, emergency_phone, last_buy_time) " +
+                        "select ?, id, real_name, gender, birthday, id_card, address, bio, height, weight, ethnicity, education, blood_type, " +
+                        "rh_negative, chronic_disease, sleep_quality, smoking_freq, drinking_freq, exercise_freq, diet_preference, " +
+                        "emergency_contact, emergency_phone, last_buy_time from `user` where id = ? " +
+                        "on duplicate key update real_name = values(real_name), gender = values(gender), birthday = values(birthday), " +
+                        "id_card = values(id_card), address = values(address), bio = values(bio), height = values(height), weight = values(weight), " +
+                        "ethnicity = values(ethnicity), education = values(education), blood_type = values(blood_type), " +
+                        "rh_negative = values(rh_negative), chronic_disease = values(chronic_disease), sleep_quality = values(sleep_quality), " +
+                        "smoking_freq = values(smoking_freq), drinking_freq = values(drinking_freq), exercise_freq = values(exercise_freq), " +
+                        "diet_preference = values(diet_preference), emergency_contact = values(emergency_contact), " +
+                        "emergency_phone = values(emergency_phone), last_buy_time = values(last_buy_time)",
+                accountId,
+                userId
+        );
+    }
+
+    private Number createCatalogWorkOrder(Map<String, Object> payload) {
+        AuthenticatedUser creator = currentUser();
+        Map<String, Object> product = catalogItem(payload);
+        long productId = ((Number) product.get("id")).longValue();
+        long customerId = userId(payload, "customerId", firstId("user"));
+        Number orderId = insert("service_order", record(
+                "order_no", uniqueBusinessNo("OD"),
+                "product_id", productId,
+                "product_name", product.get("name"),
+                "amount", product.get("price"),
+                "buyer_id", customerId,
+                "status", "pending_service",
+                "service_type", product.get("category")
+        ));
+        return insert("work_order", record(
+                "order_no", text(payload, "orderNo", uniqueBusinessNo("WO")),
+                "order_id", orderId.longValue(),
+                "product_id", productId,
+                "service_item", product.get("name"),
+                "amount", product.get("price"),
+                "personnel_id", selectedPersonnelId(payload),
+                "customer_id", customerId,
+                "created_by_account_id", creator == null ? null : creator.getAccountId(),
+                "created_by_role", creator == null ? "staff" : creator.getRoleType(),
+                "status", workOrderStatus(text(payload, "status", "待服务")),
+                "dispatch_time", Timestamp.valueOf(LocalDateTime.now()),
+                "service_time", nullIfBlank(text(payload, "serviceTime", "")),
+                "complete_time", nullIfBlank(text(payload, "completeTime", "")),
+                "cancel_reason", null
+        ));
+    }
+
+    private Map<String, Object> catalogItem(Map<String, Object> payload) {
+        Long productId = parseLong(payload == null ? null : payload.get("productId"));
+        if (productId == null || productId <= 0) {
+            throw new IllegalArgumentException("请选择商品服务");
+        }
+        Map<String, Object> product = firstRow(
+                "select id, name, category, price from product where id = ? and status = 1 limit 1",
+                productId
+        );
+        if (product.isEmpty()) {
+            throw new IllegalArgumentException("所选商品服务不存在或已下架");
+        }
+        return product;
+    }
+
+    private Long selectedPersonnelId(Map<String, Object> payload) {
+        Long requested = parseLong(payload == null ? null : payload.get("personnelId"));
+        if (requested != null && requested > 0) {
+            return requested;
+        }
+        List<Long> ids = jdbcTemplate.queryForList(
+                "select id from service_personnel where status = 1 order by id limit 1",
+                Long.class
+        );
+        return ids.isEmpty() ? null : ids.get(0);
+    }
+
+    private String uniqueBusinessNo(String prefix) {
+        return prefix + System.currentTimeMillis() + UUID.randomUUID().toString().substring(0, 4).toUpperCase();
+    }
+
     private long firstId(String tableName) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList("select id from `" + tableName + "` order by id limit 1");
         if (rows.isEmpty()) {
@@ -1213,6 +1312,13 @@ public class JdbcAdminDataService implements AdminDataService {
 
     private int statusCode(String value) {
         return "禁用".equals(value) || "下架".equals(value) || "草稿".equals(value) || "解绑".equals(value) ? 0 : 1;
+    }
+
+    private String catalogItemType(String value) {
+        if ("商品".equals(value) || "服务".equals(value)) {
+            return value;
+        }
+        throw new IllegalArgumentException("类型只能为商品或服务");
     }
 
     private String orderStatus(String value) {

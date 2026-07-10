@@ -4,10 +4,8 @@
       <div><h1>预约看板</h1><p>9:00-18:00 当日服务安排</p></div>
       <div class="filters compact">
         <el-date-picker v-model="filters.date" type="date" placeholder="选择日期" />
-        <el-select v-model="filters.serviceType" placeholder="服务类型" clearable>
-          <el-option label="家政护理" value="家政护理" />
-          <el-option label="康复理疗" value="康复理疗" />
-          <el-option label="上门体检" value="上门体检" />
+        <el-select v-model="filters.productId" placeholder="商品服务" clearable filterable>
+          <el-option v-for="item in catalogOptions" :key="item.id" :label="item.name" :value="String(item.id)" />
         </el-select>
         <el-button type="primary" :icon="Plus" @click="openCreate">新建预约</el-button>
       </div>
@@ -30,7 +28,7 @@
             <strong>{{ item.serviceName }}</strong>
             <span>{{ item.timeRange }} · {{ item.userName }}</span>
             <div class="appointment-card-footer">
-              <el-tag :type="tagType(item.status)" size="small">{{ item.status }}</el-tag>
+              <el-tag :type="tagType(statusLabel(item.status))" size="small">{{ statusLabel(item.status) }}</el-tag>
               <el-button link type="danger" size="small" @click="removeAppointment(item)">删除</el-button>
             </div>
           </article>
@@ -40,7 +38,16 @@
 
     <el-dialog v-model="dialogVisible" title="新建预约" width="620px">
       <el-form :model="form" label-width="96px">
-        <el-form-item label="服务名称" required><el-input v-model="form.serviceName" placeholder="如：助浴护理" /></el-form-item>
+        <el-form-item label="商品服务" required>
+          <el-select v-model="form.productId" filterable placeholder="请选择已有商品服务" @change="syncAmount">
+            <el-option
+              v-for="item in catalogOptions"
+              :key="item.id"
+              :label="`${item.name} · ¥${item.price}`"
+              :value="String(item.id)"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="客户">
           <el-select v-model="form.userRef" filterable clearable placeholder="输入姓名/手机号搜索">
             <el-option
@@ -55,7 +62,7 @@
         <el-form-item label="预约日期"><el-date-picker v-model="form.date" type="date" value-format="YYYY-MM-DD" /></el-form-item>
         <el-form-item label="开始时间"><el-time-picker v-model="form.startTime" value-format="HH:mm:ss" placeholder="开始时间" /></el-form-item>
         <el-form-item label="结束时间"><el-time-picker v-model="form.endTime" value-format="HH:mm:ss" placeholder="结束时间" /></el-form-item>
-        <el-form-item label="金额"><el-input-number v-model="form.amount" :min="0" controls-position="right" /></el-form-item>
+        <el-form-item label="金额"><el-input-number v-model="form.amount" :min="0" controls-position="right" disabled /></el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
@@ -69,22 +76,23 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { createAppointment, deleteAppointment, getAppointments, getUsers } from '../api/http'
+import { createAppointment, deleteAppointment, getAppointments, getResource, getUsers } from '../api/http'
 
-const filters = reactive({ date: new Date(), serviceType: '' })
+const filters = reactive({ date: new Date(), productId: '' })
 const hours = Array.from({ length: 10 }, (_, index) => index + 9)
 const dialogVisible = ref(false)
 const saving = ref(false)
 const today = new Date().toISOString().slice(0, 10)
-const form = reactive({ serviceName: '', userRef: '', personnelId: 1, date: today, startTime: '09:00:00', endTime: '10:00:00', amount: 99 })
+const form = reactive({ productId: '', userRef: '', personnelId: 1, date: today, startTime: '09:00:00', endTime: '10:00:00', amount: 0 })
 const userOptions = ref([])
+const catalogOptions = ref([])
 const appointments = ref([
   { id: 1, hour: 9, serviceName: '助浴护理', timeRange: '09:00-10:30', userName: '王秀兰', status: '待服务' },
   { id: 2, hour: 10, serviceName: '肩颈康复', timeRange: '10:00-11:00', userName: '陈建国', status: '服务中' },
   { id: 3, hour: 14, serviceName: '上门基础体检', timeRange: '14:00-15:30', userName: '赵桂英', status: '已完成' },
   { id: 4, hour: 16, serviceName: '日常清洁', timeRange: '16:00-18:00', userName: '刘爱华', status: '已取消' }
 ])
-const filtered = computed(() => filters.serviceType ? appointments.value.filter((item) => item.serviceName?.includes(filters.serviceType)) : appointments.value)
+const filtered = computed(() => filters.productId ? appointments.value.filter((item) => String(item.productId) === filters.productId) : appointments.value)
 
 const ROW_HEIGHT = 84
 const START_HOUR = 9
@@ -152,9 +160,17 @@ function cardStyle(item) {
 function tagType(status) {
   return { 已完成: 'success', 服务中: 'primary', 待服务: 'warning', 已取消: 'info' }[status] || 'info'
 }
+function statusLabel(status) {
+  return { pending: '待服务', service_in: '服务中', completed: '已完成', cancelled: '已取消' }[status] || status
+}
 function openCreate() {
-  Object.assign(form, { serviceName: '', userRef: userOptions.value[0]?.id ? String(userOptions.value[0].id) : '', personnelId: 1, date: today, startTime: '09:00:00', endTime: '10:00:00', amount: 99 })
+  const first = catalogOptions.value[0]
+  Object.assign(form, { productId: first?.id ? String(first.id) : '', userRef: userOptions.value[0]?.id ? String(userOptions.value[0].id) : '', personnelId: 1, date: today, startTime: '09:00:00', endTime: '10:00:00', amount: Number(first?.price || 0) })
   dialogVisible.value = true
+}
+function syncAmount(productId) {
+  const selected = catalogOptions.value.find((item) => String(item.id) === String(productId))
+  form.amount = Number(selected?.price || 0)
 }
 async function load() {
   try {
@@ -169,18 +185,25 @@ async function loadUsers() {
     userOptions.value = []
   }
 }
+async function loadCatalog() {
+  try {
+    const data = await getResource('products')
+    catalogOptions.value = (data.list || data || []).filter((item) => item.status !== '下架')
+  } catch (error) {
+    catalogOptions.value = []
+  }
+}
 async function submitCreate() {
-  if (!form.serviceName.trim()) {
-    ElMessage.warning('请填写服务名称')
+  if (!form.productId) {
+    ElMessage.warning('请选择商品服务')
     return
   }
   saving.value = true
   try {
     await createAppointment({
-      serviceName: form.serviceName,
+      productId: form.productId,
       userRef: form.userRef,
       personnelId: form.personnelId,
-      amount: form.amount,
       serviceTime: `${form.date} ${form.startTime}`,
       completeTime: `${form.date} ${form.endTime}`
     })
@@ -205,6 +228,6 @@ async function removeAppointment(item) {
 }
 
 onMounted(async () => {
-  await Promise.all([load(), loadUsers()])
+  await Promise.all([load(), loadUsers(), loadCatalog()])
 })
 </script>

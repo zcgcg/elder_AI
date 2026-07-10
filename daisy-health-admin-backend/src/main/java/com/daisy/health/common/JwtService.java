@@ -18,7 +18,7 @@ public class JwtService {
 
     public JwtService(
             @Value("${daisy.security.jwt-secret}") String secret,
-            @Value("${daisy.security.jwt-expiration-ms:7200000}") long expirationMs) {
+            @Value("${daisy.security.jwt-expiration-ms:28800000}") long expirationMs) {
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         if (keyBytes.length < 32) {
             throw new IllegalArgumentException("daisy.security.jwt-secret must be at least 32 bytes");
