@@ -595,6 +595,7 @@ body {
 
 .time-label {
   height: 84px;
+  box-sizing: border-box;
   display: flex;
   align-items: flex-start;
   padding-top: 14px;

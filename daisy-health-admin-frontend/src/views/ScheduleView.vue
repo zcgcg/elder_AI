@@ -163,7 +163,7 @@ function cardStyle(item) {
   const colWidth = 100 / item._colCount
   return {
     top: `${item._top + 2}px`,
-    height: `${Math.max(item._height - 4, 36)}px`,
+    height: `${Math.max(item._height, 36)}px`,
     left: `calc(${item._col * colWidth}% + 4px)`,
     width: `calc(${colWidth}% - 8px)`
   }
