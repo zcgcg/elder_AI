@@ -128,12 +128,10 @@ public class JdbcPortalDataService implements PortalDataService {
 
     @Override
     public List<Map<String, Object>> elderlyWorkOrders() {
-        AuthenticatedUser current = requireRole("elderly");
         long userId = currentLegacyUserId();
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                workOrderSelect() + " where w.customer_id = ? and w.created_by_account_id = ? and w.created_by_role = 'elderly' order by w.created_at desc, w.id desc",
-                userId,
-                current.getAccountId()
+                workOrderSelect() + " where w.customer_id = ? order by w.created_at desc, w.id desc",
+                userId
         );
         normalizeWorkOrderStatuses(rows);
         return rows;

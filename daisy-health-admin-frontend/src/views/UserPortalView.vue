@@ -35,7 +35,7 @@
       <article class="summary-card purple">
         <span>我的工单</span>
         <strong>{{ workOrders.length }}</strong>
-        <small>只显示本人创建</small>
+        <small>只显示本人工单</small>
       </article>
     </section>
 
@@ -70,7 +70,19 @@
         </section>
       </el-tab-pane>
       <el-tab-pane label="我的工单" name="workOrders">
-        <data-table :rows="workOrders" :columns="workOrderColumns" />
+        <el-table :data="workOrders" stripe>
+          <el-table-column prop="orderNo" label="工单编号" min-width="160" />
+          <el-table-column prop="serviceItem" label="服务项目" min-width="160" />
+          <el-table-column prop="customerName" label="客户" min-width="110" />
+          <el-table-column prop="amount" label="金额" min-width="80" />
+          <el-table-column prop="dispatchTime" label="派单时间" min-width="160" />
+          <el-table-column prop="serviceTime" label="服务时间" min-width="160" />
+          <el-table-column prop="status" label="状态" min-width="100">
+            <template #default="{ row }">
+              <el-tag :type="statusTone(row.status)">{{ row.status }}</el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
       </el-tab-pane>
       <el-tab-pane label="健康数据" name="health">
         <data-table :rows="healthData" :columns="healthColumns" />
@@ -203,14 +215,9 @@ const couponColumns = [
   { prop: 'status', label: '状态' },
   { prop: 'expireDate', label: '有效期' }
 ]
-const workOrderColumns = [
-  { prop: 'orderNo', label: '工单号', width: 170 },
-  { prop: 'serviceItem', label: '商品服务', width: 170 },
-  { prop: 'amount', label: '金额' },
-  { prop: 'status', label: '状态' },
-  { prop: 'dispatchTime', label: '派单时间', width: 170 },
-  { prop: 'serviceTime', label: '服务时间', width: 170 }
-]
+function statusTone(status) {
+  return { '待服务': 'warning', '服务中': 'primary', '已完成': 'success', '已取消': 'info' }[status] || ''
+}
 
 async function loadData() {
   try {
