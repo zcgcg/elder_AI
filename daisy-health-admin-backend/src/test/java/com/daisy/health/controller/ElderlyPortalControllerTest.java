@@ -94,6 +94,38 @@ class ElderlyPortalControllerTest {
     }
 
     @Test
+    void userCanUpdateOwnCompleteProfile() throws Exception {
+        when(portalDataService.updateElderlyProfile(any())).thenReturn(
+                record("realName", "张阿姨", "idCard", "310101195001010000", "dietPreference", "清淡")
+        );
+
+        mockMvc.perform(put("/api/v1/elderly/profile")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"realName\":\"张阿姨\",\"idCard\":\"310101195001010000\",\"dietPreference\":\"清淡\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.realName").value("张阿姨"))
+                .andExpect(jsonPath("$.data.dietPreference").value("清淡"));
+
+        verify(portalDataService).updateElderlyProfile(any());
+    }
+
+    @Test
+    void userCanUpdateAnOwnedDevice() throws Exception {
+        when(portalDataService.updateElderlyDevice(org.mockito.ArgumentMatchers.eq(8L), any())).thenReturn(
+                record("id", 8L, "deviceName", "床头监测仪", "status", "绑定")
+        );
+
+        mockMvc.perform(put("/api/v1/elderly/devices/8")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"deviceName\":\"床头监测仪\",\"status\":\"绑定\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(8))
+                .andExpect(jsonPath("$.data.deviceName").value("床头监测仪"));
+
+        verify(portalDataService).updateElderlyDevice(org.mockito.ArgumentMatchers.eq(8L), any());
+    }
+
+    @Test
     void staffAccountCannotUpdateElderlyAvatar() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         JwtService jwtService = new JwtService("daisy-health-local-dev-secret-please-change-32", 60_000L);

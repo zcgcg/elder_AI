@@ -6,6 +6,8 @@ import java.util.Map;
 public interface PortalDataService {
     Map<String, Object> elderlyProfile();
 
+    Map<String, Object> updateElderlyProfile(Map<String, Object> payload);
+
     Map<String, Object> updateElderlyAvatar(Map<String, Object> payload);
 
     List<Map<String, Object>> elderlyHealthData();
@@ -13,6 +15,8 @@ public interface PortalDataService {
     List<Map<String, Object>> elderlyMedications();
 
     List<Map<String, Object>> elderlyDevices();
+
+    Map<String, Object> updateElderlyDevice(Long id, Map<String, Object> payload);
 
     List<Map<String, Object>> elderlyReports();
 

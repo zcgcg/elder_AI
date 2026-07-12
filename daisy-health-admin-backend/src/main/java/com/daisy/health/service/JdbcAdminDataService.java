@@ -199,6 +199,7 @@ public class JdbcAdminDataService implements AdminDataService {
                 "gender", genderCode(text(payload, "gender", "未知")),
                 "birthday", nullIfBlank(text(payload, "birthday", "")),
                 "phone", phone,
+                "id_card", nullIfBlank(text(payload, "idCard", "")),
                 "address", text(payload, "address", "Shanghai"),
                 "bio", text(payload, "bio", "Created from admin"),
                 "height", decimal(payload, "height", BigDecimal.valueOf(160)),
@@ -206,13 +207,15 @@ public class JdbcAdminDataService implements AdminDataService {
                 "ethnicity", text(payload, "ethnicity", "汉族"),
                 "education", text(payload, "education", "高中"),
                 "blood_type", text(payload, "bloodType", "A"),
-                "rh_negative", 0,
+                "rh_negative", booleanCode(payload.get("rhNegative")),
                 "chronic_disease", text(payload, "chronicDisease", "None"),
                 "sleep_quality", text(payload, "sleepQuality", "良好"),
                 "smoking_freq", text(payload, "smokingFreq", "None"),
                 "drinking_freq", text(payload, "drinkingFreq", "None"),
                 "exercise_freq", text(payload, "exerciseFreq", "Weekly"),
                 "diet_preference", text(payload, "dietPreference", "清淡"),
+                "emergency_contact", text(payload, "emergencyContact", ""),
+                "emergency_phone", text(payload, "emergencyPhone", ""),
                 "avatar_url", text(payload, "avatarUrl", ""),
                 "last_login_time", null,
                 "last_buy_time", null,
@@ -240,12 +243,15 @@ public class JdbcAdminDataService implements AdminDataService {
             values.put("gender", genderCode(text(payload, "gender", "未知")));
         }
         putIfPresent(values, "birthday", payload, "birthday");
+        putIfPresent(values, "id_card", payload, "idCard");
         putIfPresent(values, "address", payload, "address");
+        putIfPresent(values, "bio", payload, "bio");
         putIfPresent(values, "ethnicity", payload, "ethnicity");
         putIfPresent(values, "education", payload, "education");
         putIfPresent(values, "height", payload, "height");
         putIfPresent(values, "weight", payload, "weight");
         putIfPresent(values, "blood_type", payload, "bloodType");
+        if (payload.containsKey("rhNegative")) values.put("rh_negative", booleanCode(payload.get("rhNegative")));
         putIfPresent(values, "chronic_disease", payload, "chronicDisease");
         putIfPresent(values, "sleep_quality", payload, "sleepQuality");
         putIfPresent(values, "smoking_freq", payload, "smokingFreq");
@@ -284,8 +290,8 @@ public class JdbcAdminDataService implements AdminDataService {
     public Map<String, Object> user(Long id) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "select u.id, u.nickname, u.real_name as realName, case u.gender when 1 then '男' when 2 then '女' else '未知' end as gender, " +
-                        "date_format(u.birthday, '%Y-%m-%d') as birthday, u.phone, u.address, u.ethnicity, u.education, u.avatar_url as avatarUrl, u.height, u.weight, u.blood_type as bloodType, " +
-                        "u.chronic_disease as chronicDisease, u.sleep_quality as sleepQuality, u.exercise_freq as exerciseFreq, " +
+                        "date_format(u.birthday, '%Y-%m-%d') as birthday, u.phone, u.id_card as idCard, u.address, u.bio, u.ethnicity, u.education, u.avatar_url as avatarUrl, u.height, u.weight, u.blood_type as bloodType, u.rh_negative = 1 as rhNegative, " +
+                        "u.chronic_disease as chronicDisease, u.sleep_quality as sleepQuality, u.smoking_freq as smokingFreq, u.drinking_freq as drinkingFreq, u.exercise_freq as exerciseFreq, u.diet_preference as dietPreference, " +
                         "u.emergency_contact as emergencyContact, u.emergency_phone as emergencyPhone, " +
                         "date_format(u.last_buy_time, '%Y-%m-%d') as lastBuyTime, date_format(u.last_login_time, '%Y-%m-%d %H:%i') as lastLoginTime, " +
                         "date_format(u.created_at, '%Y-%m-%d') as createdAt, group_concat(t.name order by t.id separator ',') as tags " +
@@ -1312,6 +1318,12 @@ public class JdbcAdminDataService implements AdminDataService {
 
     private int statusCode(String value) {
         return "禁用".equals(value) || "下架".equals(value) || "草稿".equals(value) || "解绑".equals(value) ? 0 : 1;
+    }
+
+    private int booleanCode(Object value) {
+        if (value instanceof Boolean) return ((Boolean) value) ? 1 : 0;
+        String normalized = stringValue(value).trim();
+        return "1".equals(normalized) || "true".equalsIgnoreCase(normalized) || "是".equals(normalized) ? 1 : 0;
     }
 
     private String catalogItemType(String value) {

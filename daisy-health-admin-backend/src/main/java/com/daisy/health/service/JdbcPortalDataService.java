@@ -10,6 +10,7 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.servlet.http.HttpServletRequest;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,14 +33,57 @@ public class JdbcPortalDataService implements PortalDataService {
     public Map<String, Object> elderlyProfile() {
         long userId = currentLegacyUserId();
         return one(
-                "select a.id as accountId, a.phone, a.nickname, a.avatar_url as avatarUrl, p.legacy_user_id as userId, " +
-                        "p.real_name as realName, case p.gender when 1 then '男' when 2 then '女' else '未知' end as gender, " +
-                        "date_format(p.birthday, '%Y-%m-%d') as birthday, p.address, p.bio, p.height, p.weight, " +
-                        "p.chronic_disease as chronicDisease, p.emergency_contact as emergencyContact, p.emergency_phone as emergencyPhone, " +
-                        "date_format(p.last_buy_time, '%Y-%m-%d') as lastBuyTime " +
-                        "from account a join elderly_profile p on p.account_id = a.id where p.legacy_user_id = ?",
+                "select a.id as accountId, u.id as userId, u.phone, u.nickname, u.avatar_url as avatarUrl, " +
+                        "u.real_name as realName, case u.gender when 1 then '男' when 2 then '女' else '未知' end as gender, " +
+                        "date_format(u.birthday, '%Y-%m-%d') as birthday, u.id_card as idCard, u.address, u.bio, u.height, u.weight, " +
+                        "u.ethnicity, u.education, u.blood_type as bloodType, u.rh_negative = 1 as rhNegative, " +
+                        "u.chronic_disease as chronicDisease, u.sleep_quality as sleepQuality, u.smoking_freq as smokingFreq, " +
+                        "u.drinking_freq as drinkingFreq, u.exercise_freq as exerciseFreq, u.diet_preference as dietPreference, " +
+                        "u.emergency_contact as emergencyContact, u.emergency_phone as emergencyPhone, " +
+                        "date_format(u.last_buy_time, '%Y-%m-%d') as lastBuyTime " +
+                        "from elderly_profile p join account a on a.id = p.account_id join `user` u on u.id = p.legacy_user_id " +
+                        "where u.id = ?",
                 userId
         );
+    }
+
+    @Override
+    public Map<String, Object> updateElderlyProfile(Map<String, Object> payload) {
+        requireRole("elderly");
+        long userId = currentLegacyUserId();
+        Map<String, Object> values = new LinkedHashMap<String, Object>();
+        putProfileValue(values, payload, "nickname", "nickname", false);
+        putProfileValue(values, payload, "realName", "real_name", false);
+        putProfileValue(values, payload, "phone", "phone", false);
+        putProfileValue(values, payload, "avatarUrl", "avatar_url", true);
+        if (payload != null && payload.containsKey("gender")) values.put("gender", genderCode(stringValue(payload.get("gender"))));
+        putProfileValue(values, payload, "birthday", "birthday", true);
+        putProfileValue(values, payload, "idCard", "id_card", true);
+        putProfileValue(values, payload, "address", "address", true);
+        putProfileValue(values, payload, "bio", "bio", true);
+        putProfileValue(values, payload, "height", "height", true);
+        putProfileValue(values, payload, "weight", "weight", true);
+        putProfileValue(values, payload, "ethnicity", "ethnicity", true);
+        putProfileValue(values, payload, "education", "education", true);
+        putProfileValue(values, payload, "bloodType", "blood_type", true);
+        if (payload != null && payload.containsKey("rhNegative")) values.put("rh_negative", booleanCode(payload.get("rhNegative")));
+        putProfileValue(values, payload, "chronicDisease", "chronic_disease", true);
+        putProfileValue(values, payload, "sleepQuality", "sleep_quality", true);
+        putProfileValue(values, payload, "smokingFreq", "smoking_freq", true);
+        putProfileValue(values, payload, "drinkingFreq", "drinking_freq", true);
+        putProfileValue(values, payload, "exerciseFreq", "exercise_freq", true);
+        putProfileValue(values, payload, "dietPreference", "diet_preference", true);
+        putProfileValue(values, payload, "emergencyContact", "emergency_contact", true);
+        putProfileValue(values, payload, "emergencyPhone", "emergency_phone", true);
+        if (values.containsKey("real_name") && stringValue(values.get("real_name")).trim().isEmpty()) {
+            throw new IllegalArgumentException("真实姓名不能为空");
+        }
+        if (values.containsKey("phone") && stringValue(values.get("phone")).trim().isEmpty()) {
+            throw new IllegalArgumentException("手机号不能为空");
+        }
+        updateById("user", userId, values);
+        syncElderlyMirrors(userId);
+        return elderlyProfile();
     }
 
     @Override
@@ -92,6 +136,37 @@ public class JdbcPortalDataService implements PortalDataService {
                         "if(status = 1, '绑定', '解绑') as status from device where user_id = ? order by id desc",
                 currentLegacyUserId()
         );
+    }
+
+    @Override
+    public Map<String, Object> updateElderlyDevice(Long id, Map<String, Object> payload) {
+        long userId = currentLegacyUserId();
+        Map<String, Object> values = new LinkedHashMap<String, Object>();
+        putProfileValue(values, payload, "deviceName", "device_name", false);
+        putProfileValue(values, payload, "deviceType", "device_type", false);
+        putProfileValue(values, payload, "deviceCode", "device_code", true);
+        if (payload != null && payload.containsKey("status")) {
+            String status = stringValue(payload.get("status"));
+            values.put("status", ("绑定".equals(status) || "启用".equals(status) || "1".equals(status)) ? 1 : 0);
+        }
+        if (values.containsKey("device_name") && stringValue(values.get("device_name")).trim().isEmpty()) {
+            throw new IllegalArgumentException("设备名称不能为空");
+        }
+        List<Object> args = new ArrayList<Object>(values.values());
+        StringBuilder sql = new StringBuilder("update device set ");
+        int index = 0;
+        for (String column : values.keySet()) {
+            if (index++ > 0) sql.append(", ");
+            sql.append('`').append(column).append("` = ?");
+        }
+        if (values.isEmpty()) return device(id, userId);
+        sql.append(" where id = ? and user_id = ?");
+        args.add(id);
+        args.add(userId);
+        if (jdbcTemplate.update(sql.toString(), args.toArray()) != 1) {
+            throw new IllegalArgumentException("设备不存在或不属于当前用户");
+        }
+        return device(id, userId);
     }
 
     @Override
@@ -272,6 +347,78 @@ public class JdbcPortalDataService implements PortalDataService {
         if ("service_in".equals(status)) row.put("status", "服务中");
         if ("completed".equals(status)) row.put("status", "已完成");
         if ("cancelled".equals(status)) row.put("status", "已取消");
+    }
+
+    private void putProfileValue(Map<String, Object> values, Map<String, Object> payload, String key, String column, boolean emptyAsNull) {
+        if (payload == null || !payload.containsKey(key)) return;
+        Object raw = payload.get(key);
+        Object value = raw;
+        if (raw instanceof String) {
+            String text = ((String) raw).trim();
+            value = emptyAsNull && text.isEmpty() ? null : text;
+        }
+        values.put(column, value);
+    }
+
+    private void updateById(String table, long id, Map<String, Object> values) {
+        if (values.isEmpty()) return;
+        StringBuilder sql = new StringBuilder("update `").append(table).append("` set ");
+        List<Object> args = new ArrayList<Object>();
+        int index = 0;
+        for (Map.Entry<String, Object> entry : values.entrySet()) {
+            if (index++ > 0) sql.append(", ");
+            sql.append('`').append(entry.getKey()).append("` = ?");
+            args.add(entry.getValue());
+        }
+        sql.append(" where id = ?");
+        args.add(id);
+        if (jdbcTemplate.update(sql.toString(), args.toArray()) != 1) {
+            throw new IllegalArgumentException("用户资料更新失败");
+        }
+    }
+
+    private void syncElderlyMirrors(long userId) {
+        jdbcTemplate.update(
+                "update account a join elderly_profile p on p.account_id = a.id join `user` u on u.id = p.legacy_user_id " +
+                        "set a.phone = u.phone, a.nickname = u.nickname, a.avatar_url = u.avatar_url, a.updated_at = now() " +
+                        "where u.id = ? and a.role_type = 'elderly'",
+                userId
+        );
+        jdbcTemplate.update(
+                "update elderly_profile p join `user` u on u.id = p.legacy_user_id set " +
+                        "p.real_name = u.real_name, p.gender = u.gender, p.birthday = u.birthday, p.id_card = u.id_card, " +
+                        "p.address = u.address, p.bio = u.bio, p.height = u.height, p.weight = u.weight, p.ethnicity = u.ethnicity, " +
+                        "p.education = u.education, p.blood_type = u.blood_type, p.rh_negative = u.rh_negative, " +
+                        "p.chronic_disease = u.chronic_disease, p.sleep_quality = u.sleep_quality, p.smoking_freq = u.smoking_freq, " +
+                        "p.drinking_freq = u.drinking_freq, p.exercise_freq = u.exercise_freq, p.diet_preference = u.diet_preference, " +
+                        "p.emergency_contact = u.emergency_contact, p.emergency_phone = u.emergency_phone, p.last_buy_time = u.last_buy_time " +
+                        "where u.id = ?",
+                userId
+        );
+    }
+
+    private Map<String, Object> device(Long id, long userId) {
+        Map<String, Object> result = one(
+                "select id, device_name as deviceName, device_type as deviceType, device_code as deviceCode, " +
+                        "date_format(bind_time, '%Y-%m-%d %H:%i') as bindTime, date_format(last_sync_time, '%Y-%m-%d %H:%i') as lastSyncTime, " +
+                        "if(status = 1, '绑定', '解绑') as status from device where id = ? and user_id = ?",
+                id,
+                userId
+        );
+        if (result.isEmpty()) throw new IllegalArgumentException("设备不存在或不属于当前用户");
+        return result;
+    }
+
+    private int genderCode(String value) {
+        if ("男".equals(value) || "1".equals(value)) return 1;
+        if ("女".equals(value) || "2".equals(value)) return 2;
+        return 0;
+    }
+
+    private int booleanCode(Object value) {
+        if (value instanceof Boolean) return ((Boolean) value) ? 1 : 0;
+        String text = stringValue(value).trim();
+        return ("1".equals(text) || "true".equalsIgnoreCase(text) || "是".equals(text)) ? 1 : 0;
     }
 
     private long requiredLong(Map<String, Object> payload, String key, String message) {

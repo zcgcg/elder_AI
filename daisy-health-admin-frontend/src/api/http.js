@@ -67,6 +67,7 @@ export const assetUrl = (url) => {
 const resourcePaths = {
   workOrders: 'work-orders',
   afterSales: 'after-sales',
+  healthData: 'health-data',
   healthSettings: 'health-settings',
   userPoints: 'user-points',
   pointsRecords: 'points-records',
@@ -77,16 +78,19 @@ const resourcePaths = {
   activityEnrolls: 'activity-enrolls',
   assessmentResults: 'assessment-results'
 }
-export const getResource = (resource, params) => service.get(`/${resourcePaths[resource] || resource}`, { params })
-export const createResource = (resource, payload) => service.post(`/${resourcePaths[resource] || resource}`, payload)
-export const updateResource = (resource, id, payload) => service.put(`/${resourcePaths[resource] || resource}/${id}`, payload)
-export const deleteResource = (resource, id) => service.delete(`/${resourcePaths[resource] || resource}/${id}`)
+export const resourcePath = (resource) => `/${resourcePaths[resource] || resource}`
+export const getResource = (resource, params) => service.get(resourcePath(resource), { params })
+export const createResource = (resource, payload) => service.post(resourcePath(resource), payload)
+export const updateResource = (resource, id, payload) => service.put(`${resourcePath(resource)}/${id}`, payload)
+export const deleteResource = (resource, id) => service.delete(`${resourcePath(resource)}/${id}`)
 export const getAnalytics = () => service.get('/analytics/overview')
 export const getElderlyProfile = () => service.get('/elderly/profile')
+export const updateElderlyProfile = (payload) => service.put('/elderly/profile', payload)
 export const updateElderlyAvatar = (payload) => service.put('/elderly/profile/avatar', payload)
 export const getElderlyHealthData = () => service.get('/elderly/health-data')
 export const getElderlyMedications = () => service.get('/elderly/medications')
 export const getElderlyDevices = () => service.get('/elderly/devices')
+export const updateElderlyDevice = (id, payload) => service.put(`/elderly/devices/${id}`, payload)
 export const getElderlyReports = () => service.get('/elderly/reports')
 export const getElderlyOrders = () => service.get('/elderly/orders')
 export const getElderlyCoupons = () => service.get('/elderly/coupons')

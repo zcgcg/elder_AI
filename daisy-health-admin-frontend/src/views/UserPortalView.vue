@@ -45,13 +45,33 @@
     <el-tabs v-model="activeTab" class="portal-tabs">
       <el-tab-pane label="个人资料" name="profile">
         <section class="panel">
+          <div class="panel-heading">
+            <h2>完整个人信息</h2>
+            <el-button type="primary" @click="openProfileEditor">编辑资料</el-button>
+          </div>
           <el-descriptions :column="3" border>
+            <el-descriptions-item label="昵称">{{ profile.nickname || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="真实姓名">{{ profile.realName || '-' }}</el-descriptions-item>
             <el-descriptions-item label="手机号">{{ profile.phone }}</el-descriptions-item>
             <el-descriptions-item label="性别">{{ profile.gender }}</el-descriptions-item>
             <el-descriptions-item label="生日">{{ profile.birthday }}</el-descriptions-item>
+            <el-descriptions-item label="身份证号">{{ profile.idCard || '-' }}</el-descriptions-item>
             <el-descriptions-item label="地址">{{ profile.address }}</el-descriptions-item>
+            <el-descriptions-item label="民族">{{ profile.ethnicity || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="文化程度">{{ profile.education || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="身高">{{ profile.height ? `${profile.height} cm` : '-' }}</el-descriptions-item>
+            <el-descriptions-item label="体重">{{ profile.weight ? `${profile.weight} kg` : '-' }}</el-descriptions-item>
+            <el-descriptions-item label="血型">{{ profile.bloodType || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="RH阴性">{{ profile.rhNegative ? '是' : '否' }}</el-descriptions-item>
             <el-descriptions-item label="慢病">{{ profile.chronicDisease }}</el-descriptions-item>
+            <el-descriptions-item label="睡眠质量">{{ profile.sleepQuality || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="吸烟频率">{{ profile.smokingFreq || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="饮酒频率">{{ profile.drinkingFreq || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="运动频率">{{ profile.exerciseFreq || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="饮食偏好">{{ profile.dietPreference || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="紧急联系人">{{ profile.emergencyContact || '-' }}</el-descriptions-item>
             <el-descriptions-item label="紧急电话">{{ profile.emergencyPhone }}</el-descriptions-item>
+            <el-descriptions-item label="个人简介" :span="3">{{ profile.bio || '-' }}</el-descriptions-item>
           </el-descriptions>
         </section>
       </el-tab-pane>
@@ -94,7 +114,15 @@
         <data-table :rows="medications" :columns="medicationColumns" />
       </el-tab-pane>
       <el-tab-pane label="设备报告" name="devices">
-        <data-table :rows="devices" :columns="deviceColumns" />
+        <section class="panel">
+          <h2>我的设备</h2>
+          <el-table :data="devices" stripe>
+            <el-table-column v-for="column in deviceColumns" :key="column.prop" :prop="column.prop" :label="column.label" :min-width="column.width || 120" />
+            <el-table-column label="操作" width="90">
+              <template #default="{ row }"><el-button link type="primary" @click="openDeviceEditor(row)">编辑</el-button></template>
+            </el-table-column>
+          </el-table>
+        </section>
         <data-table :rows="reports" :columns="reportColumns" title="健康报告" />
       </el-tab-pane>
       <el-tab-pane label="订单资产" name="assets">
@@ -108,6 +136,50 @@
       <template #footer>
         <el-button @click="avatarDialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="avatarSaving" @click="saveAvatar">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="profileDialogVisible" title="编辑完整个人信息" width="720px">
+      <el-form :model="profileForm" label-width="104px">
+        <el-form-item label="昵称"><el-input v-model="profileForm.nickname" /></el-form-item>
+        <el-form-item label="真实姓名" required><el-input v-model="profileForm.realName" /></el-form-item>
+        <el-form-item label="手机号" required><el-input v-model="profileForm.phone" /></el-form-item>
+        <el-form-item label="性别"><el-radio-group v-model="profileForm.gender"><el-radio label="女" /><el-radio label="男" /><el-radio label="未知" /></el-radio-group></el-form-item>
+        <el-form-item label="出生日期"><el-date-picker v-model="profileForm.birthday" type="date" value-format="YYYY-MM-DD" /></el-form-item>
+        <el-form-item label="身份证号"><el-input v-model="profileForm.idCard" /></el-form-item>
+        <el-form-item label="家庭住址"><el-input v-model="profileForm.address" /></el-form-item>
+        <el-form-item label="个人简介"><el-input v-model="profileForm.bio" type="textarea" /></el-form-item>
+        <el-form-item label="民族"><el-input v-model="profileForm.ethnicity" /></el-form-item>
+        <el-form-item label="文化程度"><el-input v-model="profileForm.education" /></el-form-item>
+        <el-form-item label="身高(cm)"><el-input-number v-model="profileForm.height" :min="0" /></el-form-item>
+        <el-form-item label="体重(kg)"><el-input-number v-model="profileForm.weight" :min="0" /></el-form-item>
+        <el-form-item label="血型"><el-select v-model="profileForm.bloodType" clearable><el-option v-for="type in ['A', 'B', 'O', 'AB']" :key="type" :label="type" :value="type" /></el-select></el-form-item>
+        <el-form-item label="RH阴性"><el-switch v-model="profileForm.rhNegative" /></el-form-item>
+        <el-form-item label="慢性病"><el-input v-model="profileForm.chronicDisease" /></el-form-item>
+        <el-form-item label="睡眠质量"><el-select v-model="profileForm.sleepQuality" clearable><el-option v-for="item in ['良好', '一般', '较差']" :key="item" :label="item" :value="item" /></el-select></el-form-item>
+        <el-form-item label="吸烟频率"><el-input v-model="profileForm.smokingFreq" /></el-form-item>
+        <el-form-item label="饮酒频率"><el-input v-model="profileForm.drinkingFreq" /></el-form-item>
+        <el-form-item label="运动频率"><el-input v-model="profileForm.exerciseFreq" /></el-form-item>
+        <el-form-item label="饮食偏好"><el-input v-model="profileForm.dietPreference" /></el-form-item>
+        <el-form-item label="紧急联系人"><el-input v-model="profileForm.emergencyContact" /></el-form-item>
+        <el-form-item label="紧急电话"><el-input v-model="profileForm.emergencyPhone" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="profileDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="profileSaving" @click="saveProfile">保存并同步</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="deviceDialogVisible" title="编辑设备信息" width="560px">
+      <el-form :model="deviceForm" label-width="96px">
+        <el-form-item label="设备名称" required><el-input v-model="deviceForm.deviceName" /></el-form-item>
+        <el-form-item label="设备类型"><el-input v-model="deviceForm.deviceType" /></el-form-item>
+        <el-form-item label="设备编号"><el-input v-model="deviceForm.deviceCode" /></el-form-item>
+        <el-form-item label="绑定状态"><el-select v-model="deviceForm.status"><el-option label="绑定" value="绑定" /><el-option label="解绑" value="解绑" /></el-select></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="deviceDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="deviceSaving" @click="saveDevice">保存并同步</el-button>
       </template>
     </el-dialog>
 
@@ -149,7 +221,9 @@ import {
   getElderlyProfile,
   getElderlyReports,
   getElderlyWorkOrders,
-  updateElderlyAvatar
+  updateElderlyAvatar,
+  updateElderlyDevice,
+  updateElderlyProfile
 } from '../api/http'
 
 const DataTable = {
@@ -183,6 +257,17 @@ const workOrderSaving = ref(false)
 const avatarDialogVisible = ref(false)
 const avatarSaving = ref(false)
 const avatarPickerRef = ref(null)
+const profileDialogVisible = ref(false)
+const profileSaving = ref(false)
+const profileForm = reactive({
+  nickname: '', realName: '', phone: '', gender: '未知', birthday: '', idCard: '', address: '', bio: '',
+  height: null, weight: null, ethnicity: '', education: '', bloodType: '', rhNegative: false,
+  chronicDisease: '', sleepQuality: '', smokingFreq: '', drinkingFreq: '', exerciseFreq: '', dietPreference: '',
+  emergencyContact: '', emergencyPhone: ''
+})
+const deviceDialogVisible = ref(false)
+const deviceSaving = ref(false)
+const deviceForm = reactive({ id: null, deviceName: '', deviceType: '', deviceCode: '', status: '绑定' })
 const today = new Date().toISOString().slice(0, 10)
 const workOrderForm = reactive({ productId: '', amount: 0, date: today, time: '09:00:00' })
 
@@ -320,6 +405,60 @@ async function saveAvatar() {
   }
 }
 
+function openProfileEditor() {
+  Object.keys(profileForm).forEach((key) => {
+    profileForm[key] = profile.value[key] ?? (key === 'rhNegative' ? false : '')
+  })
+  profileDialogVisible.value = true
+}
+
+async function saveProfile() {
+  if (!String(profileForm.realName || '').trim() || !String(profileForm.phone || '').trim()) {
+    ElMessage.warning('请填写真实姓名和手机号')
+    return
+  }
+  profileSaving.value = true
+  try {
+    profile.value = await updateElderlyProfile({ ...profileForm })
+    auth.updateCachedAvatar(profile.value.avatarUrl)
+    profileDialogVisible.value = false
+    ElMessage.success('个人信息已保存并同步到管理端')
+  } catch (err) {
+    ElMessage.error(err.message || '个人信息保存失败')
+  } finally {
+    profileSaving.value = false
+  }
+}
+
+function openDeviceEditor(row) {
+  Object.assign(deviceForm, {
+    id: row.id,
+    deviceName: row.deviceName || '',
+    deviceType: row.deviceType || '',
+    deviceCode: row.deviceCode || '',
+    status: row.status || '绑定'
+  })
+  deviceDialogVisible.value = true
+}
+
+async function saveDevice() {
+  if (!String(deviceForm.deviceName || '').trim()) {
+    ElMessage.warning('请填写设备名称')
+    return
+  }
+  deviceSaving.value = true
+  try {
+    await updateElderlyDevice(deviceForm.id, { ...deviceForm })
+    devices.value = await getElderlyDevices()
+    deviceDialogVisible.value = false
+    ElMessage.success('设备信息已保存并同步到管理端')
+  } catch (err) {
+    ElMessage.error(err.message || '设备信息保存失败')
+  } finally {
+    deviceSaving.value = false
+  }
+}
+
 function logout() {
   auth.signOut()
   router.push('/login')
@@ -409,6 +548,17 @@ onMounted(loadData)
 .panel h2 {
   margin: 0 0 12px;
   font-size: 18px;
+}
+
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.panel-heading h2 {
+  margin: 0;
 }
 
 .catalog-grid {

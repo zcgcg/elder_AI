@@ -75,14 +75,19 @@
         </el-form-item>
         <el-form-item label="性别"><el-radio-group v-model="profileForm.gender"><el-radio label="女" /><el-radio label="男" /><el-radio label="未知" /></el-radio-group></el-form-item>
         <el-form-item label="出生日期"><el-date-picker v-model="profileForm.birthday" type="date" value-format="YYYY-MM-DD" /></el-form-item>
+        <el-form-item label="身份证号"><el-input v-model="profileForm.idCard" /></el-form-item>
         <el-form-item label="家庭住址"><el-input v-model="profileForm.address" /></el-form-item>
+        <el-form-item label="个人简介"><el-input v-model="profileForm.bio" type="textarea" /></el-form-item>
         <el-form-item label="民族"><el-input v-model="profileForm.ethnicity" /></el-form-item>
         <el-form-item label="文化程度"><el-input v-model="profileForm.education" /></el-form-item>
         <el-form-item label="身高(cm)"><el-input-number v-model="profileForm.height" :min="0" controls-position="right" /></el-form-item>
         <el-form-item label="体重(kg)"><el-input-number v-model="profileForm.weight" :min="0" controls-position="right" /></el-form-item>
         <el-form-item label="血型"><el-select v-model="profileForm.bloodType"><el-option label="A" value="A" /><el-option label="B" value="B" /><el-option label="O" value="O" /><el-option label="AB" value="AB" /></el-select></el-form-item>
+        <el-form-item label="RH阴性"><el-switch v-model="profileForm.rhNegative" /></el-form-item>
         <el-form-item label="慢性病"><el-input v-model="profileForm.chronicDisease" /></el-form-item>
         <el-form-item label="睡眠质量"><el-select v-model="profileForm.sleepQuality"><el-option label="良好" value="良好" /><el-option label="一般" value="一般" /><el-option label="较差" value="较差" /></el-select></el-form-item>
+        <el-form-item label="吸烟频率"><el-input v-model="profileForm.smokingFreq" /></el-form-item>
+        <el-form-item label="饮酒频率"><el-input v-model="profileForm.drinkingFreq" /></el-form-item>
         <el-form-item label="运动频率"><el-input v-model="profileForm.exerciseFreq" /></el-form-item>
         <el-form-item label="饮食偏好"><el-input v-model="profileForm.dietPreference" /></el-form-item>
         <el-form-item label="紧急联系人"><el-input v-model="profileForm.emergencyContact" /></el-form-item>
@@ -180,8 +185,8 @@ const editingId = ref(null)
 const sectionForm = reactive({})
 const productOptions = ref([])
 const profileForm = reactive({
-  nickname: '', realName: '', phone: '', avatarUrl: '', gender: '未知', birthday: '', address: '', ethnicity: '', education: '',
-  height: 0, weight: 0, bloodType: 'A', chronicDisease: '', sleepQuality: '良好', exerciseFreq: '', dietPreference: '', emergencyContact: '', emergencyPhone: ''
+  nickname: '', realName: '', phone: '', avatarUrl: '', gender: '未知', birthday: '', idCard: '', address: '', bio: '', ethnicity: '', education: '',
+  height: 0, weight: 0, bloodType: 'A', rhNegative: false, chronicDisease: '', sleepQuality: '良好', smokingFreq: '', drinkingFreq: '', exerciseFreq: '', dietPreference: '', emergencyContact: '', emergencyPhone: ''
 })
 const user = ref({ id: route.params.id, nickname: '', realName: '', tags: [], medications: [], healthData: [], devices: [], reports: [], orders: [], coupons: [], points: [], contents: [], serviceRecords: [] })
 
@@ -256,9 +261,10 @@ const sectionDialogTitle = computed(() => `${editingId.value ? '编辑' : '新�
 const healthDataRows = computed(() => (user.value.healthData || []).map((item) => ({ ...item, dataType: item.dataType || 'weight', value: item.weight || item.heartRate || '', unit: item.weight ? 'kg' : 'bpm', recordDate: item.recordDate })))
 const profileFields = computed(() => [
   { label: '昵称', value: user.value.nickname }, { label: '真实姓名', value: user.value.realName }, { label: '性别', value: user.value.gender }, { label: '出生日期', value: user.value.birthday },
-  { label: '手机号', value: user.value.phone }, { label: '家庭住址', value: user.value.address }, { label: '民族', value: user.value.ethnicity }, { label: '文化程度', value: user.value.education },
-  { label: '身高', value: user.value.height ? `${user.value.height} cm` : '' }, { label: '体重', value: user.value.weight ? `${user.value.weight} kg` : '' }, { label: '血型', value: user.value.bloodType },
-  { label: '慢性病', value: user.value.chronicDisease }, { label: '睡眠质量', value: user.value.sleepQuality }, { label: '运动频率', value: user.value.exerciseFreq },
+  { label: '手机号', value: user.value.phone }, { label: '身份证号', value: user.value.idCard }, { label: '家庭住址', value: user.value.address }, { label: '个人简介', value: user.value.bio },
+  { label: '民族', value: user.value.ethnicity }, { label: '文化程度', value: user.value.education }, { label: '身高', value: user.value.height ? `${user.value.height} cm` : '' }, { label: '体重', value: user.value.weight ? `${user.value.weight} kg` : '' },
+  { label: '血型', value: user.value.bloodType }, { label: 'RH阴性', value: user.value.rhNegative ? '是' : '否' }, { label: '慢性病', value: user.value.chronicDisease }, { label: '睡眠质量', value: user.value.sleepQuality },
+  { label: '吸烟频率', value: user.value.smokingFreq }, { label: '饮酒频率', value: user.value.drinkingFreq }, { label: '运动频率', value: user.value.exerciseFreq }, { label: '饮食偏好', value: user.value.dietPreference },
   { label: '紧急联系人', value: user.value.emergencyContact }, { label: '紧急电话', value: user.value.emergencyPhone }
 ])
 

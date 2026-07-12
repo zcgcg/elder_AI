@@ -17,6 +17,13 @@ public class MockPortalDataService implements PortalDataService {
     }
 
     @Override
+    public Map<String, Object> updateElderlyProfile(Map<String, Object> payload) {
+        Map<String, Object> result = elderlyProfile();
+        if (payload != null) result.putAll(payload);
+        return result;
+    }
+
+    @Override
     public Map<String, Object> updateElderlyAvatar(Map<String, Object> payload) {
         return record("realName", "演示用户", "phone", "13800010001", "userId", 10001,
                 "avatarUrl", payload == null ? "" : payload.get("avatarUrl"));
@@ -34,7 +41,14 @@ public class MockPortalDataService implements PortalDataService {
 
     @Override
     public List<Map<String, Object>> elderlyDevices() {
-        return list(record("deviceName", "智能手环", "status", "绑定"));
+        return list(record("id", 1L, "deviceName", "智能手环", "deviceType", "band", "deviceCode", "DEMO-001", "status", "绑定"));
+    }
+
+    @Override
+    public Map<String, Object> updateElderlyDevice(Long id, Map<String, Object> payload) {
+        Map<String, Object> result = record("id", id);
+        if (payload != null) result.putAll(payload);
+        return result;
     }
 
     @Override

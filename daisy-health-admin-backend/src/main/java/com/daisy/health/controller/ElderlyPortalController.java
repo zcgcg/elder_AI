@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PathVariable;
 
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,11 @@ public class ElderlyPortalController {
     @GetMapping("/profile")
     public ApiResponse<Map<String, Object>> profile() {
         return ApiResponse.success(portalDataService.elderlyProfile());
+    }
+
+    @PutMapping("/profile")
+    public ApiResponse<Map<String, Object>> updateProfile(@RequestBody Map<String, Object> payload) {
+        return ApiResponse.success(portalDataService.updateElderlyProfile(payload));
     }
 
     @PutMapping("/profile/avatar")
@@ -44,6 +50,11 @@ public class ElderlyPortalController {
     @GetMapping("/devices")
     public ApiResponse<List<Map<String, Object>>> devices() {
         return ApiResponse.success(portalDataService.elderlyDevices());
+    }
+
+    @PutMapping("/devices/{id}")
+    public ApiResponse<Map<String, Object>> updateDevice(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        return ApiResponse.success(portalDataService.updateElderlyDevice(id, payload));
     }
 
     @GetMapping("/reports")
