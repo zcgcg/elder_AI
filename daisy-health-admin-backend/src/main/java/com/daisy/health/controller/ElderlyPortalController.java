@@ -91,4 +91,24 @@ public class ElderlyPortalController {
     public ApiResponse<Map<String, Object>> createWorkOrder(@RequestBody Map<String, Object> payload) {
         return ApiResponse.success(portalDataService.createElderlyWorkOrder(payload));
     }
+
+    @GetMapping("/activities")
+    public ApiResponse<List<Map<String, Object>>> activities() {
+        return ApiResponse.success(portalDataService.elderlyActivities());
+    }
+
+    @PostMapping("/activities/{id}/enroll")
+    public ApiResponse<Map<String, Object>> enrollActivity(@PathVariable Long id) {
+        return ApiResponse.success(portalDataService.enrollElderlyActivity(id));
+    }
+
+    @GetMapping("/health-articles")
+    public ApiResponse<List<Map<String, Object>>> healthArticles() {
+        return ApiResponse.success(portalDataService.elderlyHealthArticles());
+    }
+
+    @GetMapping("/health-videos")
+    public ApiResponse<List<Map<String, Object>>> healthVideos() {
+        return ApiResponse.success(portalDataService.elderlyHealthVideos());
+    }
 }

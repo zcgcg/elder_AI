@@ -75,6 +75,54 @@
           </el-descriptions>
         </section>
       </el-tab-pane>
+      <el-tab-pane label="社区活动" name="activities">
+        <section class="content-grid">
+          <article v-for="item in activities" :key="item.id" class="portal-content-card">
+            <img v-if="item.coverUrl" :src="assetUrl(item.coverUrl)" :alt="item.title" />
+            <div class="content-card-body">
+              <div class="content-meta"><el-tag>{{ item.status }}</el-tag><span>{{ item.startTime }}</span></div>
+              <h2>{{ item.title }}</h2>
+              <p>{{ item.content || '欢迎参加社区活动' }}</p>
+              <p><strong>地点：</strong>{{ item.location || '待通知' }}</p>
+              <footer>
+                <span>已报名 {{ item.enrolled }} / {{ item.quota }} 人</span>
+                <el-button type="primary" size="large" :loading="enrollingActivityId === item.id" :disabled="item.joined || !item.canJoin" @click="joinActivity(item)">
+                  {{ item.joined ? '已报名' : (item.canJoin ? '加入活动' : '不可报名') }}
+                </el-button>
+              </footer>
+            </div>
+          </article>
+          <el-empty v-if="!activities.length" description="暂无已发布活动" />
+        </section>
+      </el-tab-pane>
+      <el-tab-pane label="健康资讯" name="articles">
+        <section class="content-grid">
+          <article v-for="item in healthArticles" :key="item.id" class="portal-content-card">
+            <img v-if="item.coverUrl" :src="assetUrl(item.coverUrl)" :alt="item.title" />
+            <div class="content-card-body">
+              <div class="content-meta"><el-tag type="success">{{ item.category || '健康' }}</el-tag><span>{{ item.createdAt }}</span></div>
+              <h2>{{ item.title }}</h2>
+              <p>{{ item.summary || item.content || '暂无摘要' }}</p>
+              <footer><small>{{ item.author || '健康中心' }}</small><el-button type="primary" plain size="large" @click="openArticle(item)">阅读详情</el-button></footer>
+            </div>
+          </article>
+          <el-empty v-if="!healthArticles.length" description="暂无健康资讯" />
+        </section>
+      </el-tab-pane>
+      <el-tab-pane label="健康讲堂" name="videos">
+        <section class="content-grid">
+          <article v-for="item in healthVideos" :key="item.id" class="portal-content-card">
+            <img v-if="item.coverUrl" :src="assetUrl(item.coverUrl)" :alt="item.title" />
+            <div class="content-card-body">
+              <div class="content-meta"><el-tag type="warning">{{ item.category || '健康讲堂' }}</el-tag><span>{{ formatDuration(item.duration) }}</span></div>
+              <h2>{{ item.title }}</h2>
+              <p>{{ item.description || '暂无讲堂简介' }}</p>
+              <footer><span>主讲：{{ item.lecturer || '健康专家' }}</span><el-button v-if="item.videoUrl" type="primary" size="large" @click="openVideo(item.videoUrl)">观看讲堂</el-button></footer>
+            </div>
+          </article>
+          <el-empty v-if="!healthVideos.length" description="暂无健康讲堂" />
+        </section>
+      </el-tab-pane>
       <el-tab-pane label="商品服务" name="catalog">
         <section class="catalog-grid">
           <article v-for="item in catalogItems" :key="item.id" class="catalog-card">
@@ -183,6 +231,13 @@
       </template>
     </el-dialog>
 
+    <el-dialog v-model="articleDialogVisible" :title="selectedArticle.title || '健康资讯'" width="760px">
+      <div class="article-detail-meta">{{ selectedArticle.author || '健康中心' }} · {{ selectedArticle.createdAt || '' }}</div>
+      <p v-if="selectedArticle.summary" class="article-summary">{{ selectedArticle.summary }}</p>
+      <div class="article-content">{{ selectedArticle.content || selectedArticle.summary || '暂无正文' }}</div>
+      <template #footer><el-button type="primary" size="large" @click="articleDialogVisible = false">我知道了</el-button></template>
+    </el-dialog>
+
     <el-dialog v-model="workOrderVisible" title="创建工单" width="560px">
       <el-form :model="workOrderForm" label-width="96px">
         <el-form-item label="商品服务" required>
@@ -211,10 +266,14 @@ import { useAuthStore } from '../stores/auth'
 import {
   assetUrl,
   createElderlyWorkOrder,
+  enrollElderlyActivity,
+  getElderlyActivities,
   getElderlyCatalogItems,
   getElderlyCoupons,
   getElderlyDevices,
   getElderlyHealthData,
+  getElderlyHealthArticles,
+  getElderlyHealthVideos,
   getElderlyMedications,
   getElderlyOrders,
   getElderlyPoints,
@@ -252,6 +311,12 @@ const coupons = ref([])
 const points = ref({})
 const catalogItems = ref([])
 const workOrders = ref([])
+const activities = ref([])
+const healthArticles = ref([])
+const healthVideos = ref([])
+const enrollingActivityId = ref(null)
+const articleDialogVisible = ref(false)
+const selectedArticle = ref({})
 const workOrderVisible = ref(false)
 const workOrderSaving = ref(false)
 const avatarDialogVisible = ref(false)
@@ -322,7 +387,7 @@ function statusTone(status) {
 
 async function loadData() {
   try {
-    const [profileData, health, medicationData, deviceData, reportData, orderData, couponData, pointData, catalogData, workOrderData] = await Promise.all([
+    const [profileData, health, medicationData, deviceData, reportData, orderData, couponData, pointData, catalogData, workOrderData, activityData, articleData, videoData] = await Promise.all([
       getElderlyProfile(),
       getElderlyHealthData(),
       getElderlyMedications(),
@@ -332,7 +397,10 @@ async function loadData() {
       getElderlyCoupons(),
       getElderlyPoints(),
       getElderlyCatalogItems(),
-      getElderlyWorkOrders()
+      getElderlyWorkOrders(),
+      getElderlyActivities(),
+      getElderlyHealthArticles(),
+      getElderlyHealthVideos()
     ])
     profile.value = profileData
     healthData.value = health
@@ -344,6 +412,9 @@ async function loadData() {
     points.value = pointData
     catalogItems.value = catalogData
     workOrders.value = workOrderData
+    activities.value = activityData
+    healthArticles.value = articleData
+    healthVideos.value = videoData
   } catch (err) {
     error.value = err.message || '加载失败'
   }
@@ -459,6 +530,33 @@ async function saveDevice() {
   }
 }
 
+async function joinActivity(item) {
+  enrollingActivityId.value = item.id
+  try {
+    await enrollElderlyActivity(item.id)
+    activities.value = await getElderlyActivities()
+    ElMessage.success(`已报名“${item.title}”`)
+  } catch (err) {
+    ElMessage.error(err.message || '活动报名失败')
+  } finally {
+    enrollingActivityId.value = null
+  }
+}
+
+function formatDuration(seconds) {
+  const minutes = Math.ceil(Number(seconds || 0) / 60)
+  return minutes ? `${minutes} 分钟` : '时长待定'
+}
+
+function openVideo(url) {
+  window.open(url, '_blank', 'noopener,noreferrer')
+}
+
+function openArticle(item) {
+  selectedArticle.value = item
+  articleDialogVisible.value = true
+}
+
 function logout() {
   auth.signOut()
   router.push('/login')
@@ -567,6 +665,73 @@ onMounted(loadData)
   gap: 16px;
 }
 
+.content-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.portal-content-card {
+  overflow: hidden;
+  border: 1px solid #dce8e5;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.portal-content-card > img {
+  width: 100%;
+  height: 190px;
+  object-fit: cover;
+}
+
+.content-card-body {
+  padding: 20px;
+}
+
+.content-card-body h2 {
+  margin: 14px 0 10px;
+  font-size: 22px;
+}
+
+.content-card-body p {
+  color: #52646e;
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.content-card-body footer,
+.content-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.content-meta,
+.content-card-body small {
+  color: #788991;
+}
+
+.article-detail-meta {
+  margin-bottom: 14px;
+  color: #788991;
+}
+
+.article-summary {
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: #f2f8f6;
+  color: #3e5b55;
+  font-size: 17px;
+}
+
+.article-content {
+  white-space: pre-wrap;
+  color: #354850;
+  font-size: 17px;
+  line-height: 1.9;
+}
+
 .catalog-card {
   display: flex;
   min-height: 210px;
@@ -614,8 +779,18 @@ onMounted(loadData)
 
 @media (max-width: 1000px) {
   .summary-grid,
-  .catalog-grid {
+  .catalog-grid,
+  .content-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+@media (max-width: 640px) {
+  .portal-page { padding: 14px; }
+  .summary-grid,
+  .catalog-grid,
+  .content-grid { grid-template-columns: 1fr; }
+  .portal-header h1 { font-size: 24px; }
+  .portal-tabs { padding: 10px; }
 }
 </style>

@@ -847,3 +847,72 @@ service-frontend-dev.err.log
 ```
 
 如需排查后端启动问题，可以临时保留本地运行日志；问题解决后可直接删除。
+
+## 2026-07-12 用户端与数据同步更新
+
+本次完善了老人用户端的资料、设备、活动和健康内容能力，所有业务数据均与管理端共用数据库表，不维护用户端副本。
+
+### 用户资料与设备
+
+- 用户端“个人资料”现在展示并可修改昵称、真实姓名、手机号、性别、生日、身份证号、地址、简介、身高、体重、民族、文化程度、血型、RH 阴性、慢性病、睡眠、吸烟、饮酒、运动、饮食偏好及紧急联系人信息。
+- 用户端保存资料时更新 `user` 主表，并同步 `account`、`elderly_profile` 统一账号镜像；管理端修改用户后仍通过 `syncElderlyAccount` 同步，因此两端读取和修改的是同一份用户信息。
+- 用户端可以查看并修改本人的设备名称、类型、编号和绑定状态。后端更新条件同时包含设备 ID 和当前用户 ID，不能修改其他用户的设备。
+- 管理端用户详情已补齐上述完整资料字段，管理端和用户端均可修改。
+
+新增用户端接口：
+
+```text
+PUT /api/v1/elderly/profile
+PUT /api/v1/elderly/devices/{id}
+```
+
+### 活动、健康资讯和健康讲堂
+
+- “社区活动”读取管理端 `activity` 表，只展示已发布或已结束活动；老人只能选择已有活动报名，不能创建活动。
+- 报名写入 `activity_enroll`，后端根据 token 确定当前老人用户，并同步增加 `activity.enrolled`。重复报名按幂等方式处理，名额校验在事务内完成。
+- “健康资讯”读取管理端已发布的 `article` 数据。
+- “健康讲堂”读取管理端已发布的 `video` 数据。
+- 管理端仍通过原有活动、活动报名、健康资讯和健康讲堂页面创建和维护内容；用户端与管理端实时读取同一数据库数据。
+
+新增用户端接口：
+
+```text
+GET  /api/v1/elderly/activities
+POST /api/v1/elderly/activities/{id}/enroll
+GET  /api/v1/elderly/health-articles
+GET  /api/v1/elderly/health-videos
+```
+
+### 管理端健康数据保存修复
+
+管理端用户详情编辑健康数据时，前端原来把资源名 `healthData` 直接拼成了不存在的 `/api/v1/healthData/{id}`，而后端实际接口是 `/api/v1/health-data/{id}`，因此无论数据库是否启动都会保存失败。
+
+现在 `resourcePaths` 已增加 `healthData -> health-data` 映射，并增加前端回归测试锁定该请求路径。
+
+### 服务人员端当前完成情况
+
+服务人员登录后进入 `/portal/service`，数据范围由后端根据 JWT 中的 `accountId` 反查 `service_profile.legacy_personnel_id`，不接受前端传入服务人员 ID。
+
+已完成：
+
+- 查看本人资料，包括姓名、手机号、头像、服务类型、服务区域、入职时间、审核状态和评分。
+- 查看只分配给本人的工单列表和工单详情。
+- 更新本人名下工单状态，支持 `pending`、`service_in`、`completed`、`cancelled`；完成工单时自动写入完成时间。
+- 工单读取和更新 SQL 均带 `personnel_id = 当前服务人员 ID` 归属条件，不能读取或修改他人工单。
+
+当前尚未完成：
+
+- 服务过程记录表单、图片或附件上传。
+- 异常情况上报、取消原因的完整交互。
+- 位置签到、开始/结束服务的时间与定位校验。
+- 服务人员自行修改完整资料、头像和密码。
+- 消息通知、排班日历、收入统计及评价明细。
+
+服务人员端接口：
+
+```text
+GET /api/v1/service-app/profile
+GET /api/v1/service-app/work-orders
+GET /api/v1/service-app/work-orders/{id}
+PUT /api/v1/service-app/work-orders/{id}/status
+```

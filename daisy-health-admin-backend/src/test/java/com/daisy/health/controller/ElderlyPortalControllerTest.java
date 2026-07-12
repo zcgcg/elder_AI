@@ -126,6 +126,42 @@ class ElderlyPortalControllerTest {
     }
 
     @Test
+    void userCanBrowseActivitiesAndEnrollAnExistingActivity() throws Exception {
+        when(portalDataService.elderlyActivities()).thenReturn(Collections.singletonList(
+                record("id", 21L, "title", "社区健康义诊", "joined", false, "canJoin", true)
+        ));
+        when(portalDataService.enrollElderlyActivity(21L)).thenReturn(
+                record("activityId", 21L, "joined", true, "status", "已报名")
+        );
+
+        mockMvc.perform(get("/api/v1/elderly/activities"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].title").value("社区健康义诊"));
+        mockMvc.perform(post("/api/v1/elderly/activities/21/enroll"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.joined").value(true));
+
+        verify(portalDataService).enrollElderlyActivity(21L);
+    }
+
+    @Test
+    void userCanBrowsePublishedHealthContent() throws Exception {
+        when(portalDataService.elderlyHealthArticles()).thenReturn(Collections.singletonList(
+                record("id", 31L, "title", "夏季健康饮食")
+        ));
+        when(portalDataService.elderlyHealthVideos()).thenReturn(Collections.singletonList(
+                record("id", 41L, "title", "居家防跌倒")
+        ));
+
+        mockMvc.perform(get("/api/v1/elderly/health-articles"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].title").value("夏季健康饮食"));
+        mockMvc.perform(get("/api/v1/elderly/health-videos"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].title").value("居家防跌倒"));
+    }
+
+    @Test
     void staffAccountCannotUpdateElderlyAvatar() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         JwtService jwtService = new JwtService("daisy-health-local-dev-secret-please-change-32", 60_000L);

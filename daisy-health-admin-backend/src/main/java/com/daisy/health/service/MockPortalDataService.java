@@ -87,6 +87,26 @@ public class MockPortalDataService implements PortalDataService {
     }
 
     @Override
+    public List<Map<String, Object>> elderlyActivities() {
+        return list(record("id", 1L, "title", "社区健康义诊", "location", "社区活动中心", "joined", false, "canJoin", true));
+    }
+
+    @Override
+    public Map<String, Object> enrollElderlyActivity(Long activityId) {
+        return record("activityId", activityId, "joined", true, "status", "已报名");
+    }
+
+    @Override
+    public List<Map<String, Object>> elderlyHealthArticles() {
+        return list(record("id", 1L, "title", "夏季健康饮食", "summary", "清淡饮食与科学补水", "author", "健康中心"));
+    }
+
+    @Override
+    public List<Map<String, Object>> elderlyHealthVideos() {
+        return list(record("id", 1L, "title", "居家防跌倒", "lecturer", "李医生", "duration", 600));
+    }
+
+    @Override
     public Map<String, Object> serviceProfile() {
         return record("realName", "演示服务人员", "phone", "13900020001", "personnelId", 1);
     }

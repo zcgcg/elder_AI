@@ -282,6 +282,82 @@ public class JdbcPortalDataService implements PortalDataService {
     }
 
     @Override
+    public List<Map<String, Object>> elderlyActivities() {
+        long userId = currentLegacyUserId();
+        return jdbcTemplate.queryForList(
+                "select a.id, a.title, a.cover_url as coverUrl, a.location, " +
+                        "date_format(a.start_time, '%Y-%m-%d %H:%i') as startTime, date_format(a.end_time, '%Y-%m-%d %H:%i') as endTime, " +
+                        "a.quota, a.enrolled, a.content, case a.status when 'published' then '已发布' when 'ended' then '已结束' else a.status end as status, " +
+                        "exists(select 1 from activity_enroll e where e.activity_id = a.id and e.user_id = ? and e.status in ('enrolled', 'attended')) as joined, " +
+                        "(a.status = 'published' and a.enrolled < a.quota and (a.end_time is null or a.end_time >= now())) as canJoin " +
+                        "from activity a where a.status in ('published', 'ended') order by a.start_time desc, a.id desc",
+                userId
+        );
+    }
+
+    @Override
+    public Map<String, Object> enrollElderlyActivity(Long activityId) {
+        long userId = currentLegacyUserId();
+        Map<String, Object> activity = one(
+                "select id, title from activity where id = ? and status = 'published' " +
+                        "and (end_time is null or end_time >= now()) for update",
+                activityId
+        );
+        if (activity.isEmpty()) throw new IllegalArgumentException("活动不存在或已结束");
+
+        List<Map<String, Object>> enrollments = jdbcTemplate.queryForList(
+                "select id, status from activity_enroll where activity_id = ? and user_id = ? order by id desc limit 1",
+                activityId,
+                userId
+        );
+        if (!enrollments.isEmpty()) {
+            String currentStatus = stringValue(enrollments.get(0).get("status"));
+            if ("enrolled".equals(currentStatus) || "attended".equals(currentStatus)) {
+                return enrollmentResult(activityId, activity.get("title"));
+            }
+        }
+
+        int reserved = jdbcTemplate.update(
+                "update activity set enrolled = enrolled + 1 where id = ? and status = 'published' and enrolled < quota",
+                activityId
+        );
+        if (reserved != 1) throw new IllegalArgumentException("活动名额已满");
+        if (enrollments.isEmpty()) {
+            jdbcTemplate.update(
+                    "insert into activity_enroll(activity_id, user_id, enroll_time, status, remark) values(?, ?, now(), 'enrolled', '')",
+                    activityId,
+                    userId
+            );
+        } else {
+            jdbcTemplate.update(
+                    "update activity_enroll set status = 'enrolled', enroll_time = now() where id = ? and user_id = ?",
+                    enrollments.get(0).get("id"),
+                    userId
+            );
+        }
+        return enrollmentResult(activityId, activity.get("title"));
+    }
+
+    @Override
+    public List<Map<String, Object>> elderlyHealthArticles() {
+        currentLegacyUserId();
+        return jdbcTemplate.queryForList(
+                "select id, title, summary, content, cover_url as coverUrl, author, category, tags, view_count as viewCount, " +
+                        "date_format(created_at, '%Y-%m-%d') as createdAt from article where status = 1 order by created_at desc, id desc"
+        );
+    }
+
+    @Override
+    public List<Map<String, Object>> elderlyHealthVideos() {
+        currentLegacyUserId();
+        return jdbcTemplate.queryForList(
+                "select id, title, description, cover_url as coverUrl, video_url as videoUrl, duration, lecturer, category, " +
+                        "view_count as viewCount, date_format(created_at, '%Y-%m-%d') as createdAt " +
+                        "from video where status = 1 order by created_at desc, id desc"
+        );
+    }
+
+    @Override
     public Map<String, Object> serviceProfile() {
         long personnelId = currentLegacyPersonnelId();
         return one(
@@ -406,6 +482,15 @@ public class JdbcPortalDataService implements PortalDataService {
                 userId
         );
         if (result.isEmpty()) throw new IllegalArgumentException("设备不存在或不属于当前用户");
+        return result;
+    }
+
+    private Map<String, Object> enrollmentResult(Long activityId, Object title) {
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("activityId", activityId);
+        result.put("activityTitle", title);
+        result.put("joined", true);
+        result.put("status", "已报名");
         return result;
     }
 
