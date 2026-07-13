@@ -24,6 +24,9 @@
 - 预约、管理员工单、用户详情工单和订单统一从商品服务目录选择，金额由后端按目录价格确定，不能手工覆盖。
 - 用户端新增商品服务浏览、创建工单和“我的工单”；工单记录创建账号，用户只能读取本人创建的工单，管理员仍可读取全部。
 - 新建预约和工单会自动记录创建时间与派单时间，预约看板状态统一显示中文。
+- 管理端和老人用户端创建工单时均需明确选择服务人员；只能选择状态启用且审核通过的人员，不再自动分配第一名服务人员。
+- 管理端工单列表支持按服务人员和用户查询，并同时展示负责人员与服务客户；用户详情中的服务记录也展示负责人员。
+- 超级管理员个人资料支持使用预设头像或上传自定义头像，处理和保存逻辑与用户头像一致。
 
 ## 技术栈
 
@@ -110,7 +113,7 @@ mvn spring-boot:run -Dspring-boot.run.profiles=mock
 上传文件默认保存到后端运行目录下的 `uploads/`，该目录不会提交到 Git。
 
 ```text
-头像：jpg/jpeg/png/webp，建议 512x512 正方形，最大 2MB
+头像：jpg/jpeg/png/webp，建议 512x512 正方形，原图最大 10MB
 轮播图：jpg/jpeg/png/webp，建议 1440x480 或 1200x400 横图，最大 5MB
 报告：jpg/jpeg/png/webp/pdf，图片建议清晰扫描图，PDF 建议常规 A4 报告，最大 20MB
 ```
@@ -215,6 +218,8 @@ D:\agent_project\elder_AI
 - 预约看板支持新建和删除。
 - 通用列表支持新增、编辑、详情、删除；详情为只读查看，编辑保存写回原业务表。
 - 关联用户的新增/编辑支持按姓名、昵称、手机号或用户 ID 解析。
+- 管理端和用户端创建工单均支持选择服务人员；管理端工单页可按服务人员、用户查询。
+- 超级管理员可在右上角个人资料中选择预设头像或上传自定义头像。
 - Git 已初始化，当前主分支为 `main`。
 
 已完成模块：
@@ -239,7 +244,7 @@ D:\agent_project\elder_AI
 - 等级管理：权益可保存，等级名称改为“普通 / 银卡 / 金卡”选择。
 - 积分规则：行为类型中文展示，去掉每日上限编辑项。
 - 服务人员、审核管理：编辑可保存；审核管理补充 `PUT /api/v1/audits/{id}`。
-- 工单管理：状态改为中文选择。
+- 工单管理：状态改为中文选择；新增工单需选择客户和服务人员，列表支持按两者查询。
 - 服务项目：商品改为下拉选择，描述可保存。
 - 活动报名：活动改为下拉选择，状态改为中文。
 - 健康讲堂：列表去掉播放数据列。
@@ -428,7 +433,7 @@ AdminLayout.vue
 - 左侧 8 个主功能入口。
 - 右侧二级菜单。
 - 顶部搜索、通知、个人资料入口。
-- 个人资料弹窗保存到 `staff` 表。
+- 个人资料弹窗保存到 `staff` 表，并同步统一账号资料；头像支持预设图片和自定义上传。
 
 API 封装：
 
@@ -653,7 +658,10 @@ PUT    /api/v1/users/{id}/tags
 GET/POST/PUT/DELETE /api/v1/personnel
 GET/PUT             /api/v1/audits
 GET/POST/PUT/DELETE /api/v1/work-orders
+GET                 /api/v1/work-orders?personnelId={服务人员ID}&customerId={用户ID}
 ```
+
+工单创建请求中的 `personnelId` 为必填项。管理端创建时还需选择客户；服务人员必须处于“启用、已通过审核”状态。
 
 商品：
 
@@ -779,9 +787,9 @@ GET/POST/PUT/DELETE /api/v1/agreements
 最近本地提交：
 
 ```text
+7d62500 feat: support explicit work order assignment
+20e7053 fix: preserve independent health measurements
 737cb9a Handle invalid auth cache
-82077d4 Set super admin seed credentials
-534a6eb Implement secure auth and RBAC
 ```
 
 前端构建目前仍有 Vite/Rollup 大 chunk 警告，属于体积优化提示，不影响运行。
@@ -915,4 +923,67 @@ GET /api/v1/service-app/profile
 GET /api/v1/service-app/work-orders
 GET /api/v1/service-app/work-orders/{id}
 PUT /api/v1/service-app/work-orders/{id}/status
+```
+
+## 2026-07-13 工单分配、查询与管理员头像更新
+
+### 工单分配逻辑
+
+修改前，管理端或用户端未传入服务人员时，后端会自动取第一名启用的服务人员完成派单。该方式无法体现用户或管理员的选择，也可能把工单集中分配给同一人。
+
+修改后：
+
+- 管理端“服务 → 工单管理”新增工单时，必须选择商品服务、客户和服务人员。
+- 管理端用户详情的“服务记录”新增工单时，客户固定为当前用户，必须选择服务人员。
+- 老人用户在商品服务页面创建工单时，必须从可接单人员列表中选择服务人员。
+- 可选人员统一限制为 `service_personnel.status = 1` 且 `audit_status = '已通过'`。
+- 后端在写入订单和工单前再次校验 `personnelId`，避免绕过前端提交无效人员，也避免校验失败时产生半成品订单。
+- 工单创建后，管理端、老人用户端和服务人员端读取同一条 `work_order` 数据，分配结果实时同步。
+
+老人用户端新增接口：
+
+```text
+GET  /api/v1/elderly/personnel
+POST /api/v1/elderly/work-orders
+```
+
+`POST /api/v1/elderly/work-orders` 请求示例：
+
+```json
+{
+  "productId": 1,
+  "personnelId": 2,
+  "serviceTime": "2026-07-14 09:00:00"
+}
+```
+
+### 管理端按人员查询工单
+
+管理端工单列表现在同时返回 `customerId/customer/customerPhone` 和 `personnelId/personnelName/personnelPhone`，页面提供“查询服务人员”和“查询用户”两个下拉条件。两项可以单独使用，也可以组合查询：
+
+```text
+GET /api/v1/work-orders?personnelId=2
+GET /api/v1/work-orders?customerId=10001
+GET /api/v1/work-orders?personnelId=2&customerId=10001
+```
+
+管理端用户详情的服务记录查询也关联 `service_personnel`，因此可以直接看到每条用户工单的负责人员。
+
+### 超级管理员头像
+
+超级管理员可从右上角进入“个人资料”，使用与用户端相同的 `AvatarPicker`：
+
+- 可选择系统内置的 6 个头像。
+- 可上传 JPG、JPEG、PNG、WebP 图片，前端会执行头像格式、大小和图像处理校验。
+- 保存时调用原有 `PUT /api/v1/auth/profile`，同时更新管理员资料和统一账号头像。
+- 顶部导航头像通过统一的资源地址处理函数显示，支持 `/uploads/**` 相对地址。
+
+### 验证结果
+
+```text
+后端：mvn.cmd -q test 通过
+前端：npm.cmd test 通过（6 项）
+前端：npm.cmd run build 通过
+代码审查：需求符合性无缺口，无阻塞性规范问题
+本地提交：7d62500 feat: support explicit work order assignment
 ```
