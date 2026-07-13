@@ -203,7 +203,7 @@ const sectionMap = {
     title: '健康数据',
     resource: 'healthData',
     defaults: () => ({ userRef: String(user.value.id), dataType: 'weight', value: '', unit: 'kg', recordDate: new Date().toISOString().slice(0, 10), recordTime: '08:00:00', source: '后台录入' }),
-    columns: [{ prop: 'day', label: '日期' }, { prop: 'weight', label: '体重' }, { prop: 'heartRate', label: '心率' }],
+    columns: [{ prop: 'recordDate', label: '日期' }, { prop: 'dataType', label: '数据类型' }, { prop: 'value', label: '数值' }, { prop: 'unit', label: '单位' }, { prop: 'source', label: '来源' }],
     fields: [{ prop: 'dataType', label: '数据类型', type: 'select', options: ['weight', 'heart_rate', 'blood_pressure', 'blood_sugar'] }, { prop: 'value', label: '数值', required: true }, { prop: 'unit', label: '单位' }, { prop: 'recordDate', label: '日期', type: 'date' }, { prop: 'recordTime', label: '时间', type: 'time' }, { prop: 'source', label: '来源' }]
   },
   devices: {
@@ -259,7 +259,12 @@ const sectionMap = {
 
 const currentSection = computed(() => sectionMap[editingSection.value] || { title: '', fields: [], resource: '' })
 const sectionDialogTitle = computed(() => `${editingId.value ? '编辑' : '新增'}${currentSection.value.title}`)
-const healthDataRows = computed(() => (user.value.healthData || []).map((item) => ({ ...item, dataType: item.dataType || 'weight', value: item.weight || item.heartRate || '', unit: item.weight ? 'kg' : 'bpm', recordDate: item.recordDate })))
+const healthDataRows = computed(() => (user.value.healthData || []).map((item) => ({
+  ...item,
+  dataType: item.dataType || (item.heartRate != null && item.weight == null ? 'heart_rate' : 'weight'),
+  value: item.value ?? item.weight ?? item.heartRate ?? '',
+  unit: item.unit || (item.heartRate != null && item.weight == null ? 'bpm' : 'kg')
+})))
 const profileFields = computed(() => [
   { label: '昵称', value: user.value.nickname }, { label: '真实姓名', value: user.value.realName }, { label: '性别', value: user.value.gender }, { label: '出生日期', value: user.value.birthday },
   { label: '手机号', value: user.value.phone }, { label: '身份证号', value: user.value.idCard }, { label: '家庭住址', value: user.value.address }, { label: '个人简介', value: user.value.bio },

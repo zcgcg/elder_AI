@@ -209,11 +209,12 @@ public class MockDataService implements AdminDataService {
 
     private List<Map<String, Object>> healthData() {
         return list(
-                record("day", "07-01", "weight", 58.8, "heartRate", 76),
-                record("day", "07-02", "weight", 58.6, "heartRate", 74),
-                record("day", "07-03", "weight", 58.5, "heartRate", 78),
-                record("day", "07-04", "weight", 58.4, "heartRate", 75),
-                record("day", "07-05", "weight", 58.3, "heartRate", 73)
+                record("id", 1, "recordDate", "2026-07-01", "dataType", "weight", "value", 58.8, "unit", "kg", "source", "智能体脂秤"),
+                record("id", 2, "recordDate", "2026-07-01", "dataType", "heart_rate", "value", 76, "unit", "bpm", "source", "智能手环"),
+                record("id", 3, "recordDate", "2026-07-02", "dataType", "weight", "value", 58.6, "unit", "kg", "source", "智能体脂秤"),
+                record("id", 4, "recordDate", "2026-07-02", "dataType", "heart_rate", "value", 74, "unit", "bpm", "source", "智能手环"),
+                record("id", 5, "recordDate", "2026-07-03", "dataType", "weight", "value", 58.5, "unit", "kg", "source", "智能体脂秤"),
+                record("id", 6, "recordDate", "2026-07-03", "dataType", "heart_rate", "value", 78, "unit", "bpm", "source", "智能手环")
         );
     }
 

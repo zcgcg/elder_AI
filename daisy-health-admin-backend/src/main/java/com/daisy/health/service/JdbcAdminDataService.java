@@ -309,10 +309,9 @@ public class JdbcAdminDataService implements AdminDataService {
                 id
         ));
         row.put("healthData", jdbcTemplate.queryForList(
-                "select min(id) as id, date_format(record_date, '%m-%d') as day, date_format(record_date, '%Y-%m-%d') as recordDate, " +
-                        "max(case when data_type = 'weight' then cast(value as decimal(8,2)) end) as weight, " +
-                        "max(case when data_type = 'heart_rate' then cast(value as unsigned) end) as heartRate " +
-                        "from health_data where user_id = ? group by record_date order by record_date",
+                "select id, data_type as dataType, value, unit, date_format(record_date, '%Y-%m-%d') as recordDate, " +
+                        "date_format(record_time, '%H:%i:%s') as recordTime, source, device_id as deviceId " +
+                        "from health_data where user_id = ? order by record_date, record_time, id",
                 id
         ));
         row.put("devices", jdbcTemplate.queryForList("select id, device_name as deviceName, device_type as deviceType, device_code as deviceCode, if(status = 1, '绑定', '解绑') as status from device where user_id = ? order by id", id));

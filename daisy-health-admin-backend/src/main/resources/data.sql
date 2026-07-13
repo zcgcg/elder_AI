@@ -651,11 +651,18 @@ on duplicate key update
   emergency_phone = values(emergency_phone),
   last_buy_time = values(last_buy_time);
 
+update service_personnel
+set phone = '13900020001',
+    status = 1,
+    audit_status = '已通过'
+where id = 1;
+
 insert into account(id, phone, password_hash, role_type, nickname, avatar_url, status, created_at, updated_at)
 select 200000 + id, phone, '753951', 'service', name, avatar_url, status, created_at, created_at from service_personnel
 on duplicate key update
   phone = values(phone),
   password_hash = values(password_hash),
+  role_type = values(role_type),
   nickname = values(nickname),
   avatar_url = values(avatar_url),
   status = values(status),
