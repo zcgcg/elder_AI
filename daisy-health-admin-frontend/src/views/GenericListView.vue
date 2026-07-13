@@ -112,6 +112,14 @@
           <el-select v-else-if="field.type === 'select'" v-model="form[field.prop]" placeholder="请选择" :disabled="readonly">
             <el-option v-for="option in field.options" :key="option" :label="option" :value="option" :disabled="isSelectOptionDisabled(field, option)" />
           </el-select>
+          <el-date-picker
+            v-else-if="field.type === 'datetime'"
+            v-model="form[field.prop]"
+            type="datetime"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            :placeholder="field.placeholder || '请选择时间'"
+            :disabled="readonly"
+          />
           <div v-else-if="field.type === 'upload'" class="upload-field">
             <img v-if="field.preview === 'image' && form[field.prop]" class="upload-preview" :src="assetUrl(form[field.prop])" :alt="field.label" />
             <div v-else-if="form[field.prop]" class="upload-file-row">
@@ -257,6 +265,7 @@ Object.assign(columnMap, {
   productCategories: [{ prop: 'name', label: '分类名称' }, { prop: 'code', label: '编码' }, { prop: 'description', label: '描述' }, { prop: 'sortOrder', label: '排序' }, { prop: 'status', label: '状态' }],
   serviceItems: [{ prop: 'productName', label: '商品' }, { prop: 'name', label: '项目名称' }, { prop: 'duration', label: '时长' }, { prop: 'price', label: '价格' }, { prop: 'status', label: '状态' }],
   banners: [{ prop: 'title', label: '标题' }, { prop: 'imageUrl', label: '图片', type: 'image', width: 150 }, { prop: 'location', label: '位置' }, { prop: 'sortOrder', label: '排序' }, { prop: 'status', label: '状态' }],
+  activities: [{ prop: 'coverUrl', label: '封面', type: 'image', width: 130 }, { prop: 'title', label: '活动名称', width: 180 }, { prop: 'location', label: '地点' }, { prop: 'startTime', label: '开始时间', width: 170 }, { prop: 'quota', label: '名额' }, { prop: 'enrolled', label: '已报名' }, { prop: 'status', label: '状态' }],
   topics: [{ prop: 'name', label: '话题名称' }, { prop: 'description', label: '描述' }, { prop: 'postCount', label: '动态数' }, { prop: 'status', label: '状态' }],
   activityEnrolls: [{ prop: 'activityTitle', label: '活动' }, { prop: 'userName', label: '用户' }, { prop: 'status', label: '状态' }, { prop: 'remark', label: '备注' }],
   recipes: [{ prop: 'title', label: '菜谱名称' }, { prop: 'category', label: '分类' }, { prop: 'calories', label: '热量' }, { prop: 'suitableFor', label: '适宜人群' }, { prop: 'status', label: '状态' }],
@@ -336,8 +345,13 @@ const createFieldMap = {
   ],
   activities: [
     { prop: 'title', label: '活动名称', required: true, placeholder: '活动名称' },
+    { prop: 'coverUrl', label: '活动封面', type: 'upload', category: 'banner', accept: '.jpg,.jpeg,.png,.webp', preview: 'image' },
     { prop: 'location', label: '地点', placeholder: '活动地点' },
-    { prop: 'quota', label: '名额', type: 'number' }
+    { prop: 'startTime', label: '开始时间', type: 'datetime', required: true },
+    { prop: 'endTime', label: '结束时间', type: 'datetime' },
+    { prop: 'quota', label: '名额', type: 'number' },
+    { prop: 'status', label: '状态', type: 'select', options: ['草稿', '已发布', '已结束'] },
+    { prop: 'content', label: '活动介绍', type: 'textarea', placeholder: '活动具体内容、流程和注意事项' }
   ],
   articles: [
     { prop: 'title', label: '资讯标题', required: true, placeholder: '资讯标题' },

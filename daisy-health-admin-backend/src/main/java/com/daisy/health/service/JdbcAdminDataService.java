@@ -835,7 +835,7 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("productCategories".equals(name)) return jdbcTemplate.queryForList("select id, name, code, description, sort_order as sortOrder, if(status = 1, '启用', '禁用') as status from product_category order by sort_order, id");
         if ("serviceItems".equals(name)) return jdbcTemplate.queryForList("select s.id, s.product_id as productId, p.name as productName, s.name, s.description, s.duration, s.price, if(s.status = 1, '启用', '禁用') as status from service_item s left join product p on s.product_id = p.id order by s.id");
         if ("banners".equals(name)) return jdbcTemplate.queryForList("select id, title, image_url as imageUrl, location, sort_order as sortOrder, if(status = 1, '启用', '禁用') as status from banner order by sort_order, id");
-        if ("activities".equals(name)) return jdbcTemplate.queryForList("select id, title, location, quota, enrolled, case status when 'published' then '已发布' when 'draft' then '草稿' when 'ended' then '已结束' else status end as status from activity order by id");
+        if ("activities".equals(name)) return jdbcTemplate.queryForList("select id, title, cover_url as coverUrl, location, date_format(start_time, '%Y-%m-%d %H:%i:%s') as startTime, date_format(end_time, '%Y-%m-%d %H:%i:%s') as endTime, quota, enrolled, content, case status when 'published' then '已发布' when 'draft' then '草稿' when 'ended' then '已结束' else status end as status from activity order by id");
         if ("activityEnrolls".equals(name)) return jdbcTemplate.queryForList("select e.id, e.activity_id as activityId, a.title as activityTitle, u.real_name as userName, case e.status when 'enrolled' then '已报名' when 'cancelled' then '已取消' when 'attended' then '已到场' else e.status end as status, e.remark from activity_enroll e left join activity a on e.activity_id = a.id left join `user` u on e.user_id = u.id order by e.id");
         if ("topics".equals(name)) return jdbcTemplate.queryForList("select id, name, description, post_count as postCount, if(status = 1, '启用', '禁用') as status from topic order by id");
         if ("recipes".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, ingredients, steps, calories, suitable_for as suitableFor, if(status = 1, '启用', '禁用') as status from recipe order by id");
@@ -863,7 +863,7 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("productCategories".equals(name)) return record("name", text(payload, "name", "新分类"), "code", text(payload, "code", "CAT" + uniqueDigits(4)), "description", text(payload, "description", ""), "sort_order", longValue(payload, "sortOrder", 0), "status", statusCode(text(payload, "status", "启用")));
         if ("serviceItems".equals(name)) return record("product_id", longValue(payload, "productId", firstId("product")), "name", text(payload, "name", "服务项目"), "description", text(payload, "description", ""), "duration", longValue(payload, "duration", 60), "price", decimal(payload, "price", BigDecimal.valueOf(99)), "status", statusCode(text(payload, "status", "启用")));
         if ("banners".equals(name)) return record("title", text(payload, "title", "轮播图"), "image_url", text(payload, "imageUrl", "https://example.com/banner.png"), "link_url", text(payload, "linkUrl", ""), "sort_order", longValue(payload, "sortOrder", 0), "location", text(payload, "location", "home"), "status", statusCode(text(payload, "status", "启用")));
-        if ("activities".equals(name)) return record("title", text(payload, "title", "活动"), "cover_url", text(payload, "coverUrl", ""), "location", text(payload, "location", ""), "start_time", text(payload, "startTime", LocalDate.now().toString() + " 09:00:00"), "end_time", nullIfBlank(text(payload, "endTime", "")), "quota", longValue(payload, "quota", 50), "enrolled", longValue(payload, "enrolled", 0), "status", text(payload, "status", "published"), "content", text(payload, "content", ""));
+        if ("activities".equals(name)) return record("title", text(payload, "title", "活动"), "cover_url", text(payload, "coverUrl", ""), "location", text(payload, "location", ""), "start_time", text(payload, "startTime", LocalDate.now().toString() + " 09:00:00"), "end_time", nullIfBlank(text(payload, "endTime", "")), "quota", longValue(payload, "quota", 50), "enrolled", longValue(payload, "enrolled", 0), "status", activityStatus(text(payload, "status", "已发布")), "content", text(payload, "content", ""));
         if ("activityEnrolls".equals(name)) return record("activity_id", longValue(payload, "activityId", firstId("activity")), "user_id", userId(payload, "userId", firstId("user")), "status", activityEnrollStatus(text(payload, "status", "已报名")), "remark", text(payload, "remark", ""));
         if ("topics".equals(name)) return record("name", text(payload, "name", "新话题"), "description", text(payload, "description", ""), "icon", text(payload, "icon", ""), "post_count", longValue(payload, "postCount", 0), "status", statusCode(text(payload, "status", "启用")));
         if ("recipes".equals(name)) return record("name", text(payload, "title", text(payload, "name", "新菜谱")), "category", text(payload, "category", "午餐"), "ingredients", text(payload, "ingredients", "食材"), "steps", text(payload, "steps", "步骤"), "calories", longValue(payload, "calories", 300), "suitable_for", text(payload, "suitableFor", ""), "cover_url", text(payload, "coverUrl", ""), "status", statusCode(text(payload, "status", "启用")));
@@ -935,6 +935,15 @@ public class JdbcAdminDataService implements AdminDataService {
             if (payload.containsKey("duration")) values.put("duration", longValue(payload, "duration", 60));
             if (payload.containsKey("price")) values.put("price", decimal(payload, "price", BigDecimal.ZERO));
             if (payload.containsKey("status")) values.put("status", statusCode(text(payload, "status", "启用")));
+        } else if ("activities".equals(name)) {
+            putIfPresent(values, "title", payload, "title");
+            putIfPresent(values, "cover_url", payload, "coverUrl");
+            putIfPresent(values, "location", payload, "location");
+            putIfPresent(values, "start_time", payload, "startTime");
+            putIfPresent(values, "end_time", payload, "endTime");
+            if (payload.containsKey("quota")) values.put("quota", longValue(payload, "quota", 50));
+            if (payload.containsKey("status")) values.put("status", activityStatus(text(payload, "status", "已发布")));
+            putIfPresent(values, "content", payload, "content");
         } else if ("activityEnrolls".equals(name)) {
             if (payload.containsKey("activityId")) values.put("activity_id", longValue(payload, "activityId", firstId("activity")));
             if (hasUserRef(payload, "userId")) values.put("user_id", userId(payload, "userId", firstId("user")));
@@ -1390,6 +1399,13 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("已报名".equals(value)) return "enrolled";
         if ("已取消".equals(value)) return "cancelled";
         if ("已到场".equals(value)) return "attended";
+        return value;
+    }
+
+    private String activityStatus(String value) {
+        if ("已发布".equals(value)) return "published";
+        if ("草稿".equals(value)) return "draft";
+        if ("已结束".equals(value)) return "ended";
         return value;
     }
 

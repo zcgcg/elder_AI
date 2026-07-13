@@ -299,10 +299,13 @@ public class JdbcPortalDataService implements PortalDataService {
         return jdbcTemplate.queryForList(
                 "select a.id, a.title, a.cover_url as coverUrl, a.location, " +
                         "date_format(a.start_time, '%Y-%m-%d %H:%i') as startTime, date_format(a.end_time, '%Y-%m-%d %H:%i') as endTime, " +
-                        "a.quota, a.enrolled, a.content, case a.status when 'published' then '已发布' when 'ended' then '已结束' else a.status end as status, " +
-                        "exists(select 1 from activity_enroll e where e.activity_id = a.id and e.user_id = ? and e.status in ('enrolled', 'attended')) as joined, " +
+                        "a.quota, a.enrolled, a.content, case a.status when 'published' then '已发布' when 'ended' then '已结束' when 'draft' then '已下架' else a.status end as status, " +
+                        "coalesce(ae.status in ('enrolled', 'attended'), 0) as joined, " +
+                        "case ae.status when 'enrolled' then '已报名' when 'attended' then '已参加' when 'cancelled' then '已取消' else ae.status end as enrollmentStatus, " +
+                        "date_format(ae.enroll_time, '%Y-%m-%d %H:%i') as enrollTime, " +
                         "(a.status = 'published' and a.enrolled < a.quota and (a.end_time is null or a.end_time >= now())) as canJoin " +
-                        "from activity a where a.status in ('published', 'ended') order by a.start_time desc, a.id desc",
+                        "from activity a left join activity_enroll ae on ae.id = (select max(latest.id) from activity_enroll latest where latest.activity_id = a.id and latest.user_id = ?) " +
+                        "where a.status in ('published', 'ended') or ae.status in ('enrolled', 'attended') order by a.start_time desc, a.id desc",
                 userId
         );
     }

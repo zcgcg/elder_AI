@@ -4,13 +4,17 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @Profile("mock")
 public class MockPortalDataService implements PortalDataService {
+    private final Set<Long> joinedActivityIds = new HashSet<Long>();
+
     @Override
     public Map<String, Object> elderlyProfile() {
         return record("realName", "演示用户", "phone", "13800010001", "userId", 10001);
@@ -93,11 +97,29 @@ public class MockPortalDataService implements PortalDataService {
 
     @Override
     public List<Map<String, Object>> elderlyActivities() {
-        return list(record("id", 1L, "title", "社区健康义诊", "location", "社区活动中心", "joined", false, "canJoin", true));
+        boolean joined = joinedActivityIds.contains(1L);
+        return list(record(
+                "id", 1L,
+                "title", "社区健康义诊",
+                "coverUrl", "",
+                "location", "社区活动中心",
+                "startTime", "2026-07-20 09:00",
+                "endTime", "2026-07-20 11:30",
+                "quota", 50,
+                "enrolled", joined ? 19 : 18,
+                "status", "已发布",
+                "content", "提供血压、血糖检测及健康咨询服务。",
+                "joined", joined,
+                "canJoin", !joined,
+                "enrollmentStatus", joined ? "已报名" : null,
+                "enrollTime", joined ? "2026-07-13 10:00" : null
+        ));
     }
 
     @Override
     public Map<String, Object> enrollElderlyActivity(Long activityId) {
+        if (!Long.valueOf(1L).equals(activityId)) throw new IllegalArgumentException("活动不存在或已结束");
+        joinedActivityIds.add(activityId);
         return record("activityId", activityId, "joined", true, "status", "已报名");
     }
 

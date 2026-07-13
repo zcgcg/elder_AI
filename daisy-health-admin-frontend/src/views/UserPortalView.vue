@@ -76,24 +76,74 @@
         </section>
       </el-tab-pane>
       <el-tab-pane label="社区活动" name="activities">
+        <div class="activity-section-heading">
+          <div><h2>我的活动</h2><p>查看已经报名或参加过的活动</p></div>
+          <div class="activity-heading-actions">
+            <el-tag type="success" size="large">{{ myActivities.length }} 个活动</el-tag>
+            <el-button :loading="activityRefreshing" @click="refreshActivities">刷新活动</el-button>
+          </div>
+        </div>
         <section class="content-grid">
-          <article v-for="item in activities" :key="item.id" class="portal-content-card">
+          <article v-for="item in myActivities" :key="`mine-${item.id}`" class="portal-content-card activity-card-mine">
+            <img v-if="item.coverUrl" :src="assetUrl(item.coverUrl)" :alt="item.title" />
+            <div class="content-card-body">
+              <div class="content-meta"><el-tag type="success">{{ item.enrollmentStatus || '已报名' }}</el-tag><span>{{ item.startTime }}</span></div>
+              <h2>{{ item.title }}</h2>
+              <p class="activity-summary">{{ item.content || '欢迎参加社区活动' }}</p>
+              <p><strong>地点：</strong>{{ item.location || '待通知' }}</p>
+              <footer>
+                <span>{{ item.enrollTime ? `报名于 ${item.enrollTime}` : `已报名 ${item.enrolled} / ${item.quota} 人` }}</span>
+                <el-button type="primary" plain size="large" @click="openActivity(item)">查看详情</el-button>
+              </footer>
+            </div>
+          </article>
+          <el-empty v-if="!myActivities.length" description="您还没有参加活动，可在下方选择报名" />
+        </section>
+
+        <el-divider />
+        <div class="activity-section-heading">
+          <div><h2>可选择的活动</h2><p>活动内容由管理端统一发布并实时同步</p></div>
+        </div>
+        <section class="content-grid">
+          <article v-for="item in availableActivities" :key="`available-${item.id}`" class="portal-content-card">
             <img v-if="item.coverUrl" :src="assetUrl(item.coverUrl)" :alt="item.title" />
             <div class="content-card-body">
               <div class="content-meta"><el-tag>{{ item.status }}</el-tag><span>{{ item.startTime }}</span></div>
               <h2>{{ item.title }}</h2>
-              <p>{{ item.content || '欢迎参加社区活动' }}</p>
+              <p class="activity-summary">{{ item.content || '欢迎参加社区活动' }}</p>
               <p><strong>地点：</strong>{{ item.location || '待通知' }}</p>
               <footer>
                 <span>已报名 {{ item.enrolled }} / {{ item.quota }} 人</span>
-                <el-button type="primary" size="large" :loading="enrollingActivityId === item.id" :disabled="item.joined || !item.canJoin" @click="joinActivity(item)">
-                  {{ item.joined ? '已报名' : (item.canJoin ? '加入活动' : '不可报名') }}
-                </el-button>
+                <div class="activity-card-actions">
+                  <el-button plain size="large" @click="openActivity(item)">活动详情</el-button>
+                  <el-button type="primary" size="large" :loading="enrollingActivityId === item.id" :disabled="!item.canJoin" @click="joinActivity(item)">
+                    {{ item.canJoin ? '加入活动' : '不可报名' }}
+                  </el-button>
+                </div>
               </footer>
             </div>
           </article>
-          <el-empty v-if="!activities.length" description="暂无已发布活动" />
+          <el-empty v-if="!availableActivities.length" description="暂无可报名活动" />
         </section>
+
+        <template v-if="unavailableActivities.length">
+          <el-divider />
+          <div class="activity-section-heading">
+            <div><h2>往期或暂不可报名</h2><p>仍可查看活动详情，已结束或名额已满的活动不能报名</p></div>
+          </div>
+          <section class="content-grid">
+            <article v-for="item in unavailableActivities" :key="`unavailable-${item.id}`" class="portal-content-card activity-card-muted">
+              <img v-if="item.coverUrl" :src="assetUrl(item.coverUrl)" :alt="item.title" />
+              <div class="content-card-body">
+                <div class="content-meta"><el-tag type="info">{{ item.enrollmentStatus || item.status }}</el-tag><span>{{ item.startTime }}</span></div>
+                <h2>{{ item.title }}</h2>
+                <p class="activity-summary">{{ item.content || '欢迎参加社区活动' }}</p>
+                <p><strong>地点：</strong>{{ item.location || '待通知' }}</p>
+                <footer><span>已报名 {{ item.enrolled }} / {{ item.quota }} 人</span><el-button plain size="large" @click="openActivity(item)">查看详情</el-button></footer>
+              </div>
+            </article>
+          </section>
+        </template>
       </el-tab-pane>
       <el-tab-pane label="健康资讯" name="articles">
         <section class="content-grid">
@@ -242,6 +292,34 @@
       <template #footer><el-button type="primary" size="large" @click="articleDialogVisible = false">我知道了</el-button></template>
     </el-dialog>
 
+    <el-dialog v-model="activityDialogVisible" :title="selectedActivity.title || '活动详情'" width="760px">
+      <img v-if="selectedActivity.coverUrl" class="activity-detail-cover" :src="assetUrl(selectedActivity.coverUrl)" :alt="selectedActivity.title" />
+      <el-descriptions :column="2" border class="activity-detail-info">
+        <el-descriptions-item label="活动状态">{{ selectedActivity.status || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="参加状态">{{ selectedActivity.enrollmentStatus || (selectedActivity.joined ? '已报名' : '未报名') }}</el-descriptions-item>
+        <el-descriptions-item label="开始时间">{{ selectedActivity.startTime || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="结束时间">{{ selectedActivity.endTime || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="活动地点" :span="2">{{ selectedActivity.location || '待通知' }}</el-descriptions-item>
+        <el-descriptions-item label="报名人数">{{ selectedActivity.enrolled || 0 }} / {{ selectedActivity.quota || 0 }}</el-descriptions-item>
+        <el-descriptions-item label="我的报名时间">{{ selectedActivity.enrollTime || '-' }}</el-descriptions-item>
+      </el-descriptions>
+      <div class="activity-detail-content">
+        <h3>活动介绍</h3>
+        <p>{{ selectedActivity.content || '暂无活动介绍' }}</p>
+      </div>
+      <template #footer>
+        <el-button size="large" @click="activityDialogVisible = false">关闭</el-button>
+        <el-button
+          v-if="!selectedActivity.joined"
+          type="primary"
+          size="large"
+          :loading="enrollingActivityId === selectedActivity.id"
+          :disabled="!selectedActivity.canJoin"
+          @click="joinActivity(selectedActivity)"
+        >{{ selectedActivity.canJoin ? '加入活动' : '不可报名' }}</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="workOrderVisible" title="创建工单" width="560px">
       <el-form :model="workOrderForm" label-width="96px">
         <el-form-item label="商品服务" required>
@@ -267,12 +345,13 @@
 </template>
 
 <script setup>
-import { nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { createHealthChartOption } from '../utils/healthChart'
+import { splitUserActivities } from '../utils/activity'
 import { useAuthStore } from '../stores/auth'
 import {
   assetUrl,
@@ -326,11 +405,18 @@ const catalogItems = ref([])
 const personnelOptions = ref([])
 const workOrders = ref([])
 const activities = ref([])
+const activityGroups = computed(() => splitUserActivities(activities.value))
+const myActivities = computed(() => activityGroups.value.mine)
+const availableActivities = computed(() => activityGroups.value.available)
+const unavailableActivities = computed(() => activityGroups.value.unavailable)
 const healthArticles = ref([])
 const healthVideos = ref([])
 const enrollingActivityId = ref(null)
+const activityRefreshing = ref(false)
 const articleDialogVisible = ref(false)
 const selectedArticle = ref({})
+const activityDialogVisible = ref(false)
+const selectedActivity = ref({})
 const workOrderVisible = ref(false)
 const workOrderSaving = ref(false)
 const avatarDialogVisible = ref(false)
@@ -565,12 +651,53 @@ async function joinActivity(item) {
   enrollingActivityId.value = item.id
   try {
     await enrollElderlyActivity(item.id)
-    activities.value = await getElderlyActivities()
-    ElMessage.success(`已报名“${item.title}”`)
   } catch (err) {
     ElMessage.error(err.message || '活动报名失败')
+    enrollingActivityId.value = null
+    return
+  }
+
+  const optimisticActivity = {
+    ...item,
+    joined: true,
+    canJoin: false,
+    enrollmentStatus: '已报名',
+    enrollTime: new Date().toLocaleString('zh-CN', { hour12: false }).replaceAll('/', '-'),
+    enrolled: Number(item.enrolled || 0) + 1
+  }
+  activities.value = activities.value.map((activity) => String(activity.id) === String(item.id) ? optimisticActivity : activity)
+  if (activityDialogVisible.value) selectedActivity.value = optimisticActivity
+
+  try {
+    activities.value = await getElderlyActivities()
+    if (activityDialogVisible.value) {
+      selectedActivity.value = activities.value.find((activity) => String(activity.id) === String(item.id)) || optimisticActivity
+    }
+    ElMessage.success(`已报名“${item.title}”`)
+  } catch (err) {
+    ElMessage.warning('报名已成功，活动列表暂未同步，请稍后刷新')
   } finally {
     enrollingActivityId.value = null
+  }
+}
+
+function openActivity(item) {
+  selectedActivity.value = item
+  activityDialogVisible.value = true
+}
+
+async function refreshActivities() {
+  activityRefreshing.value = true
+  try {
+    activities.value = await getElderlyActivities()
+    if (activityDialogVisible.value) {
+      selectedActivity.value = activities.value.find((activity) => String(activity.id) === String(selectedActivity.value.id)) || selectedActivity.value
+    }
+    ElMessage.success('活动信息已同步')
+  } catch (err) {
+    ElMessage.error(err.message || '活动信息刷新失败')
+  } finally {
+    activityRefreshing.value = false
   }
 }
 
@@ -717,6 +844,51 @@ onMounted(loadData)
   gap: 18px;
 }
 
+.activity-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 8px 0 18px;
+}
+
+.activity-section-heading h2,
+.activity-section-heading p {
+  margin: 0;
+}
+
+.activity-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.activity-section-heading p {
+  margin-top: 6px;
+  color: #6f7e87;
+}
+
+.activity-card-mine {
+  border-color: #9bd5c9;
+  box-shadow: 0 6px 18px rgb(21 154 132 / 10%);
+}
+
+.activity-card-muted {
+  background: #f8faf9;
+  opacity: .88;
+}
+
+.activity-card-actions {
+  display: flex;
+  align-items: center;
+}
+
+.activity-summary {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
 .portal-content-card {
   overflow: hidden;
   border: 1px solid #dce8e5;
@@ -774,6 +946,29 @@ onMounted(loadData)
 .article-content {
   white-space: pre-wrap;
   color: #354850;
+  font-size: 17px;
+  line-height: 1.9;
+}
+
+.activity-detail-cover {
+  width: 100%;
+  max-height: 300px;
+  margin-bottom: 18px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.activity-detail-info {
+  margin-bottom: 18px;
+}
+
+.activity-detail-content h3 {
+  margin-bottom: 8px;
+}
+
+.activity-detail-content p {
+  white-space: pre-wrap;
+  color: #425861;
   font-size: 17px;
   line-height: 1.9;
 }

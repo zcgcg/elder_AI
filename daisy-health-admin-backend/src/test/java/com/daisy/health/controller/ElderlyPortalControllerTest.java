@@ -148,7 +148,10 @@ class ElderlyPortalControllerTest {
     @Test
     void userCanBrowseActivitiesAndEnrollAnExistingActivity() throws Exception {
         when(portalDataService.elderlyActivities()).thenReturn(Collections.singletonList(
-                record("id", 21L, "title", "社区健康义诊", "joined", false, "canJoin", true)
+                record("id", 21L, "title", "社区健康义诊", "location", "社区活动中心",
+                        "startTime", "2026-07-20 09:00", "endTime", "2026-07-20 11:30",
+                        "content", "提供健康检查", "joined", true, "enrollmentStatus", "已报名",
+                        "enrollTime", "2026-07-13 10:00", "canJoin", false)
         ));
         when(portalDataService.enrollElderlyActivity(21L)).thenReturn(
                 record("activityId", 21L, "joined", true, "status", "已报名")
@@ -156,7 +159,10 @@ class ElderlyPortalControllerTest {
 
         mockMvc.perform(get("/api/v1/elderly/activities"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0].title").value("社区健康义诊"));
+                .andExpect(jsonPath("$.data[0].title").value("社区健康义诊"))
+                .andExpect(jsonPath("$.data[0].joined").value(true))
+                .andExpect(jsonPath("$.data[0].enrollmentStatus").value("已报名"))
+                .andExpect(jsonPath("$.data[0].content").value("提供健康检查"));
         mockMvc.perform(post("/api/v1/elderly/activities/21/enroll"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.joined").value(true));

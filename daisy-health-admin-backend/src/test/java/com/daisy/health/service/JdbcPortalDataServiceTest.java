@@ -74,6 +74,17 @@ class JdbcPortalDataServiceTest {
     }
 
     @Test
+    void activityListUsesLatestEnrollmentAndKeepsJoinedHistoryVisible() {
+        service.elderlyActivities();
+
+        assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
+                .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
+                .anyMatch(sql -> sql.contains("left join activity_enroll ae")
+                        && sql.contains("max(latest.id)")
+                        && sql.contains("or ae.status in ('enrolled', 'attended')")));
+    }
+
+    @Test
     void creatingWorkOrderWithoutPersonnelFailsBeforeWritingOrderRows() {
         when(jdbcTemplate.queryForList(startsWith("select id, name, category, price"), eq(7L)))
                 .thenReturn(Collections.singletonList(record("id", 7L, "name", "助浴护理", "category", "家政护理", "price", 199)));

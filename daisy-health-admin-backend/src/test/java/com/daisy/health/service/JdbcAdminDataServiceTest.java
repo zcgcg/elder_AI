@@ -62,6 +62,45 @@ class JdbcAdminDataServiceTest {
                         && sql.contains("left join service_personnel p")));
     }
 
+    @Test
+    void adminActivityListIncludesEveryFieldShownInUserActivityDetails() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        JdbcAdminDataService service = new JdbcAdminDataService(
+                jdbcTemplate,
+                mock(PasswordEncoder.class),
+                mock(JwtService.class),
+                mock(PermissionService.class),
+                new ObjectMapper()
+        );
+
+        service.resource("activities");
+
+        assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
+                .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
+                .anyMatch(sql -> sql.contains("cover_url as coverUrl")
+                        && sql.contains("startTime")
+                        && sql.contains("endTime")
+                        && sql.contains("content")));
+    }
+
+    @Test
+    void editingActivityDetailsDoesNotResetEnrollmentCount() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        JdbcAdminDataService service = new JdbcAdminDataService(
+                jdbcTemplate,
+                mock(PasswordEncoder.class),
+                mock(JwtService.class),
+                mock(PermissionService.class),
+                new ObjectMapper()
+        );
+
+        service.updateResource("activities", 21L, record("title", "更新后的活动"));
+
+        assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
+                .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
+                .anyMatch(sql -> sql.startsWith("update `activity` set") && !sql.contains("enrolled")));
+    }
+
     private Map<String, Object> record(Object... values) {
         Map<String, Object> row = new LinkedHashMap<String, Object>();
         for (int i = 0; i < values.length; i += 2) row.put(String.valueOf(values[i]), values[i + 1]);
