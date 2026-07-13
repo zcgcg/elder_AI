@@ -61,8 +61,7 @@ export const uploadFile = (file, category) => {
 }
 export const assetUrl = (url) => {
   if (!url || !String(url).startsWith('/uploads/')) return url
-  if (typeof window === 'undefined' || window.location.port === '8080') return url
-  return `${window.location.protocol}//${window.location.hostname}:8080${url}`
+  return url
 }
 const resourcePaths = {
   workOrders: 'work-orders',
