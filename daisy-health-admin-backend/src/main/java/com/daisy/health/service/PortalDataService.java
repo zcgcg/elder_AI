@@ -34,9 +34,19 @@ public interface PortalDataService {
 
     Map<String, Object> createElderlyWorkOrder(Map<String, Object> payload);
 
+    Map<String, Object> cancelElderlyWorkOrder(Long workOrderId, Map<String, Object> payload);
+
+    Map<String, Object> rescheduleElderlyWorkOrder(Long workOrderId, Map<String, Object> payload);
+
     List<Map<String, Object>> elderlyActivities();
 
     Map<String, Object> enrollElderlyActivity(Long activityId);
+
+    Map<String, Object> cancelElderlyActivity(Long activityId);
+
+    List<Map<String, Object>> elderlyMessages();
+
+    Map<String, Object> createElderlyMessage(Map<String, Object> payload);
 
     List<Map<String, Object>> elderlyHealthArticles();
 

@@ -36,6 +36,10 @@ public interface AdminDataService {
 
     Map<String, Object> updateUserTags(Long userId, Map<String, Object> payload);
 
+    PageResult<Map<String, Object>> messages();
+
+    Map<String, Object> updateMessageStatus(Long id, Map<String, Object> payload);
+
     PageResult<Map<String, Object>> resource(String name, ResourceQuery query);
 
     PageResult<Map<String, Object>> workOrders(Long personnelId, Long customerId, ResourceQuery query);

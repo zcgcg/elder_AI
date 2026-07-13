@@ -2,7 +2,6 @@
   <section>
     <div class="page-heading">
       <div><h1>数据分析</h1><p>用户、交易、商品、工单、业绩与评价数据概览</p></div>
-      <el-date-picker v-model="range" type="daterange" value-format="YYYY-MM-DD" start-placeholder="开始日期" end-placeholder="结束日期" @change="load" />
     </div>
     <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" />
     <div class="metric-grid">
@@ -20,12 +19,6 @@
 import { nextTick, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import { getAnalytics } from '../api/http'
-import { formatDate, toQueryParams } from '../utils/query'
-
-const end = new Date()
-const start = new Date(end)
-start.setDate(start.getDate() - 29)
-const range = ref([formatDate(start), formatDate(end)])
 const error = ref('')
 const ageChart = ref()
 const tradeChart = ref()
@@ -65,7 +58,7 @@ function draw() {
 async function load() {
   error.value = ''
   try {
-    const data = await getAnalytics(toQueryParams({ dateRange: range.value }))
+    const data = await getAnalytics()
     if (data.metrics) metrics.value = data.metrics
     ageDistribution.value = data.ageDistribution || []
     tradeDistribution.value = data.tradeDistribution || []

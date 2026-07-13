@@ -4,9 +4,6 @@
       <div><h1>预约看板</h1><p>{{ filters.date }} · 9:00-18:00 服务安排（保留 {{ dateWindowLabel }}）</p></div>
       <div class="filters compact">
         <el-date-picker v-model="filters.date" type="date" value-format="YYYY-MM-DD" :clearable="false" :disabled-date="disabledDate" placeholder="选择日期" />
-        <el-select v-model="filters.productId" placeholder="商品服务" clearable filterable>
-          <el-option v-for="item in catalogOptions" :key="item.id" :label="item.name" :value="String(item.id)" />
-        </el-select>
         <el-button type="primary" :icon="Plus" @click="openCreate">新建预约</el-button>
       </div>
     </div>
@@ -95,7 +92,7 @@ import { createAppointment, deleteAppointment, getAppointments, getResource, get
 import { isOutsideWindow, sevenDayWindow } from '../utils/query'
 
 const dateWindow = sevenDayWindow()
-const filters = reactive({ date: dateWindow.startDate, productId: '' })
+const filters = reactive({ date: dateWindow.startDate })
 const hours = Array.from({ length: 10 }, (_, index) => index + 9)
 const dialogVisible = ref(false)
 const saving = ref(false)
@@ -105,10 +102,7 @@ const catalogOptions = ref([])
 const appointments = ref([])
 const error = ref('')
 const dateWindowLabel = `${dateWindow.startDate} 至 ${dateWindow.endDate}`
-const filtered = computed(() => appointments.value.filter((item) => {
-  if (item.serviceDate !== filters.date) return false
-  return !filters.productId || String(item.productId) === filters.productId
-}))
+const filtered = computed(() => appointments.value.filter((item) => item.serviceDate === filters.date))
 
 const ROW_HEIGHT = 84
 const START_HOUR = 9

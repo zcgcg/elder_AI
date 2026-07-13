@@ -517,6 +517,11 @@ insert ignore into activity_enroll(id, activity_id, user_id, status, remark) val
 (107, 107, 10008, 'attended', '已签到'),
 (108, 108, 10009, 'enrolled', '睡眠较差');
 
+insert ignore into elderly_message(id, user_id, content, status, created_at, updated_at) values
+(201, 10001, '请帮忙确认本周助浴服务的上门时间。', 'pending', date_sub(now(), interval 2 hour), date_sub(now(), interval 2 hour)),
+(202, 10001, '上次服务体验很好，谢谢工作人员。', 'resolved', date_sub(now(), interval 2 day), date_sub(now(), interval 1 day)),
+(203, 10002, '康复训练工单想调整到下午。', 'processing', date_sub(now(), interval 1 hour), date_sub(now(), interval 30 minute));
+
 insert ignore into topic(id, name, description, icon, post_count, status) values
 (101, '低盐饮食', '低盐饮食经验交流', '', 18, 1),
 (102, '控糖生活', '控糖饮食和运动', '', 21, 1),

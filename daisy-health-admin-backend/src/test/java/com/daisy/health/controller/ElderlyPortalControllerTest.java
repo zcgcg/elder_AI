@@ -171,6 +171,60 @@ class ElderlyPortalControllerTest {
     }
 
     @Test
+    void userCanCancelActivityEnrollment() throws Exception {
+        when(portalDataService.cancelElderlyActivity(21L)).thenReturn(
+                record("activityId", 21L, "joined", false, "status", "已取消")
+        );
+
+        mockMvc.perform(put("/api/v1/elderly/activities/21/cancel-enrollment"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.joined").value(false))
+                .andExpect(jsonPath("$.data.status").value("已取消"));
+
+        verify(portalDataService).cancelElderlyActivity(21L);
+    }
+
+    @Test
+    void userCanCancelAndReschedulePendingWorkOrder() throws Exception {
+        when(portalDataService.cancelElderlyWorkOrder(org.mockito.ArgumentMatchers.eq(12L), any())).thenReturn(
+                record("id", 12L, "status", "已取消")
+        );
+        when(portalDataService.rescheduleElderlyWorkOrder(org.mockito.ArgumentMatchers.eq(13L), any())).thenReturn(
+                record("id", 13L, "status", "待服务", "serviceTime", "2026-08-01 14:00")
+        );
+
+        mockMvc.perform(put("/api/v1/elderly/work-orders/12/cancel")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"时间冲突\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("已取消"));
+        mockMvc.perform(put("/api/v1/elderly/work-orders/13/reschedule")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"serviceTime\":\"2026-08-01 14:00:00\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.serviceTime").value("2026-08-01 14:00"));
+    }
+
+    @Test
+    void userCanCreateAndReviewOwnMessages() throws Exception {
+        when(portalDataService.elderlyMessages()).thenReturn(Collections.singletonList(
+                record("id", 1L, "content", "请联系我", "status", "待处理", "createdAt", "2026-07-13 10:00")
+        ));
+        when(portalDataService.createElderlyMessage(any())).thenReturn(
+                record("id", 2L, "content", "请调整上门时间", "status", "待处理")
+        );
+
+        mockMvc.perform(get("/api/v1/elderly/messages"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].status").value("待处理"));
+        mockMvc.perform(post("/api/v1/elderly/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"content\":\"请调整上门时间\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").value("请调整上门时间"));
+    }
+
+    @Test
     void userCanBrowsePublishedHealthContent() throws Exception {
         when(portalDataService.elderlyHealthArticles()).thenReturn(Collections.singletonList(
                 record("id", 31L, "title", "夏季健康饮食")

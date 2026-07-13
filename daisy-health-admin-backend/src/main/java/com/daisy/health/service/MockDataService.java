@@ -164,6 +164,25 @@ public class MockDataService implements AdminDataService {
         return record("accepted", true, "id", userId, "resource", "userTags");
     }
 
+    @Override
+    public PageResult<Map<String, Object>> messages() {
+        List<Map<String, Object>> rows = list(record(
+                "userId", 10001L,
+                "userName", "演示用户",
+                "phone", "13800010001",
+                "messageCount", 1,
+                "pendingCount", 1,
+                "lastMessageTime", "2026-07-13 10:00",
+                "messages", list(record("id", 1L, "content", "请协助确认上门服务时间。", "status", "待处理", "createdAt", "2026-07-13 10:00"))
+        ));
+        return new PageResult<Map<String, Object>>(rows.size(), rows);
+    }
+
+    @Override
+    public Map<String, Object> updateMessageStatus(Long id, Map<String, Object> payload) {
+        return record("accepted", true, "id", id, "status", payload == null ? "待处理" : payload.get("status"));
+    }
+
     public PageResult<Map<String, Object>> resource(String name, ResourceQuery query) {
         List<Map<String, Object>> rows = resources().get(name);
         if (rows == null) {

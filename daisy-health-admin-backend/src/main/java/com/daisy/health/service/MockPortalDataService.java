@@ -14,6 +14,7 @@ import java.util.Set;
 @Profile("mock")
 public class MockPortalDataService implements PortalDataService {
     private final Set<Long> joinedActivityIds = new HashSet<Long>();
+    private final List<Map<String, Object>> messages = new ArrayList<Map<String, Object>>();
 
     @Override
     public Map<String, Object> elderlyProfile() {
@@ -96,6 +97,16 @@ public class MockPortalDataService implements PortalDataService {
     }
 
     @Override
+    public Map<String, Object> cancelElderlyWorkOrder(Long workOrderId, Map<String, Object> payload) {
+        return record("id", workOrderId, "status", "已取消", "cancelReason", payload == null ? "用户取消" : payload.get("reason"));
+    }
+
+    @Override
+    public Map<String, Object> rescheduleElderlyWorkOrder(Long workOrderId, Map<String, Object> payload) {
+        return record("id", workOrderId, "status", "待服务", "serviceTime", payload.get("serviceTime"));
+    }
+
+    @Override
     public List<Map<String, Object>> elderlyActivities() {
         boolean joined = joinedActivityIds.contains(1L);
         return list(record(
@@ -121,6 +132,24 @@ public class MockPortalDataService implements PortalDataService {
         if (!Long.valueOf(1L).equals(activityId)) throw new IllegalArgumentException("活动不存在或已结束");
         joinedActivityIds.add(activityId);
         return record("activityId", activityId, "joined", true, "status", "已报名");
+    }
+
+    @Override
+    public Map<String, Object> cancelElderlyActivity(Long activityId) {
+        joinedActivityIds.remove(activityId);
+        return record("activityId", activityId, "joined", false, "status", "已取消");
+    }
+
+    @Override
+    public List<Map<String, Object>> elderlyMessages() {
+        return new ArrayList<Map<String, Object>>(messages);
+    }
+
+    @Override
+    public Map<String, Object> createElderlyMessage(Map<String, Object> payload) {
+        Map<String, Object> message = record("id", messages.size() + 1L, "content", payload.get("content"), "status", "待处理", "createdAt", "2026-07-13 10:00");
+        messages.add(0, message);
+        return message;
     }
 
     @Override

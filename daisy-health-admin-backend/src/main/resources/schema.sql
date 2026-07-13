@@ -516,6 +516,17 @@ create table if not exists activity_enroll (
   remark varchar(200) null
 ) default charset = utf8mb4;
 
+create table if not exists elderly_message (
+  id bigint primary key auto_increment,
+  user_id bigint not null,
+  content varchar(500) not null,
+  status varchar(20) not null default 'pending',
+  created_at datetime not null default current_timestamp,
+  updated_at datetime not null default current_timestamp on update current_timestamp,
+  index idx_elderly_message_user_time(user_id, created_at),
+  index idx_elderly_message_status(status)
+) default charset = utf8mb4;
+
 create table if not exists topic (
   id bigint primary key auto_increment,
   name varchar(50) not null unique,

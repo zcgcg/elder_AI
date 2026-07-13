@@ -90,23 +90,13 @@ public class UserController {
     }
 
     @GetMapping("/messages")
-    public ApiResponse<PageResult<Map<String, Object>>> userResources() {
-        return ApiResponse.success(dataService.resource("posts", new ResourceQuery()));
-    }
-
-    @PostMapping("/messages")
-    public ApiResponse<Map<String, Object>> createUserResource(@RequestBody Map<String, Object> payload) {
-        return ApiResponse.success(dataService.createResource("posts", payload));
+    public ApiResponse<PageResult<Map<String, Object>>> messages() {
+        return ApiResponse.success(dataService.messages());
     }
 
     @PutMapping("/messages/{id}")
-    public ApiResponse<Map<String, Object>> updateUserResource(@PathVariable Long id) {
-        return ApiResponse.success(dataService.updateResource("posts", id, new java.util.LinkedHashMap<String, Object>()));
-    }
-
-    @DeleteMapping("/messages/{id}")
-    public ApiResponse<Map<String, Object>> deleteUserResource(@PathVariable Long id) {
-        return ApiResponse.success(dataService.accepted("deleteUserResource:" + id));
+    public ApiResponse<Map<String, Object>> updateMessage(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        return ApiResponse.success(dataService.updateMessageStatus(id, payload));
     }
 }
 

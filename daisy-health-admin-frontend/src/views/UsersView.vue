@@ -5,15 +5,6 @@
       <el-segmented v-model="viewMode" :options="['卡片', '列表']" />
     </div>
     <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" />
-    <div class="filters">
-      <el-select v-model="filters.tag" placeholder="用户标签" clearable>
-        <el-option v-for="tag in tags" :key="tag.id" :label="tag.name" :value="tag.name" />
-      </el-select>
-      <el-date-picker v-model="filters.dateRange" type="daterange" value-format="YYYY-MM-DD" start-placeholder="创建开始" end-placeholder="创建结束" />
-      <el-input v-model="filters.keyword" placeholder="搜索姓名/手机号" clearable @keyup.enter="load" />
-      <el-button type="primary" @click="load">搜索</el-button>
-      <el-button @click="reset">重置</el-button>
-    </div>
     <div class="toolbar">
       <el-button type="primary" :icon="Plus" @click="openCreate">新增用户</el-button>
       <el-button :icon="PriceTag" @click="openTagManager">标签管理</el-button>
@@ -149,10 +140,8 @@ import { Delete, Plus, PriceTag } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { assetUrl, createTag, createUser, deleteTag, deleteUser, getTags, getUsers, updateTag, updateUser, updateUserTags } from '../api/http'
-import { toQueryParams } from '../utils/query'
 
 const viewMode = ref('卡片')
-const filters = reactive({ tag: '', dateRange: [], keyword: '' })
 const rows = ref([])
 const error = ref('')
 const tags = ref([])
@@ -190,7 +179,7 @@ async function loadTags() {
 async function load() {
   error.value = ''
   try {
-    const data = await getUsers(toQueryParams(filters))
+    const data = await getUsers()
     rows.value = normalizeRows(data.list || data)
   } catch (exception) {
     rows.value = []
@@ -212,12 +201,6 @@ function tagColor(name) {
   if (name.includes('血脂')) return 'purple'
   if (name.includes('血糖')) return 'orange'
   return 'green'
-}
-function reset() {
-  filters.tag = ''
-  filters.dateRange = []
-  filters.keyword = ''
-  load()
 }
 function openCreate() {
   editingId.value = null

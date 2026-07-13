@@ -7,14 +7,14 @@
     <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
       <template #default><el-button link type="primary" @click="load">重新加载</el-button></template>
     </el-alert>
-    <div class="filters">
+    <div v-if="searchEnabled" class="filters">
       <el-select v-if="resource === 'workOrders'" v-model="filters.personnelId" filterable clearable placeholder="查询服务人员">
         <el-option v-for="person in personnelOptions" :key="person.id" :label="`${person.name} · ${person.phone}`" :value="String(person.id)" />
       </el-select>
       <el-select v-if="resource === 'workOrders'" v-model="filters.customerId" filterable clearable placeholder="查询用户">
         <el-option v-for="user in userOptions" :key="user.id" :label="`${user.realName || user.nickname} · ${user.phone}`" :value="String(user.id)" />
       </el-select>
-      <el-select v-model="filters.status" placeholder="状态" clearable filterable allow-create>
+      <el-select v-model="filters.status" placeholder="状态" clearable>
         <el-option v-for="status in filterStatuses" :key="status" :label="status" :value="status" />
       </el-select>
       <el-date-picker v-model="filters.dateRange" type="daterange" value-format="YYYY-MM-DD" start-placeholder="开始日期" end-placeholder="结束日期" />
@@ -155,6 +155,7 @@ import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { assetUrl, createResource, deleteResource, getResource, getUsers, updateResource, uploadFile } from '../api/http'
 import { toQueryParams } from '../utils/query'
+import { isListSearchEnabled, listSearchStatuses } from '../utils/listSearch'
 
 const route = useRoute()
 const filters = reactive({ status: '', dateRange: [], keyword: '', personnelId: '', customerId: '' })
@@ -173,7 +174,7 @@ const readonly = ref(false)
 const resource = computed(() => route.meta.resourceFromParam ? route.params.resource : route.meta.resource)
 const title = computed(() => titleMap[resource.value] || route.meta.title)
 const dialogTitle = computed(() => readonly.value ? `${title.value}详情` : (editingId.value ? `编辑${title.value}` : `新增${title.value}`))
-const descriptor = computed(() => descriptors[resource.value] || '列表筛选、批量操作、状态流转与数据维护')
+const descriptor = computed(() => descriptors[resource.value] || '列表浏览、批量操作、状态流转与数据维护')
 const columns = computed(() => columnMap[resource.value] || defaultColumns)
 const createFields = computed(() => createFieldMap[resource.value] || createFieldMap.posts)
 const canCreate = computed(() => {
@@ -182,7 +183,8 @@ const canCreate = computed(() => {
   if (resource.value === 'pointsRules') return hasAvailableOption('actionType')
   return true
 })
-const filterStatuses = ['启用', '禁用', '上架', '下架', '待审核', '已通过', '已驳回', '待接单', '待服务', '服务中', '处理中', '已完成', '已取消', '已关闭', '售后中', '已发布', '草稿', '已显示', '已隐藏', '已报名', '已到场']
+const searchEnabled = computed(() => isListSearchEnabled(resource.value))
+const filterStatuses = computed(() => listSearchStatuses(resource.value))
 
 const descriptors = {
   personnel: '服务人员生命周期、负责区域与启用状态管理',
@@ -517,7 +519,8 @@ function tagType(value) {
 async function load() {
   error.value = ''
   try {
-    const data = await getResource(resource.value, toQueryParams(filters))
+    const params = searchEnabled.value ? toQueryParams(filters) : undefined
+    const data = await getResource(resource.value, params)
     rows.value = data.list || data
     total.value = data.total || rows.value.length
   } catch (exception) {

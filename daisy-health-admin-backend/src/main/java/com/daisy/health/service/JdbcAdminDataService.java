@@ -404,6 +404,63 @@ public class JdbcAdminDataService implements AdminDataService {
     }
 
     @Override
+    public PageResult<Map<String, Object>> messages() {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select m.id, m.user_id as userId, u.real_name as userName, u.phone, m.content, " +
+                        "case m.status when 'pending' then '待处理' when 'processing' then '处理中' when 'resolved' then '已解决' else m.status end as status, " +
+                        "date_format(m.created_at, '%Y-%m-%d %H:%i') as createdAt, date_format(m.updated_at, '%Y-%m-%d %H:%i') as updatedAt " +
+                        "from elderly_message m join `user` u on u.id = m.user_id order by m.created_at desc, m.id desc"
+        );
+        Map<String, Map<String, Object>> grouped = new LinkedHashMap<String, Map<String, Object>>();
+        for (Map<String, Object> row : rows) {
+            String userKey = String.valueOf(row.get("userId"));
+            Map<String, Object> group = grouped.get(userKey);
+            if (group == null) {
+                group = record(
+                        "userId", row.get("userId"),
+                        "userName", row.get("userName"),
+                        "phone", row.get("phone"),
+                        "messageCount", 0,
+                        "pendingCount", 0,
+                        "lastMessageTime", row.get("createdAt"),
+                        "messages", new ArrayList<Map<String, Object>>()
+                );
+                grouped.put(userKey, group);
+            }
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> messages = (List<Map<String, Object>>) group.get("messages");
+            messages.add(record(
+                    "id", row.get("id"),
+                    "content", row.get("content"),
+                    "status", row.get("status"),
+                    "createdAt", row.get("createdAt"),
+                    "updatedAt", row.get("updatedAt")
+            ));
+            group.put("messageCount", ((Number) group.get("messageCount")).intValue() + 1);
+            if ("待处理".equals(row.get("status"))) {
+                group.put("pendingCount", ((Number) group.get("pendingCount")).intValue() + 1);
+            }
+        }
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>(grouped.values());
+        return new PageResult<Map<String, Object>>(result.size(), result);
+    }
+
+    @Override
+    public Map<String, Object> updateMessageStatus(Long id, Map<String, Object> payload) {
+        String displayStatus = stringValue(payload == null ? null : payload.get("status")).trim();
+        Map<String, String> statuses = new LinkedHashMap<String, String>();
+        statuses.put("待处理", "pending");
+        statuses.put("处理中", "processing");
+        statuses.put("已解决", "resolved");
+        String storedStatus = statuses.get(displayStatus);
+        if (storedStatus == null) throw new IllegalArgumentException("留言状态只能是待处理、处理中或已解决");
+        if (jdbcTemplate.update("update elderly_message set status = ?, updated_at = now() where id = ?", storedStatus, id) != 1) {
+            throw new IllegalArgumentException("留言不存在");
+        }
+        return record("id", id, "status", displayStatus, "accepted", true);
+    }
+
+    @Override
     public PageResult<Map<String, Object>> resource(String name, ResourceQuery query) {
         List<Map<String, Object>> rows;
         if ("personnel".equals(name)) {

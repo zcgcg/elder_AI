@@ -97,6 +97,16 @@ public class ElderlyPortalController {
         return ApiResponse.success(portalDataService.createElderlyWorkOrder(payload));
     }
 
+    @PutMapping("/work-orders/{id}/cancel")
+    public ApiResponse<Map<String, Object>> cancelWorkOrder(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> payload) {
+        return ApiResponse.success(portalDataService.cancelElderlyWorkOrder(id, payload));
+    }
+
+    @PutMapping("/work-orders/{id}/reschedule")
+    public ApiResponse<Map<String, Object>> rescheduleWorkOrder(@PathVariable Long id, @RequestBody Map<String, Object> payload) {
+        return ApiResponse.success(portalDataService.rescheduleElderlyWorkOrder(id, payload));
+    }
+
     @GetMapping("/activities")
     public ApiResponse<List<Map<String, Object>>> activities() {
         return ApiResponse.success(portalDataService.elderlyActivities());
@@ -105,6 +115,21 @@ public class ElderlyPortalController {
     @PostMapping("/activities/{id}/enroll")
     public ApiResponse<Map<String, Object>> enrollActivity(@PathVariable Long id) {
         return ApiResponse.success(portalDataService.enrollElderlyActivity(id));
+    }
+
+    @PutMapping("/activities/{id}/cancel-enrollment")
+    public ApiResponse<Map<String, Object>> cancelActivity(@PathVariable Long id) {
+        return ApiResponse.success(portalDataService.cancelElderlyActivity(id));
+    }
+
+    @GetMapping("/messages")
+    public ApiResponse<List<Map<String, Object>>> messages() {
+        return ApiResponse.success(portalDataService.elderlyMessages());
+    }
+
+    @PostMapping("/messages")
+    public ApiResponse<Map<String, Object>> createMessage(@RequestBody Map<String, Object> payload) {
+        return ApiResponse.success(portalDataService.createElderlyMessage(payload));
     }
 
     @GetMapping("/health-articles")
