@@ -137,12 +137,13 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import { ElButton, ElMessage, ElMessageBox, ElTable, ElTableColumn } from 'element-plus'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { assetUrl, createResource, deleteResource, getResource, getUser, updateResource, updateUser, uploadFile } from '../api/http'
+import { createHealthChartOption } from '../utils/healthChart'
 
 const EditableTable = defineComponent({
   props: { section: String, rows: Array, columns: Array },
@@ -271,18 +272,7 @@ const profileFields = computed(() => [
 function drawHealthChart() {
   if (!healthChart.value) return
   echarts.getInstanceByDom(healthChart.value)?.dispose()
-  echarts.init(healthChart.value).setOption({
-    color: ['#52d6ad', '#f6c343'],
-    tooltip: { trigger: 'axis' },
-    legend: { data: ['体重', '心率'] },
-    grid: { left: 42, right: 24, top: 42, bottom: 30 },
-    xAxis: { type: 'category', data: (user.value.healthData || []).map((item) => item.day) },
-    yAxis: [{ type: 'value' }, { type: 'value' }],
-    series: [
-      { name: '体重', type: 'line', smooth: true, data: (user.value.healthData || []).map((item) => item.weight) },
-      { name: '心率', type: 'line', smooth: true, yAxisIndex: 1, data: (user.value.healthData || []).map((item) => item.heartRate) }
-    ]
-  })
+  echarts.init(healthChart.value).setOption(createHealthChartOption(user.value.healthData || []))
 }
 function openProfileEdit() {
   Object.keys(profileForm).forEach((key) => { profileForm[key] = user.value[key] ?? profileForm[key] })
@@ -395,5 +385,15 @@ onMounted(async () => {
   } catch (error) {
     drawHealthChart()
   }
+})
+
+watch(activeTab, async (tab) => {
+  if (tab !== 'data') return
+  await nextTick()
+  drawHealthChart()
+})
+
+onBeforeUnmount(() => {
+  if (healthChart.value) echarts.getInstanceByDom(healthChart.value)?.dispose()
 })
 </script>

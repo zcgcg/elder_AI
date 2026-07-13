@@ -156,6 +156,9 @@
         </el-table>
       </el-tab-pane>
       <el-tab-pane label="健康数据" name="health">
+        <section class="panel">
+          <div ref="userHealthChart" class="health-chart"></div>
+        </section>
         <data-table :rows="healthData" :columns="healthColumns" />
       </el-tab-pane>
       <el-tab-pane label="用药记录" name="medications">
@@ -258,10 +261,12 @@
 </template>
 
 <script setup>
-import { nextTick, onMounted, reactive, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import * as echarts from 'echarts'
 import AvatarPicker from '../components/AvatarPicker.vue'
+import { createHealthChartOption } from '../utils/healthChart'
 import { useAuthStore } from '../stores/auth'
 import {
   assetUrl,
@@ -303,6 +308,7 @@ const activeTab = ref('profile')
 const error = ref('')
 const profile = ref({})
 const healthData = ref([])
+const userHealthChart = ref(null)
 const medications = ref([])
 const devices = ref([])
 const reports = ref([])
@@ -415,6 +421,10 @@ async function loadData() {
     activities.value = activityData
     healthArticles.value = articleData
     healthVideos.value = videoData
+    if (activeTab.value === 'health') {
+      await nextTick()
+      drawUserHealthChart()
+    }
   } catch (err) {
     error.value = err.message || '加载失败'
   }
@@ -474,6 +484,12 @@ async function saveAvatar() {
   } finally {
     avatarSaving.value = false
   }
+}
+
+function drawUserHealthChart() {
+  if (!userHealthChart.value) return
+  echarts.getInstanceByDom(userHealthChart.value)?.dispose()
+  echarts.init(userHealthChart.value).setOption(createHealthChartOption(healthData.value))
 }
 
 function openProfileEditor() {
@@ -562,6 +578,16 @@ function logout() {
   router.push('/login')
 }
 
+watch(activeTab, async (tab) => {
+  if (tab !== 'health') return
+  await nextTick()
+  drawUserHealthChart()
+})
+
+onBeforeUnmount(() => {
+  if (userHealthChart.value) echarts.getInstanceByDom(userHealthChart.value)?.dispose()
+})
+
 onMounted(loadData)
 </script>
 
@@ -646,6 +672,11 @@ onMounted(loadData)
 .panel h2 {
   margin: 0 0 12px;
   font-size: 18px;
+}
+
+.health-chart {
+  width: 100%;
+  height: 360px;
 }
 
 .panel-heading {
