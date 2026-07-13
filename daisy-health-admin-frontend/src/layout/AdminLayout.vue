@@ -41,7 +41,7 @@
           <el-button :icon="ChatDotRound" circle />
           <el-dropdown>
             <div class="profile">
-              <el-avatar :size="34" :src="auth.user?.avatarUrl">{{ auth.user?.name?.slice(0, 1) || '黛' }}</el-avatar>
+              <el-avatar :size="34" :src="assetUrl(auth.user?.avatarUrl)">{{ auth.user?.name?.slice(0, 1) || '黛' }}</el-avatar>
               <span>{{ auth.user?.name || '系统管理员' }}</span>
               <el-icon><ArrowDown /></el-icon>
             </div>
@@ -62,7 +62,7 @@
 
   <el-dialog v-model="profileVisible" title="个人资料" width="520px">
     <div class="admin-profile">
-      <el-avatar :size="76" :src="profileForm.avatarUrl">{{ profileForm.name?.slice(0, 1) || '管' }}</el-avatar>
+      <el-avatar :size="76" :src="assetUrl(profileForm.avatarUrl)">{{ profileForm.name?.slice(0, 1) || '管' }}</el-avatar>
       <dl>
         <dt>姓名</dt><dd>{{ profileForm.name }}</dd>
         <dt>员工编号</dt><dd>{{ profileForm.staffNo }}</dd>
@@ -81,7 +81,7 @@
         <el-input v-model="profileForm.phone" placeholder="手机号码" />
       </el-form-item>
       <el-form-item label="头像">
-        <el-input v-model="profileForm.avatarUrl" placeholder="头像 URL" />
+        <avatar-picker ref="avatarPickerRef" :model-value="profileForm.avatarUrl" :fallback="profileForm.name?.slice(0, 1) || '管'" />
       </el-form-item>
       <el-form-item label="角色">
         <el-input v-model="profileForm.role" placeholder="角色名称" />
@@ -98,17 +98,20 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { Bell, ChatDotRound } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
+import AvatarPicker from '../components/AvatarPicker.vue'
+import { assetUrl } from '../api/http'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const profileVisible = ref(false)
 const profileSaving = ref(false)
+const avatarPickerRef = ref(null)
 const profileForm = reactive({ id: '', name: '', staffNo: '', phone: '', avatarUrl: '', role: '', remark: '' })
 const activeGroup = ref('home')
 const menuGroups = [
@@ -158,17 +161,19 @@ async function openProfile() {
     syncProfile()
   }
   profileVisible.value = true
+  nextTick(() => avatarPickerRef.value?.reset(profileForm.avatarUrl))
 }
 
 async function saveProfile() {
   profileSaving.value = true
   try {
+    const avatarUrl = await avatarPickerRef.value?.commitSelection()
     await auth.saveProfile({
       id: profileForm.id,
       name: profileForm.name,
       staffNo: profileForm.staffNo,
       phone: profileForm.phone,
-      avatarUrl: profileForm.avatarUrl,
+      avatarUrl: avatarUrl || '',
       role: profileForm.role,
       remark: profileForm.remark
     })

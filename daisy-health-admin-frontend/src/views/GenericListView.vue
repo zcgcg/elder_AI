@@ -5,6 +5,12 @@
       <el-button v-if="canCreate" type="primary" :icon="Plus" @click="openCreate">新增</el-button>
     </div>
     <div class="filters">
+      <el-select v-if="resource === 'workOrders'" v-model="filters.personnelId" filterable clearable placeholder="查询服务人员">
+        <el-option v-for="person in personnelOptions" :key="person.id" :label="`${person.name} · ${person.phone}`" :value="String(person.id)" />
+      </el-select>
+      <el-select v-if="resource === 'workOrders'" v-model="filters.customerId" filterable clearable placeholder="查询用户">
+        <el-option v-for="user in userOptions" :key="user.id" :label="`${user.realName || user.nickname} · ${user.phone}`" :value="String(user.id)" />
+      </el-select>
       <el-select v-model="filters.status" placeholder="状态" clearable>
         <el-option label="待处理" value="待处理" />
         <el-option label="处理中" value="处理中" />
@@ -74,6 +80,21 @@
             />
           </el-select>
           <el-select
+            v-else-if="field.type === 'personnel'"
+            v-model="form[field.prop]"
+            filterable
+            clearable
+            placeholder="请选择服务人员"
+            :disabled="readonly"
+          >
+            <el-option
+              v-for="person in personnelOptions"
+              :key="person.id"
+              :label="`${person.name} · ${person.serviceType} · ${person.phone}`"
+              :value="String(person.id)"
+            />
+          </el-select>
+          <el-select
             v-else-if="field.type === 'activity'"
             v-model="form[field.prop]"
             filterable
@@ -127,7 +148,7 @@ import { assetUrl, createResource, deleteResource, getResource, getUsers, update
 import { fallbackRows } from '../api/fallback'
 
 const route = useRoute()
-const filters = reactive({ status: '', dateRange: [], keyword: '' })
+const filters = reactive({ status: '', dateRange: [], keyword: '', personnelId: '', customerId: '' })
 const rows = ref([])
 const total = ref(0)
 const dialogVisible = ref(false)
@@ -137,6 +158,7 @@ const form = reactive({})
 const userOptions = ref([])
 const productOptions = ref([])
 const activityOptions = ref([])
+const personnelOptions = ref([])
 const readonly = ref(false)
 const resource = computed(() => route.meta.resourceFromParam ? route.params.resource : route.meta.resource)
 const title = computed(() => titleMap[resource.value] || route.meta.title)
@@ -214,7 +236,7 @@ const defaultColumns = [
 const columnMap = {
   personnel: [{ prop: 'name', label: '服务人员' }, { prop: 'serviceType', label: '服务类型' }, { prop: 'area', label: '负责区域' }, { prop: 'status', label: '状态' }, { prop: 'updatedAt', label: '更新时间', width: 170 }],
   audits: [{ prop: 'name', label: '申请人' }, { prop: 'serviceType', label: '服务类型' }, { prop: 'auditStatus', label: '审核状态' }, { prop: 'phone', label: '手机号' }, { prop: 'updatedAt', label: '申请时间', width: 170 }],
-  workOrders: [{ prop: 'orderNo', label: '工单编号', width: 170 }, { prop: 'serviceItem', label: '服务项目' }, { prop: 'customer', label: '服务客户' }, { prop: 'status', label: '状态' }, { prop: 'updatedAt', label: '派单时间', width: 170 }],
+  workOrders: [{ prop: 'orderNo', label: '工单编号', width: 170 }, { prop: 'serviceItem', label: '服务项目' }, { prop: 'personnelName', label: '服务人员' }, { prop: 'customer', label: '服务客户' }, { prop: 'status', label: '状态' }, { prop: 'updatedAt', label: '派单时间', width: 170 }],
   products: [{ prop: 'name', label: '商品服务', width: 190 }, { prop: 'itemType', label: '类型' }, { prop: 'category', label: '分类' }, { prop: 'duration', label: '时长(分钟)' }, { prop: 'price', label: '价格' }, { prop: 'status', label: '状态' }, { prop: 'updatedAt', label: '更新时间', width: 170 }],
   orders: [{ prop: 'orderNo', label: '订单编号', width: 170 }, { prop: 'productName', label: '商品信息' }, { prop: 'buyer', label: '买家' }, { prop: 'amount', label: '金额' }, { prop: 'serviceType', label: '服务类型' }, { prop: 'status', label: '订单状态' }],
   afterSales: [{ prop: 'orderNo', label: '订单编号', width: 170 }, { prop: 'applicant', label: '申请人' }, { prop: 'reason', label: '售后原因' }, { prop: 'status', label: '状态' }],
@@ -256,7 +278,8 @@ const createFieldMap = {
   workOrders: [
     { prop: 'productId', label: '商品服务', type: 'product', required: true },
     { prop: 'amount', label: '金额', type: 'number', readonly: true },
-    { prop: 'userRef', label: '客户', type: 'user' },
+    { prop: 'userRef', label: '客户', type: 'user', required: true },
+    { prop: 'personnelId', label: '服务人员', type: 'personnel', required: true },
     { prop: 'serviceTime', label: '服务时间', placeholder: 'YYYY-MM-DD HH:mm:ss' },
     { prop: 'status', label: '状态', type: 'select', options: ['待服务', '服务中', '已完成', '已取消'] }
   ],
@@ -488,6 +511,8 @@ function reset() {
   filters.status = ''
   filters.dateRange = []
   filters.keyword = ''
+  filters.personnelId = ''
+  filters.customerId = ''
   load()
 }
 function openCreate() {
@@ -496,7 +521,7 @@ function openCreate() {
   Object.keys(form).forEach((key) => delete form[key])
   createFields.value.forEach((field) => {
     if (field.type === 'number') form[field.prop] = 0
-    else if (field.type === 'user' || field.type === 'product' || field.type === 'activity') form[field.prop] = ''
+    else if (field.type === 'user' || field.type === 'product' || field.type === 'activity' || field.type === 'personnel') form[field.prop] = ''
     else if (field.type === 'select') form[field.prop] = firstAvailableOption(field) || field.options[0]
     else form[field.prop] = ''
   })
@@ -519,7 +544,7 @@ function fillForm(row) {
   createFields.value.forEach((field) => {
     const value = field.type === 'user' ? userRefFromRow(row) : row[field.prop]
     if (field.type === 'number') form[field.prop] = Number(value || 0)
-    else if (field.type === 'user' || field.type === 'product' || field.type === 'activity') form[field.prop] = String(value || '')
+    else if (field.type === 'user' || field.type === 'product' || field.type === 'activity' || field.type === 'personnel') form[field.prop] = String(value || '')
     else if (field.type === 'select') form[field.prop] = value || field.options[0]
     else form[field.prop] = value || ''
   })
@@ -581,12 +606,16 @@ async function loadUsers() {
   }
 }
 async function loadOptions() {
-  const [products, activities] = await Promise.allSettled([getResource('products'), getResource('activities')])
+  const [products, activities, personnel] = await Promise.allSettled([getResource('products'), getResource('activities'), getResource('personnel')])
   if (products.status === 'fulfilled') {
     const options = products.value.list || products.value || []
     productOptions.value = options.filter((item) => item.status !== '下架')
   }
   if (activities.status === 'fulfilled') activityOptions.value = activities.value.list || activities.value || []
+  if (personnel.status === 'fulfilled') {
+    const options = personnel.value.list || personnel.value || []
+    personnelOptions.value = options.filter((item) => item.status === '启用' && item.auditStatus === '已通过')
+  }
 }
 async function submitCreate() {
   const required = createFields.value.find((field) => field.required && !String(form[field.prop] || '').trim())

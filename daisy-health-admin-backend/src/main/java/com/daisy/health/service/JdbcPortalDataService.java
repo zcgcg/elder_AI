@@ -224,6 +224,16 @@ public class JdbcPortalDataService implements PortalDataService {
     }
 
     @Override
+    public List<Map<String, Object>> elderlyPersonnel() {
+        currentLegacyUserId();
+        return jdbcTemplate.queryForList(
+                "select p.id, p.name, p.service_type as serviceType, p.area, sp.rating, p.avatar_url as avatarUrl " +
+                        "from service_personnel p left join service_profile sp on sp.legacy_personnel_id = p.id " +
+                        "where p.status = 1 and p.audit_status = '已通过' order by p.name, p.id"
+        );
+    }
+
+    @Override
     public List<Map<String, Object>> elderlyWorkOrders() {
         long userId = currentLegacyUserId();
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
@@ -246,6 +256,13 @@ public class JdbcPortalDataService implements PortalDataService {
         if (product.isEmpty()) {
             throw new IllegalArgumentException("所选商品服务不存在或已下架");
         }
+        long personnelId = requiredLong(payload, "personnelId", "请选择服务人员");
+        if (jdbcTemplate.queryForList(
+                "select id from service_personnel where id = ? and status = 1 and audit_status = '已通过' limit 1",
+                personnelId
+        ).isEmpty()) {
+            throw new IllegalArgumentException("所选服务人员不存在或不可接单");
+        }
 
         String serviceOrderNo = uniqueNo("OD");
         jdbcTemplate.update(
@@ -259,11 +276,6 @@ public class JdbcPortalDataService implements PortalDataService {
                 serviceOrderNo
         );
 
-        List<Long> personnelIds = jdbcTemplate.queryForList(
-                "select id from service_personnel where status = 1 order by id limit 1",
-                Long.class
-        );
-        Long personnelId = personnelIds.isEmpty() ? null : personnelIds.get(0);
         String workOrderNo = uniqueNo("WO");
         String serviceTime = stringValue(payload == null ? null : payload.get("serviceTime")).trim();
         jdbcTemplate.update(
@@ -407,8 +419,10 @@ public class JdbcPortalDataService implements PortalDataService {
         return "select w.id, w.order_no as orderNo, w.product_id as productId, w.service_item as serviceItem, w.amount, w.status, " +
                 "date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as dispatchTime, date_format(w.service_time, '%Y-%m-%d %H:%i') as serviceTime, " +
                 "date_format(w.complete_time, '%Y-%m-%d %H:%i') as completeTime, u.real_name as customerName, u.phone as customerPhone, u.address as customerAddress, " +
+                "p.id as personnelId, p.name as personnelName, p.phone as personnelPhone, " +
                 "o.order_no as serviceOrderNo, o.product_name as productName, o.service_type as serviceType " +
-                "from work_order w left join `user` u on w.customer_id = u.id left join service_order o on w.order_id = o.id";
+                "from work_order w left join `user` u on w.customer_id = u.id left join service_personnel p on w.personnel_id = p.id " +
+                "left join service_order o on w.order_id = o.id";
     }
 
     private void normalizeWorkOrderStatuses(List<Map<String, Object>> rows) {

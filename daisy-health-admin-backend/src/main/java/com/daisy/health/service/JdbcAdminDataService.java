@@ -320,7 +320,14 @@ public class JdbcAdminDataService implements AdminDataService {
         row.put("coupons", jdbcTemplate.queryForList("select id, coupon_no as couponNo, name, type, discount, status, date_format(expire_date, '%Y-%m-%d') as expireDate from coupon where user_id = ? order by id desc", id));
         row.put("points", jdbcTemplate.queryForList("select id, points, total_earned as totalEarned, total_spent as totalSpent, level, growth_value as growthValue from user_points where user_id = ?", id));
         row.put("contents", jdbcTemplate.queryForList("select id, title, type, publisher, author, if(status = 1, '已发布', '草稿') as status from operation_content where publisher = ? order by id desc", row.get("realName")));
-        row.put("serviceRecords", jdbcTemplate.queryForList("select id, order_no as orderNo, product_id as productId, service_item as serviceItem, amount, case status when 'pending' then '待服务' when 'service_in' then '服务中' when 'completed' then '已完成' when 'cancelled' then '已取消' else status end as status, date_format(service_time, '%Y-%m-%d %H:%i:%s') as serviceTime, date_format(complete_time, '%Y-%m-%d %H:%i:%s') as completeTime from work_order where customer_id = ? order by id desc", id));
+        row.put("serviceRecords", jdbcTemplate.queryForList(
+                "select w.id, w.order_no as orderNo, w.product_id as productId, w.service_item as serviceItem, w.amount, " +
+                        "p.id as personnelId, p.name as personnelName, " +
+                        "case w.status when 'pending' then '待服务' when 'service_in' then '服务中' when 'completed' then '已完成' when 'cancelled' then '已取消' else w.status end as status, " +
+                        "date_format(w.service_time, '%Y-%m-%d %H:%i:%s') as serviceTime, date_format(w.complete_time, '%Y-%m-%d %H:%i:%s') as completeTime " +
+                        "from work_order w left join service_personnel p on w.personnel_id = p.id where w.customer_id = ? order by w.id desc",
+                id
+        ));
         return row;
     }
 
@@ -394,7 +401,7 @@ public class JdbcAdminDataService implements AdminDataService {
         } else if ("audits".equals(name)) {
             rows = jdbcTemplate.queryForList("select id, name, phone, service_type as serviceType, area, audit_status as auditStatus, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as updatedAt from service_personnel order by id");
         } else if ("workOrders".equals(name)) {
-            rows = jdbcTemplate.queryForList("select w.id, w.order_no as orderNo, w.order_id as orderId, o.order_no as serviceOrderNo, w.product_id as productId, w.service_item as serviceItem, w.amount, u.real_name as customer, case w.status when 'pending' then '待服务' when 'service_in' then '服务中' when 'completed' then '已完成' when 'cancelled' then '已取消' else w.status end as status, date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as dispatchTime, date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as updatedAt, date_format(w.service_time, '%Y-%m-%d %H:%i:%s') as serviceTime from work_order w left join `user` u on w.customer_id = u.id left join service_order o on w.order_id = o.id order by w.id");
+            rows = workOrders(null, null).getList();
         } else if ("products".equals(name)) {
             rows = jdbcTemplate.queryForList("select id, name, code, item_type as itemType, category, description, duration, price, if(status = 1, '上架', '下架') as status, date_format(updated_at, '%Y-%m-%d %H:%i') as updatedAt from product order by item_type desc, category, id");
         } else if ("orders".equals(name)) {
@@ -416,6 +423,36 @@ public class JdbcAdminDataService implements AdminDataService {
         } else {
             rows = operationContent(name);
         }
+        return new PageResult<Map<String, Object>>(rows.size(), rows);
+    }
+
+    @Override
+    public PageResult<Map<String, Object>> workOrders(Long personnelId, Long customerId) {
+        StringBuilder sql = new StringBuilder(
+                "select w.id, w.order_no as orderNo, w.order_id as orderId, o.order_no as serviceOrderNo, " +
+                        "w.product_id as productId, w.service_item as serviceItem, w.amount, " +
+                        "u.id as customerId, u.real_name as customer, u.phone as customerPhone, " +
+                        "p.id as personnelId, p.name as personnelName, p.phone as personnelPhone, " +
+                        "case w.status when 'pending' then '待服务' when 'service_in' then '服务中' " +
+                        "when 'completed' then '已完成' when 'cancelled' then '已取消' else w.status end as status, " +
+                        "date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as dispatchTime, " +
+                        "date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as updatedAt, " +
+                        "date_format(w.service_time, '%Y-%m-%d %H:%i:%s') as serviceTime " +
+                        "from work_order w left join `user` u on w.customer_id = u.id " +
+                        "left join service_personnel p on w.personnel_id = p.id " +
+                        "left join service_order o on w.order_id = o.id where 1 = 1"
+        );
+        List<Object> args = new ArrayList<Object>();
+        if (personnelId != null) {
+            sql.append(" and w.personnel_id = ?");
+            args.add(personnelId);
+        }
+        if (customerId != null) {
+            sql.append(" and w.customer_id = ?");
+            args.add(customerId);
+        }
+        sql.append(" order by w.id desc");
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql.toString(), args.toArray());
         return new PageResult<Map<String, Object>>(rows.size(), rows);
     }
 
@@ -571,7 +608,7 @@ public class JdbcAdminDataService implements AdminDataService {
                 values.put("amount", product.get("price"));
             }
             if (hasUserRef(payload, "customerId")) values.put("customer_id", userId(payload, "customerId", firstId("user")));
-            if (payload.containsKey("personnelId")) values.put("personnel_id", longValue(payload, "personnelId", firstId("service_personnel")));
+            if (payload.containsKey("personnelId")) values.put("personnel_id", selectedPersonnelId(payload));
             if (payload.containsKey("status")) values.put("status", workOrderStatus(text(payload, "status", "待服务")));
             putIfPresent(values, "service_time", payload, "serviceTime");
             putIfPresent(values, "complete_time", payload, "completeTime");
@@ -1071,6 +1108,7 @@ public class JdbcAdminDataService implements AdminDataService {
         Map<String, Object> product = catalogItem(payload);
         long productId = ((Number) product.get("id")).longValue();
         long customerId = userId(payload, "customerId", firstId("user"));
+        long personnelId = selectedPersonnelId(payload);
         Number orderId = insert("service_order", record(
                 "order_no", uniqueBusinessNo("OD"),
                 "product_id", productId,
@@ -1086,7 +1124,7 @@ public class JdbcAdminDataService implements AdminDataService {
                 "product_id", productId,
                 "service_item", product.get("name"),
                 "amount", product.get("price"),
-                "personnel_id", selectedPersonnelId(payload),
+                "personnel_id", personnelId,
                 "customer_id", customerId,
                 "created_by_account_id", creator == null ? null : creator.getAccountId(),
                 "created_by_role", creator == null ? "staff" : creator.getRoleType(),
@@ -1115,14 +1153,13 @@ public class JdbcAdminDataService implements AdminDataService {
 
     private Long selectedPersonnelId(Map<String, Object> payload) {
         Long requested = parseLong(payload == null ? null : payload.get("personnelId"));
-        if (requested != null && requested > 0) {
-            return requested;
-        }
-        List<Long> ids = jdbcTemplate.queryForList(
-                "select id from service_personnel where status = 1 order by id limit 1",
-                Long.class
+        if (requested == null || requested <= 0) throw new IllegalArgumentException("请选择服务人员");
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select id from service_personnel where id = ? and status = 1 and audit_status = '已通过' limit 1",
+                requested
         );
-        return ids.isEmpty() ? null : ids.get(0);
+        if (rows.isEmpty()) throw new IllegalArgumentException("所选服务人员不存在或不可接单");
+        return requested;
     }
 
     private String uniqueBusinessNo(String prefix) {

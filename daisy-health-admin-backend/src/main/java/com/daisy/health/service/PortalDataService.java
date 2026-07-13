@@ -28,6 +28,8 @@ public interface PortalDataService {
 
     List<Map<String, Object>> elderlyCatalogItems();
 
+    List<Map<String, Object>> elderlyPersonnel();
+
     List<Map<String, Object>> elderlyWorkOrders();
 
     Map<String, Object> createElderlyWorkOrder(Map<String, Object> payload);

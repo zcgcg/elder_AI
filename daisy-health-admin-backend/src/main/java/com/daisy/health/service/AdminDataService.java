@@ -38,6 +38,8 @@ public interface AdminDataService {
 
     PageResult<Map<String, Object>> resource(String name);
 
+    PageResult<Map<String, Object>> workOrders(Long personnelId, Long customerId);
+
     Map<String, Object> createResource(String name, Map<String, Object> payload);
 
     Map<String, Object> updateResource(String name, Long id, Map<String, Object> payload);

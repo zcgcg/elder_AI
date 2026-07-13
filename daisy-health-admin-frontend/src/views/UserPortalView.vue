@@ -145,6 +145,7 @@
           <el-table-column prop="orderNo" label="工单编号" min-width="160" />
           <el-table-column prop="serviceItem" label="服务项目" min-width="160" />
           <el-table-column prop="customerName" label="客户" min-width="110" />
+          <el-table-column prop="personnelName" label="服务人员" min-width="110" />
           <el-table-column prop="amount" label="金额" min-width="80" />
           <el-table-column prop="dispatchTime" label="派单时间" min-width="160" />
           <el-table-column prop="serviceTime" label="服务时间" min-width="160" />
@@ -248,6 +249,11 @@
             <el-option v-for="item in catalogItems" :key="item.id" :label="`${item.name} · ¥${item.price}`" :value="String(item.id)" />
           </el-select>
         </el-form-item>
+        <el-form-item label="服务人员" required>
+          <el-select v-model="workOrderForm.personnelId" filterable placeholder="请选择服务人员">
+            <el-option v-for="item in personnelOptions" :key="item.id" :label="`${item.name}${item.serviceType ? ` · ${item.serviceType}` : ''}`" :value="String(item.id)" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="金额"><el-input-number v-model="workOrderForm.amount" :min="0" disabled /></el-form-item>
         <el-form-item label="服务日期"><el-date-picker v-model="workOrderForm.date" type="date" value-format="YYYY-MM-DD" /></el-form-item>
         <el-form-item label="服务时间"><el-time-picker v-model="workOrderForm.time" value-format="HH:mm:ss" /></el-form-item>
@@ -281,6 +287,7 @@ import {
   getElderlyHealthVideos,
   getElderlyMedications,
   getElderlyOrders,
+  getElderlyPersonnel,
   getElderlyPoints,
   getElderlyProfile,
   getElderlyReports,
@@ -316,6 +323,7 @@ const orders = ref([])
 const coupons = ref([])
 const points = ref({})
 const catalogItems = ref([])
+const personnelOptions = ref([])
 const workOrders = ref([])
 const activities = ref([])
 const healthArticles = ref([])
@@ -340,7 +348,7 @@ const deviceDialogVisible = ref(false)
 const deviceSaving = ref(false)
 const deviceForm = reactive({ id: null, deviceName: '', deviceType: '', deviceCode: '', status: '绑定' })
 const today = new Date().toISOString().slice(0, 10)
-const workOrderForm = reactive({ productId: '', amount: 0, date: today, time: '09:00:00' })
+const workOrderForm = reactive({ productId: '', personnelId: '', amount: 0, date: today, time: '09:00:00' })
 
 const healthColumns = [
   { prop: 'dataType', label: '类型' },
@@ -393,7 +401,7 @@ function statusTone(status) {
 
 async function loadData() {
   try {
-    const [profileData, health, medicationData, deviceData, reportData, orderData, couponData, pointData, catalogData, workOrderData, activityData, articleData, videoData] = await Promise.all([
+    const [profileData, health, medicationData, deviceData, reportData, orderData, couponData, pointData, catalogData, workOrderData, activityData, articleData, videoData, personnelData] = await Promise.all([
       getElderlyProfile(),
       getElderlyHealthData(),
       getElderlyMedications(),
@@ -406,7 +414,8 @@ async function loadData() {
       getElderlyWorkOrders(),
       getElderlyActivities(),
       getElderlyHealthArticles(),
-      getElderlyHealthVideos()
+      getElderlyHealthVideos(),
+      getElderlyPersonnel()
     ])
     profile.value = profileData
     healthData.value = health
@@ -421,6 +430,7 @@ async function loadData() {
     activities.value = activityData
     healthArticles.value = articleData
     healthVideos.value = videoData
+    personnelOptions.value = personnelData
     if (activeTab.value === 'health') {
       await nextTick()
       drawUserHealthChart()
@@ -431,7 +441,7 @@ async function loadData() {
 }
 
 function openWorkOrder(item) {
-  Object.assign(workOrderForm, { productId: String(item.id), amount: Number(item.price || 0), date: today, time: '09:00:00' })
+  Object.assign(workOrderForm, { productId: String(item.id), personnelId: '', amount: Number(item.price || 0), date: today, time: '09:00:00' })
   workOrderVisible.value = true
 }
 
@@ -445,10 +455,15 @@ async function submitWorkOrder() {
     ElMessage.warning('请选择商品服务')
     return
   }
+  if (!workOrderForm.personnelId) {
+    ElMessage.warning('请选择服务人员')
+    return
+  }
   workOrderSaving.value = true
   try {
     await createElderlyWorkOrder({
       productId: workOrderForm.productId,
+      personnelId: workOrderForm.personnelId,
       serviceTime: `${workOrderForm.date} ${workOrderForm.time}`
     })
     workOrders.value = await getElderlyWorkOrders()

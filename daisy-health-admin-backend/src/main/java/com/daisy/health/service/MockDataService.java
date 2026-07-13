@@ -175,6 +175,17 @@ public class MockDataService implements AdminDataService {
         return new PageResult<Map<String, Object>>(rows.size(), rows);
     }
 
+    @Override
+    public PageResult<Map<String, Object>> workOrders(Long personnelId, Long customerId) {
+        List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
+        for (Map<String, Object> row : resources().get("workOrders")) {
+            if (personnelId != null && !String.valueOf(personnelId).equals(String.valueOf(row.get("personnelId")))) continue;
+            if (customerId != null && !String.valueOf(customerId).equals(String.valueOf(row.get("customerId")))) continue;
+            rows.add(row);
+        }
+        return new PageResult<Map<String, Object>>(rows.size(), rows);
+    }
+
     public Map<String, Object> createResource(String name, Map<String, Object> payload) {
         return record("accepted", true, "id", 99999, "resource", name);
     }
@@ -221,13 +232,13 @@ public class MockDataService implements AdminDataService {
     private Map<String, List<Map<String, Object>>> resources() {
         Map<String, List<Map<String, Object>>> data = new LinkedHashMap<String, List<Map<String, Object>>>();
         data.put("personnel", list(
-                record("id", 1, "name", "张敏", "serviceType", "家政护理", "area", "浦东新区", "status", "启用", "updatedAt", "2026-07-05 10:20"),
-                record("id", 2, "name", "李华", "serviceType", "康复理疗", "area", "徐汇区", "status", "启用", "updatedAt", "2026-07-04 15:30")
+                record("id", 1, "name", "张敏", "phone", "13900020001", "serviceType", "家政护理", "area", "浦东新区", "auditStatus", "已通过", "status", "启用", "updatedAt", "2026-07-05 10:20"),
+                record("id", 2, "name", "李华", "phone", "13900020002", "serviceType", "康复理疗", "area", "徐汇区", "auditStatus", "已通过", "status", "启用", "updatedAt", "2026-07-04 15:30")
         ));
         data.put("audits", list(record("id", 1, "name", "周丽", "serviceType", "上门体检", "auditStatus", "待审核", "phone", "138****8123", "updatedAt", "2026-07-06 09:10")));
         data.put("workOrders", list(
-                record("id", 1, "orderNo", "WO20260706001", "serviceItem", "助浴护理", "customer", "王秀兰", "status", "待服务", "updatedAt", "2026-07-06 11:00"),
-                record("id", 2, "orderNo", "WO20260706002", "serviceItem", "肩颈康复", "customer", "陈建国", "status", "服务中", "updatedAt", "2026-07-06 12:00")
+                record("id", 1, "orderNo", "WO20260706001", "serviceItem", "助浴护理", "personnelId", 1, "personnelName", "张敏", "customerId", 10001, "customer", "王秀兰", "status", "待服务", "updatedAt", "2026-07-06 11:00"),
+                record("id", 2, "orderNo", "WO20260706002", "serviceItem", "肩颈康复", "personnelId", 2, "personnelName", "李华", "customerId", 10002, "customer", "陈建国", "status", "服务中", "updatedAt", "2026-07-06 12:00")
         ));
         data.put("products", list(
                 record("id", 1, "name", "2小时日常清洁", "category", "家政护理", "price", 129, "status", "上架", "updatedAt", "2026-07-03 17:00"),

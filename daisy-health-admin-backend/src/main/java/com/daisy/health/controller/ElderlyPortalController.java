@@ -82,6 +82,11 @@ public class ElderlyPortalController {
         return ApiResponse.success(portalDataService.elderlyCatalogItems());
     }
 
+    @GetMapping("/personnel")
+    public ApiResponse<List<Map<String, Object>>> personnel() {
+        return ApiResponse.success(portalDataService.elderlyPersonnel());
+    }
+
     @GetMapping("/work-orders")
     public ApiResponse<List<Map<String, Object>>> workOrders() {
         return ApiResponse.success(portalDataService.elderlyWorkOrders());

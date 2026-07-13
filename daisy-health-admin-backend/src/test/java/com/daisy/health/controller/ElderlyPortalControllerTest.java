@@ -79,6 +79,26 @@ class ElderlyPortalControllerTest {
     }
 
     @Test
+    void userCanChooseFromEligibleServicePersonnelWhenCreatingWorkOrder() throws Exception {
+        when(portalDataService.elderlyPersonnel()).thenReturn(Collections.singletonList(
+                record("id", 2L, "name", "李华", "serviceType", "康复理疗")
+        ));
+        when(portalDataService.createElderlyWorkOrder(any())).thenReturn(
+                record("id", 14L, "personnelId", 2L, "personnelName", "李华")
+        );
+
+        mockMvc.perform(get("/api/v1/elderly/personnel"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(2))
+                .andExpect(jsonPath("$.data[0].name").value("李华"));
+        mockMvc.perform(post("/api/v1/elderly/work-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"productId\":7,\"personnelId\":2}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.personnelId").value(2));
+    }
+
+    @Test
     void userCanUpdateOwnAvatar() throws Exception {
         when(portalDataService.updateElderlyAvatar(any())).thenReturn(
                 record("avatarUrl", "/default-avatars/avatar-02.svg")

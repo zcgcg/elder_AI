@@ -15,6 +15,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
@@ -69,6 +71,23 @@ class JdbcPortalDataServiceTest {
 
         assertEquals("已报名", result.get("status"));
         verify(jdbcTemplate, never()).update(startsWith("update activity set"), eq(21L));
+    }
+
+    @Test
+    void creatingWorkOrderWithoutPersonnelFailsBeforeWritingOrderRows() {
+        when(jdbcTemplate.queryForList(startsWith("select id, name, category, price"), eq(7L)))
+                .thenReturn(Collections.singletonList(record("id", 7L, "name", "助浴护理", "category", "家政护理", "price", 199)));
+        Map<String, Object> payload = record("productId", 7L);
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createElderlyWorkOrder(payload)
+        );
+
+        assertEquals("请选择服务人员", error.getMessage());
+        assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
+                .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
+                .noneMatch(sql -> sql.startsWith("insert into service_order")));
     }
 
     private Map<String, Object> record(Object... values) {

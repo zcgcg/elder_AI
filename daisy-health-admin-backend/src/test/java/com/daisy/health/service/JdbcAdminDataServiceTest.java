@@ -40,6 +40,28 @@ class JdbcAdminDataServiceTest {
                         && !sql.contains("group by record_date")));
     }
 
+    @Test
+    void userDetailWorkOrdersIncludeAssignedPersonnel() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.queryForList(startsWith("select u.id"), eq(10001L)))
+                .thenReturn(Collections.singletonList(record("id", 10001L, "realName", "王秀兰")));
+
+        JdbcAdminDataService service = new JdbcAdminDataService(
+                jdbcTemplate,
+                mock(PasswordEncoder.class),
+                mock(JwtService.class),
+                mock(PermissionService.class),
+                new ObjectMapper()
+        );
+
+        service.user(10001L);
+
+        assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
+                .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
+                .anyMatch(sql -> sql.contains("p.name as personnelName")
+                        && sql.contains("left join service_personnel p")));
+    }
+
     private Map<String, Object> record(Object... values) {
         Map<String, Object> row = new LinkedHashMap<String, Object>();
         for (int i = 0; i < values.length; i += 2) row.put(String.valueOf(values[i]), values[i + 1]);

@@ -106,6 +106,9 @@
           <el-select v-else-if="field.type === 'product'" v-model="sectionForm[field.prop]" filterable placeholder="请选择商品服务" @change="syncSectionProductAmount">
             <el-option v-for="item in productOptions" :key="item.id" :label="`${item.name} · ¥${item.price}`" :value="String(item.id)" />
           </el-select>
+          <el-select v-else-if="field.type === 'personnel'" v-model="sectionForm[field.prop]" filterable placeholder="请选择服务人员">
+            <el-option v-for="item in personnelOptions" :key="item.id" :label="`${item.name} · ${item.serviceType} · ${item.phone}`" :value="String(item.id)" />
+          </el-select>
           <el-select v-else-if="field.type === 'select'" v-model="sectionForm[field.prop]" placeholder="请选择">
             <el-option v-for="option in field.options" :key="option" :label="option" :value="option" />
           </el-select>
@@ -185,6 +188,7 @@ const editingSection = ref('')
 const editingId = ref(null)
 const sectionForm = reactive({})
 const productOptions = ref([])
+const personnelOptions = ref([])
 const profileForm = reactive({
   nickname: '', realName: '', phone: '', avatarUrl: '', gender: '未知', birthday: '', idCard: '', address: '', bio: '', ethnicity: '', education: '',
   height: 0, weight: 0, bloodType: 'A', rhNegative: false, chronicDisease: '', sleepQuality: '良好', smokingFreq: '', drinkingFreq: '', exerciseFreq: '', dietPreference: '', emergencyContact: '', emergencyPhone: ''
@@ -251,9 +255,9 @@ const sectionMap = {
   workOrders: {
     title: '服务记录',
     resource: 'workOrders',
-    defaults: () => ({ userRef: String(user.value.id), productId: productOptions.value[0]?.id ? String(productOptions.value[0].id) : '', amount: Number(productOptions.value[0]?.price || 0), status: '待服务', serviceTime: '', completeTime: '' }),
-    columns: [{ prop: 'orderNo', label: '工单编号', width: 160 }, { prop: 'serviceItem', label: '服务项目' }, { prop: 'amount', label: '金额' }, { prop: 'status', label: '状态' }],
-    fields: [{ prop: 'productId', label: '商品服务', type: 'product', required: true }, { prop: 'amount', label: '金额', type: 'number', readonly: true }, { prop: 'status', label: '状态', type: 'select', options: ['待服务', '服务中', '已完成', '已取消'] }, { prop: 'serviceTime', label: '服务时间' }, { prop: 'completeTime', label: '结束时间' }]
+    defaults: () => ({ userRef: String(user.value.id), productId: productOptions.value[0]?.id ? String(productOptions.value[0].id) : '', personnelId: '', amount: Number(productOptions.value[0]?.price || 0), status: '待服务', serviceTime: '', completeTime: '' }),
+    columns: [{ prop: 'orderNo', label: '工单编号', width: 160 }, { prop: 'serviceItem', label: '服务项目' }, { prop: 'personnelName', label: '服务人员' }, { prop: 'amount', label: '金额' }, { prop: 'status', label: '状态' }],
+    fields: [{ prop: 'productId', label: '商品服务', type: 'product', required: true }, { prop: 'personnelId', label: '服务人员', type: 'personnel', required: true }, { prop: 'amount', label: '金额', type: 'number', readonly: true }, { prop: 'status', label: '状态', type: 'select', options: ['待服务', '服务中', '已完成', '已取消'] }, { prop: 'serviceTime', label: '服务时间' }, { prop: 'completeTime', label: '结束时间' }]
   }
 }
 
@@ -298,6 +302,7 @@ function openSectionEdit(section, row) {
   Object.keys(sectionForm).forEach((key) => delete sectionForm[key])
   Object.assign(sectionForm, sectionMap[section].defaults(), row)
   if (section === 'orders' || section === 'workOrders') sectionForm.productId = String(row.productId || '')
+  if (section === 'workOrders') sectionForm.personnelId = String(row.personnelId || '')
   sectionForm.userRef = String(user.value.id)
   sectionDialogVisible.value = true
 }
@@ -316,6 +321,14 @@ async function loadProductOptions() {
     productOptions.value = (data.list || data || []).filter((item) => item.status !== '下架')
   } catch (error) {
     productOptions.value = []
+  }
+}
+async function loadPersonnelOptions() {
+  try {
+    const data = await getResource('personnel')
+    personnelOptions.value = (data.list || data || []).filter((item) => item.status === '启用' && item.auditStatus === '已通过')
+  } catch (error) {
+    personnelOptions.value = []
   }
 }
 async function saveProfile() {
@@ -386,7 +399,7 @@ async function removeSectionRow(section, row) {
 
 onMounted(async () => {
   try {
-    await Promise.all([loadUser(), loadProductOptions()])
+    await Promise.all([loadUser(), loadProductOptions(), loadPersonnelOptions()])
   } catch (error) {
     drawHealthChart()
   }
