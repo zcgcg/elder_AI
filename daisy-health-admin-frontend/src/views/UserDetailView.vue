@@ -21,7 +21,7 @@
         <el-tabs v-model="activeTab">
           <el-tab-pane label="个人信息" name="profile">
             <div class="tab-actions"><el-button type="primary" @click="openProfileEdit">编辑个人信息</el-button></div>
-            <el-descriptions :column="2" border>
+            <el-descriptions :column="detailColumns" border>
               <el-descriptions-item v-for="item in profileFields" :key="item.label" :label="item.label">{{ item.value || '-' }}</el-descriptions-item>
             </el-descriptions>
           </el-tab-pane>
@@ -147,6 +147,7 @@ import { ElButton, ElMessage, ElMessageBox, ElTable, ElTableColumn } from 'eleme
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { assetUrl, createResource, deleteResource, getResource, getUser, updateResource, updateUser, uploadFile } from '../api/http'
 import { createHealthChartOption } from '../utils/healthChart'
+import { useResponsiveColumns } from '../utils/viewport'
 
 const EditableTable = defineComponent({
   props: { section: String, rows: Array, columns: Array },
@@ -177,6 +178,7 @@ const EditableTable = defineComponent({
 })
 
 const route = useRoute()
+const detailColumns = useResponsiveColumns(2)
 const activeTab = ref('profile')
 const healthChart = ref()
 const profileDialogVisible = ref(false)

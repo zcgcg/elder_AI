@@ -55,7 +55,7 @@
     </section>
 
     <el-dialog v-model="detailVisible" title="工单详情" width="760px">
-      <el-descriptions :column="2" border>
+      <el-descriptions :column="detailColumns" border>
         <el-descriptions-item label="工单号">{{ selectedOrder.orderNo }}</el-descriptions-item>
         <el-descriptions-item label="状态">{{ statusLabel(selectedOrder.status) }}</el-descriptions-item>
         <el-descriptions-item label="服务项目">{{ selectedOrder.serviceItem }}</el-descriptions-item>
@@ -80,9 +80,11 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import { getServiceProfile, getServiceWorkOrder, getServiceWorkOrders, updateServiceWorkOrderStatus } from '../api/http'
+import { useResponsiveColumns } from '../utils/viewport'
 
 const router = useRouter()
 const auth = useAuthStore()
+const detailColumns = useResponsiveColumns(2)
 const error = ref('')
 const profile = ref({})
 const workOrders = ref([])
@@ -207,5 +209,49 @@ onMounted(loadData)
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 16px;
+}
+
+@media (max-width: 720px) {
+  .portal-page {
+    padding: 14px;
+  }
+
+  .portal-header {
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .portal-header h1 {
+    font-size: 24px;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .summary-card {
+    min-height: 104px;
+    padding: 16px;
+  }
+
+  .panel {
+    padding: 12px;
+  }
+
+  .toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .toolbar :deep(.el-segmented) {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .toolbar > .el-button {
+    width: 100%;
+    margin: 0;
+  }
 }
 </style>

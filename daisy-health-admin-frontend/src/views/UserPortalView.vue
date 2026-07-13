@@ -49,7 +49,7 @@
             <h2>完整个人信息</h2>
             <el-button type="primary" @click="openProfileEditor">编辑资料</el-button>
           </div>
-          <el-descriptions :column="3" border>
+          <el-descriptions :column="profileColumns" border>
             <el-descriptions-item label="昵称">{{ profile.nickname || '-' }}</el-descriptions-item>
             <el-descriptions-item label="真实姓名">{{ profile.realName || '-' }}</el-descriptions-item>
             <el-descriptions-item label="手机号">{{ profile.phone }}</el-descriptions-item>
@@ -71,7 +71,7 @@
             <el-descriptions-item label="饮食偏好">{{ profile.dietPreference || '-' }}</el-descriptions-item>
             <el-descriptions-item label="紧急联系人">{{ profile.emergencyContact || '-' }}</el-descriptions-item>
             <el-descriptions-item label="紧急电话">{{ profile.emergencyPhone }}</el-descriptions-item>
-            <el-descriptions-item label="个人简介" :span="3">{{ profile.bio || '-' }}</el-descriptions-item>
+            <el-descriptions-item label="个人简介" :span="profileColumns">{{ profile.bio || '-' }}</el-descriptions-item>
           </el-descriptions>
         </section>
       </el-tab-pane>
@@ -294,12 +294,12 @@
 
     <el-dialog v-model="activityDialogVisible" :title="selectedActivity.title || '活动详情'" width="760px">
       <img v-if="selectedActivity.coverUrl" class="activity-detail-cover" :src="assetUrl(selectedActivity.coverUrl)" :alt="selectedActivity.title" />
-      <el-descriptions :column="2" border class="activity-detail-info">
+      <el-descriptions :column="detailColumns" border class="activity-detail-info">
         <el-descriptions-item label="活动状态">{{ selectedActivity.status || '-' }}</el-descriptions-item>
         <el-descriptions-item label="参加状态">{{ selectedActivity.enrollmentStatus || (selectedActivity.joined ? '已报名' : '未报名') }}</el-descriptions-item>
         <el-descriptions-item label="开始时间">{{ selectedActivity.startTime || '-' }}</el-descriptions-item>
         <el-descriptions-item label="结束时间">{{ selectedActivity.endTime || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="活动地点" :span="2">{{ selectedActivity.location || '待通知' }}</el-descriptions-item>
+        <el-descriptions-item label="活动地点" :span="detailColumns">{{ selectedActivity.location || '待通知' }}</el-descriptions-item>
         <el-descriptions-item label="报名人数">{{ selectedActivity.enrolled || 0 }} / {{ selectedActivity.quota || 0 }}</el-descriptions-item>
         <el-descriptions-item label="我的报名时间">{{ selectedActivity.enrollTime || '-' }}</el-descriptions-item>
       </el-descriptions>
@@ -351,6 +351,7 @@ import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { createHealthChartOption } from '../utils/healthChart'
+import { useResponsiveColumns } from '../utils/viewport'
 import { splitUserActivities } from '../utils/activity'
 import { useAuthStore } from '../stores/auth'
 import {
@@ -390,6 +391,8 @@ const DataTable = {
 
 const router = useRouter()
 const auth = useAuthStore()
+const profileColumns = useResponsiveColumns(3)
+const detailColumns = useResponsiveColumns(2)
 const activeTab = ref('profile')
 const error = ref('')
 const profile = ref({})
@@ -1033,5 +1036,37 @@ onMounted(loadData)
   .content-grid { grid-template-columns: 1fr; }
   .portal-header h1 { font-size: 24px; }
   .portal-tabs { padding: 10px; }
+  .portal-header {
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .portal-identity {
+    gap: 8px;
+  }
+  .portal-identity > div:not(.portal-avatar-control) {
+    display: none;
+  }
+  .summary-card {
+    min-height: 108px;
+    padding: 16px;
+  }
+  .panel-heading,
+  .activity-section-heading,
+  .content-card-body footer,
+  .content-meta,
+  .catalog-card footer {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .activity-heading-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .portal-tabs :deep(.el-tabs__nav-wrap) {
+    padding: 0 28px;
+  }
+  .health-chart {
+    height: 280px;
+  }
 }
 </style>

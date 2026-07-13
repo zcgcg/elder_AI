@@ -1,6 +1,6 @@
 <template>
   <el-container class="app-shell">
-    <el-aside width="300px" class="nav-shell">
+    <el-aside width="300px" class="nav-shell desktop-nav">
       <nav class="main-rail">
         <div class="rail-brand">
           <span class="brand-heart">❤</span>
@@ -33,6 +33,7 @@
     </el-aside>
     <el-container>
       <el-header class="topbar">
+        <el-button class="mobile-menu-button" :icon="Menu" circle aria-label="打开功能菜单" @click="mobileNavOpen = true" />
         <el-input class="global-search" placeholder="搜索用户、订单、工单" clearable>
           <template #prefix><el-icon><Search /></el-icon></template>
         </el-input>
@@ -59,6 +60,45 @@
       </el-main>
     </el-container>
   </el-container>
+
+  <el-drawer v-model="mobileNavOpen" class="mobile-nav-drawer" direction="ltr" size="min(86vw, 340px)" :with-header="false">
+    <nav class="mobile-nav" aria-label="移动端功能导航">
+      <div class="mobile-nav-brand">
+        <span class="brand-heart">❤</span>
+        <div><strong>黛西健康</strong><small>管理中心</small></div>
+      </div>
+      <div class="mobile-nav-tools">
+        <el-input placeholder="搜索用户、订单、工单" clearable>
+          <template #prefix><el-icon><Search /></el-icon></template>
+        </el-input>
+        <div>
+          <el-button :icon="Bell">通知</el-button>
+          <el-button :icon="ChatDotRound">消息</el-button>
+        </div>
+      </div>
+      <section v-for="group in visibleMenuGroups" :key="group.key" class="mobile-nav-group">
+        <button
+          type="button"
+          :class="['mobile-nav-group-title', { active: activeGroup === group.key }]"
+          @click="selectGroup(group.key)"
+        >
+          <span><el-icon><component :is="group.icon" /></el-icon>{{ group.label }}</span>
+          <el-icon><ArrowDown /></el-icon>
+        </button>
+        <div v-show="activeGroup === group.key" class="mobile-nav-children">
+          <button
+            v-for="item in group.children"
+            :key="item.path"
+            type="button"
+            :class="{ active: $route.path === item.path }"
+            @click="goToMobileRoute(item.path)"
+          >
+            {{ item.label }}
+          </button>
+        </div>
+      </section>
+    </nav>
+  </el-drawer>
 
   <el-dialog v-model="profileVisible" title="个人资料" width="520px">
     <div class="admin-profile">
@@ -101,7 +141,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { Bell, ChatDotRound } from '@element-plus/icons-vue'
+import { Bell, ChatDotRound, Menu } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { assetUrl } from '../api/http'
@@ -110,6 +150,7 @@ const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const profileVisible = ref(false)
+const mobileNavOpen = ref(false)
 const profileSaving = ref(false)
 const avatarPickerRef = ref(null)
 const profileForm = reactive({ id: '', name: '', staffNo: '', phone: '', avatarUrl: '', role: '', remark: '' })
@@ -134,6 +175,11 @@ const currentGroup = computed(() => visibleMenuGroups.value.find((group) => grou
 
 function selectGroup(key) {
   activeGroup.value = key
+}
+
+function goToMobileRoute(path) {
+  router.push(path)
+  mobileNavOpen.value = false
 }
 
 function syncActiveGroup(path = route.path) {
@@ -197,5 +243,8 @@ onMounted(() => {
   syncProfile()
   auth.loadProfile().then(syncProfile).catch(() => {})
 })
-watch(() => route.path, syncActiveGroup)
+watch(() => route.path, (path) => {
+  syncActiveGroup(path)
+  mobileNavOpen.value = false
+})
 </script>
