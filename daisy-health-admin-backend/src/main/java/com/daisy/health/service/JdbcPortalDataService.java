@@ -5,6 +5,7 @@ import com.daisy.health.common.JwtAuthFilter;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -299,22 +300,24 @@ public class JdbcPortalDataService implements PortalDataService {
         return jdbcTemplate.queryForList(
                 "select a.id, a.title, a.cover_url as coverUrl, a.location, " +
                         "date_format(a.start_time, '%Y-%m-%d %H:%i') as startTime, date_format(a.end_time, '%Y-%m-%d %H:%i') as endTime, " +
-                        "a.quota, a.enrolled, a.content, case a.status when 'published' then '已发布' when 'ended' then '已结束' when 'draft' then '已下架' else a.status end as status, " +
+                        "a.quota, coalesce(ec.enrolled, 0) as enrolled, a.content, case a.status when 'published' then '已发布' when 'ended' then '已结束' when 'draft' then '已下架' else a.status end as status, " +
                         "coalesce(ae.status in ('enrolled', 'attended'), 0) as joined, " +
                         "case ae.status when 'enrolled' then '已报名' when 'attended' then '已参加' when 'cancelled' then '已取消' else ae.status end as enrollmentStatus, " +
                         "date_format(ae.enroll_time, '%Y-%m-%d %H:%i') as enrollTime, " +
-                        "(a.status = 'published' and a.enrolled < a.quota and (a.end_time is null or a.end_time >= now())) as canJoin " +
-                        "from activity a left join activity_enroll ae on ae.id = (select max(latest.id) from activity_enroll latest where latest.activity_id = a.id and latest.user_id = ?) " +
+                        "(a.status = 'published' and coalesce(ec.enrolled, 0) < a.quota and (a.end_time is null or a.end_time >= now())) as canJoin " +
+                        "from activity a left join " + ActivityEnrollmentSql.LATEST_ACTIVE_COUNTS + " on ec.activity_id = a.id " +
+                        "left join activity_enroll ae on ae.id = (select max(latest.id) from activity_enroll latest where latest.activity_id = a.id and latest.user_id = ?) " +
                         "where a.status in ('published', 'ended') or ae.status in ('enrolled', 'attended') order by a.start_time desc, a.id desc",
                 userId
         );
     }
 
     @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> enrollElderlyActivity(Long activityId) {
         long userId = currentLegacyUserId();
         Map<String, Object> activity = one(
-                "select id, title from activity where id = ? and status = 'published' " +
+                "select id, title, quota from activity where id = ? and status = 'published' " +
                         "and (end_time is null or end_time >= now()) for update",
                 activityId
         );
@@ -332,11 +335,8 @@ public class JdbcPortalDataService implements PortalDataService {
             }
         }
 
-        int reserved = jdbcTemplate.update(
-                "update activity set enrolled = enrolled + 1 where id = ? and status = 'published' and enrolled < quota",
-                activityId
-        );
-        if (reserved != 1) throw new IllegalArgumentException("活动名额已满");
+        long quota = activity.get("quota") instanceof Number ? ((Number) activity.get("quota")).longValue() : Long.MAX_VALUE;
+        ActivityEnrollmentSql.ensureCapacity(jdbcTemplate, activityId, quota);
         if (enrollments.isEmpty()) {
             jdbcTemplate.update(
                     "insert into activity_enroll(activity_id, user_id, enroll_time, status, remark) values(?, ?, now(), 'enrolled', '')",
@@ -350,6 +350,7 @@ public class JdbcPortalDataService implements PortalDataService {
                     userId
             );
         }
+        ActivityEnrollmentSql.syncCount(jdbcTemplate, activityId);
         return enrollmentResult(activityId, activity.get("title"));
     }
 

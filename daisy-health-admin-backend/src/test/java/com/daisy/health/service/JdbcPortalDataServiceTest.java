@@ -6,6 +6,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -56,7 +58,7 @@ class JdbcPortalDataServiceTest {
         Map<String, Object> result = service.enrollElderlyActivity(21L);
 
         assertEquals(true, result.get("joined"));
-        verify(jdbcTemplate).update(startsWith("update activity set"), eq(21L));
+        verify(jdbcTemplate).update(startsWith("update activity set"), eq(21L), eq(21L));
         verify(jdbcTemplate).update(startsWith("insert into activity_enroll"), eq(21L), eq(7L));
     }
 
@@ -70,7 +72,34 @@ class JdbcPortalDataServiceTest {
         Map<String, Object> result = service.enrollElderlyActivity(21L);
 
         assertEquals("已报名", result.get("status"));
-        verify(jdbcTemplate, never()).update(startsWith("update activity set"), eq(21L));
+        verify(jdbcTemplate, never()).update(startsWith("update activity set"), eq(21L), eq(21L));
+    }
+
+    @Test
+    void enrollmentCapacityUsesActualActiveEnrollmentRows() {
+        when(jdbcTemplate.queryForList(contains("from activity where id"), eq(21L)))
+                .thenReturn(Collections.singletonList(record("id", 21L, "title", "社区健康义诊", "quota", 1L)));
+        when(jdbcTemplate.queryForList(contains("from activity_enroll where"), eq(21L), eq(7L)))
+                .thenReturn(Collections.<Map<String, Object>>emptyList());
+        when(jdbcTemplate.queryForList(startsWith("select count(*) as enrolled"), eq(21L)))
+                .thenReturn(Collections.singletonList(record("enrolled", 1L)));
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.enrollElderlyActivity(21L)
+        );
+
+        assertEquals("活动名额已满", error.getMessage());
+        verify(jdbcTemplate, never()).update(startsWith("insert into activity_enroll"), eq(21L), eq(7L));
+    }
+
+    @Test
+    void enrollmentUsesReadCommittedAfterWaitingForTheActivityLock() throws Exception {
+        Transactional transaction = JdbcPortalDataService.class
+                .getMethod("enrollElderlyActivity", Long.class)
+                .getAnnotation(Transactional.class);
+
+        assertEquals(Isolation.READ_COMMITTED, transaction.isolation());
     }
 
     @Test
@@ -82,6 +111,18 @@ class JdbcPortalDataServiceTest {
                 .anyMatch(sql -> sql.contains("left join activity_enroll ae")
                         && sql.contains("max(latest.id)")
                         && sql.contains("or ae.status in ('enrolled', 'attended')")));
+    }
+
+    @Test
+    void activityListCountsActiveEnrollmentRowsInsteadOfTrustingCachedCounter() {
+        service.elderlyActivities();
+
+        assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
+                .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
+                .anyMatch(sql -> sql.contains("count(*) as enrolled")
+                        && sql.contains("max(id) as latestId")
+                        && sql.contains("status in ('enrolled', 'attended')")
+                        && sql.contains("coalesce(ec.enrolled, 0) as enrolled")));
     }
 
     @Test

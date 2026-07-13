@@ -13,6 +13,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -457,6 +458,7 @@ public class JdbcAdminDataService implements AdminDataService {
     }
 
     @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> createResource(String name, Map<String, Object> payload) {
         Number id;
         if ("personnel".equals(name)) {
@@ -544,7 +546,11 @@ public class JdbcAdminDataService implements AdminDataService {
                     "status", statusCode(text(payload, "status", "启用"))
             ));
         } else if (phaseTableName(name) != null) {
-            id = insert(phaseTableName(name), phaseCreateValues(name, payload));
+            Map<String, Object> createValues = phaseCreateValues(name, payload);
+            if ("activityEnrolls".equals(name) && activeEnrollmentStatus(createValues.get("status"))) {
+                ActivityEnrollmentSql.lockAndEnsureCapacity(jdbcTemplate, ((Number) createValues.get("activity_id")).longValue());
+            }
+            id = insert(phaseTableName(name), createValues);
         } else {
             id = insert("operation_content", record(
                     "type", name == null ? "posts" : name,
@@ -560,15 +566,22 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("staffs".equals(name)) {
             syncAdminAccount(id.longValue());
         }
+        if ("activityEnrolls".equals(name)) {
+            ActivityEnrollmentSql.syncCount(jdbcTemplate, enrollmentActivityId(id.longValue()));
+        }
         accepted("createResource:" + name + ":" + id);
         return record("accepted", true, "id", id.longValue(), "resource", name);
     }
 
     @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> updateResource(String name, Long id, Map<String, Object> payload) {
         if (payload == null) {
             payload = new LinkedHashMap<String, Object>();
         }
+        Map<String, Object> previousEnrollment = "activityEnrolls".equals(name)
+                ? enrollmentState(id) : Collections.<String, Object>emptyMap();
+        Long previousActivityId = parseLong(previousEnrollment.get("activityId"));
         Map<String, Object> values = new LinkedHashMap<String, Object>();
         if ("personnel".equals(name) || "audits".equals(name)) {
             putIfPresent(values, "name", payload, "name");
@@ -644,7 +657,24 @@ public class JdbcAdminDataService implements AdminDataService {
             if (payload.containsKey("status")) values.put("status", statusCode(text(payload, "status", "启用")));
             updateById("agreement", id, values);
         } else if (phaseTableName(name) != null) {
-            updateById(phaseTableName(name), id, phaseUpdateValues(name, payload));
+            Map<String, Object> phaseValues = phaseUpdateValues(name, payload);
+            if ("activityEnrolls".equals(name) && !previousEnrollment.isEmpty()) {
+                Long targetActivityId = phaseValues.containsKey("activity_id")
+                        ? parseLong(phaseValues.get("activity_id")) : previousActivityId;
+                Long previousUserId = parseLong(previousEnrollment.get("userId"));
+                Long targetUserId = phaseValues.containsKey("user_id")
+                        ? parseLong(phaseValues.get("user_id")) : previousUserId;
+                Object targetStatus = phaseValues.containsKey("status")
+                        ? phaseValues.get("status") : previousEnrollment.get("status");
+                boolean activatesEnrollment = activeEnrollmentStatus(targetStatus)
+                        && (!activeEnrollmentStatus(previousEnrollment.get("status"))
+                        || (targetActivityId != null && !targetActivityId.equals(previousActivityId))
+                        || (targetUserId != null && !targetUserId.equals(previousUserId)));
+                if (activatesEnrollment) {
+                    ActivityEnrollmentSql.lockAndEnsureCapacity(jdbcTemplate, targetActivityId);
+                }
+            }
+            updateById(phaseTableName(name), id, phaseValues);
         } else {
             putIfPresent(values, "title", payload, "title");
             putIfPresent(values, "publisher", payload, "publisher");
@@ -664,18 +694,29 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("roles".equals(name) && payload.containsKey("permissions")) {
             jdbcTemplate.update("update role set permissions = ? where id = ?", text(payload, "permissions", "{}"), id);
         }
+        if ("activityEnrolls".equals(name)) {
+            Long currentActivityId = enrollmentActivityId(id);
+            ActivityEnrollmentSql.syncCount(jdbcTemplate, previousActivityId);
+            if (currentActivityId != null && !currentActivityId.equals(previousActivityId)) {
+                ActivityEnrollmentSql.syncCount(jdbcTemplate, currentActivityId);
+            }
+        }
         accepted("updateResource:" + name + ":" + id);
         return record("accepted", true, "id", id, "resource", name);
     }
 
     @Override
     public Map<String, Object> deleteResource(String name, Long id) {
+        Long activityId = "activityEnrolls".equals(name) ? enrollmentActivityId(id) : null;
         if ("staffs".equals(name)) {
             jdbcTemplate.update("delete from admin_profile where account_id = ?", id);
             jdbcTemplate.update("delete from account where id = ? and role_type = 'staff'", id);
         }
         String table = tableName(name);
         jdbcTemplate.update("delete from `" + table + "` where id = ?", id);
+        if (activityId != null) {
+            ActivityEnrollmentSql.syncCount(jdbcTemplate, activityId);
+        }
         accepted("deleteResource:" + name + ":" + id);
         return record("accepted", true, "id", id, "resource", name);
     }
@@ -734,6 +775,22 @@ public class JdbcAdminDataService implements AdminDataService {
             return statement;
         }, keyHolder);
         return keyHolder.getKey();
+    }
+
+    private Long enrollmentActivityId(Long enrollmentId) {
+        return parseLong(enrollmentState(enrollmentId).get("activityId"));
+    }
+
+    private Map<String, Object> enrollmentState(Long enrollmentId) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select activity_id as activityId, user_id as userId, status from activity_enroll where id = ?",
+                enrollmentId
+        );
+        return rows.isEmpty() ? Collections.<String, Object>emptyMap() : rows.get(0);
+    }
+
+    private boolean activeEnrollmentStatus(Object status) {
+        return "enrolled".equals(status) || "attended".equals(status);
     }
 
     private void attachTags(long userId, String tagsText) {
@@ -835,7 +892,12 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("productCategories".equals(name)) return jdbcTemplate.queryForList("select id, name, code, description, sort_order as sortOrder, if(status = 1, '启用', '禁用') as status from product_category order by sort_order, id");
         if ("serviceItems".equals(name)) return jdbcTemplate.queryForList("select s.id, s.product_id as productId, p.name as productName, s.name, s.description, s.duration, s.price, if(s.status = 1, '启用', '禁用') as status from service_item s left join product p on s.product_id = p.id order by s.id");
         if ("banners".equals(name)) return jdbcTemplate.queryForList("select id, title, image_url as imageUrl, location, sort_order as sortOrder, if(status = 1, '启用', '禁用') as status from banner order by sort_order, id");
-        if ("activities".equals(name)) return jdbcTemplate.queryForList("select id, title, cover_url as coverUrl, location, date_format(start_time, '%Y-%m-%d %H:%i:%s') as startTime, date_format(end_time, '%Y-%m-%d %H:%i:%s') as endTime, quota, enrolled, content, case status when 'published' then '已发布' when 'draft' then '草稿' when 'ended' then '已结束' else status end as status from activity order by id");
+        if ("activities".equals(name)) return jdbcTemplate.queryForList(
+                "select a.id, a.title, a.cover_url as coverUrl, a.location, date_format(a.start_time, '%Y-%m-%d %H:%i:%s') as startTime, " +
+                        "date_format(a.end_time, '%Y-%m-%d %H:%i:%s') as endTime, a.quota, coalesce(ec.enrolled, 0) as enrolled, a.content, " +
+                        "case a.status when 'published' then '已发布' when 'draft' then '草稿' when 'ended' then '已结束' else a.status end as status " +
+                        "from activity a left join " + ActivityEnrollmentSql.LATEST_ACTIVE_COUNTS + " on ec.activity_id = a.id order by a.id"
+        );
         if ("activityEnrolls".equals(name)) return jdbcTemplate.queryForList("select e.id, e.activity_id as activityId, a.title as activityTitle, u.real_name as userName, case e.status when 'enrolled' then '已报名' when 'cancelled' then '已取消' when 'attended' then '已到场' else e.status end as status, e.remark from activity_enroll e left join activity a on e.activity_id = a.id left join `user` u on e.user_id = u.id order by e.id");
         if ("topics".equals(name)) return jdbcTemplate.queryForList("select id, name, description, post_count as postCount, if(status = 1, '启用', '禁用') as status from topic order by id");
         if ("recipes".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, ingredients, steps, calories, suitable_for as suitableFor, if(status = 1, '启用', '禁用') as status from recipe order by id");

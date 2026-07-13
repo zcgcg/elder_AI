@@ -26,7 +26,7 @@ insert ignore into user_tag(id, name, type, user_count, status, updater, created
 (9, '高血糖', 'manual', 0, 1, '系统管理员', now()),
 (10, '高血脂', 'manual', 0, 1, '系统管理员', now());
 
-update staff set avatar_url = 'https://api.dicebear.com/7.x/initials/svg?seed=DAISY', remark = coalesce(remark, '初始化管理员') where id = 1;
+update staff set avatar_url = coalesce(avatar_url, 'https://api.dicebear.com/7.x/initials/svg?seed=DAISY'), remark = coalesce(remark, '初始化管理员') where id = 1;
 
 update user_tag set color = case name
   when '高血压' then 'green'
