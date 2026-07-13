@@ -77,7 +77,7 @@ class JdbcAdminDataServiceTest {
                 new ObjectMapper()
         );
 
-        service.resource("activities");
+        service.resource("activities", new ResourceQuery());
 
         assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
                 .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))

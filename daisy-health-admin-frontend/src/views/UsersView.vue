@@ -4,12 +4,13 @@
       <div><h1>全部用户</h1><p>后台分配用户档案、健康数据与资产信息管理</p></div>
       <el-segmented v-model="viewMode" :options="['卡片', '列表']" />
     </div>
+    <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" />
     <div class="filters">
       <el-select v-model="filters.tag" placeholder="用户标签" clearable>
         <el-option v-for="tag in tags" :key="tag.id" :label="tag.name" :value="tag.name" />
       </el-select>
-      <el-date-picker v-model="filters.dateRange" type="daterange" start-placeholder="创建开始" end-placeholder="创建结束" />
-      <el-input v-model="filters.keyword" placeholder="搜索姓名/手机号" clearable />
+      <el-date-picker v-model="filters.dateRange" type="daterange" value-format="YYYY-MM-DD" start-placeholder="创建开始" end-placeholder="创建结束" />
+      <el-input v-model="filters.keyword" placeholder="搜索姓名/手机号" clearable @keyup.enter="load" />
       <el-button type="primary" @click="load">搜索</el-button>
       <el-button @click="reset">重置</el-button>
     </div>
@@ -19,7 +20,7 @@
     </div>
 
     <div v-if="viewMode === '卡片'" class="user-card-grid">
-      <article v-for="user in filteredRows" :key="user.id" class="user-profile-card">
+      <article v-for="user in rows" :key="user.id" class="user-profile-card">
         <el-button class="user-delete-btn" :icon="Delete" text @click="removeUser(user)" />
         <div class="user-card-head">
           <el-avatar :size="54" :src="assetUrl(user.avatarUrl)">{{ user.realName?.slice(0, 1) }}</el-avatar>
@@ -51,7 +52,7 @@
       </article>
     </div>
 
-    <el-table v-else :data="filteredRows" stripe>
+    <el-table v-else :data="rows" stripe>
       <el-table-column prop="nickname" label="用户名" min-width="130" />
       <el-table-column prop="realName" label="真实姓名" />
       <el-table-column prop="phone" label="手机号" min-width="130" />
@@ -143,15 +144,17 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
 import { Delete, Plus, PriceTag } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { assetUrl, createTag, createUser, deleteTag, deleteUser, getTags, getUsers, updateTag, updateUser, updateUserTags } from '../api/http'
+import { toQueryParams } from '../utils/query'
 
 const viewMode = ref('卡片')
 const filters = reactive({ tag: '', dateRange: [], keyword: '' })
 const rows = ref([])
+const error = ref('')
 const tags = ref([])
 const dialogVisible = ref(false)
 const tagDialogVisible = ref(false)
@@ -175,39 +178,23 @@ const newUser = reactive({
   tagNames: []
 })
 const tagForm = reactive({ name: '', color: 'green' })
-const fallbackUsers = [
-  { id: 10001, nickname: '笑看人生', realName: '王强', phone: '19233664486', tags: ['高血压', '糖尿病', '多次购买'], tagIds: [1, 5], createdAt: '2024-10-09 10:09:09' },
-  { id: 10002, nickname: '兰姨', realName: '王秀兰', phone: '13800010001', tags: ['高血压', '重点关怀'], tagIds: [1, 2], createdAt: '2026-06-18 09:00:00' }
-]
-
-const filteredRows = computed(() => {
-  if (!filters.tag) return rows.value
-  return rows.value.filter((row) => Array.isArray(row.tags) && row.tags.includes(filters.tag))
-})
-
 async function loadTags() {
   try {
     const data = await getTags()
     tags.value = data.list || data
-  } catch (error) {
-    tags.value = [
-      { id: 1, name: '潜在客户', color: 'gray' },
-      { id: 2, name: '重点客户', color: 'green' },
-      { id: 3, name: '普通客户', color: 'blue' },
-      { id: 4, name: '多次消费客户', color: 'purple' },
-      { id: 5, name: '高血压', color: 'green' },
-      { id: 6, name: '高血糖', color: 'orange' },
-      { id: 7, name: '高血脂', color: 'purple' },
-      { id: 8, name: '慢性病', color: 'red' }
-    ]
+  } catch (exception) {
+    tags.value = []
+    error.value = exception.message || '用户标签加载失败'
   }
 }
 async function load() {
+  error.value = ''
   try {
-    const data = await getUsers(filters)
+    const data = await getUsers(toQueryParams(filters))
     rows.value = normalizeRows(data.list || data)
-  } catch (error) {
-    rows.value = normalizeRows(fallbackUsers)
+  } catch (exception) {
+    rows.value = []
+    error.value = exception.message || '用户数据加载失败，请检查后端和数据库连接'
   }
 }
 function normalizeRows(list) {
@@ -345,7 +332,7 @@ async function removeTag(row) {
   }
 }
 onMounted(async () => {
-  await loadTags()
   await load()
+  await loadTags()
 })
 </script>

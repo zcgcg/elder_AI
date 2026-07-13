@@ -82,7 +82,7 @@ export const getResource = (resource, params) => service.get(resourcePath(resour
 export const createResource = (resource, payload) => service.post(resourcePath(resource), payload)
 export const updateResource = (resource, id, payload) => service.put(`${resourcePath(resource)}/${id}`, payload)
 export const deleteResource = (resource, id) => service.delete(`${resourcePath(resource)}/${id}`)
-export const getAnalytics = () => service.get('/analytics/overview')
+export const getAnalytics = (params) => service.get('/analytics/overview', { params })
 export const getElderlyProfile = () => service.get('/elderly/profile')
 export const updateElderlyProfile = (payload) => service.put('/elderly/profile', payload)
 export const updateElderlyAvatar = (payload) => service.put('/elderly/profile/avatar', payload)

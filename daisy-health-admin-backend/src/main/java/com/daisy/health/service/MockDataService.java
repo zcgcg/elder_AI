@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDate;
 
 @Service
 @Profile("mock")
@@ -80,30 +81,26 @@ public class MockDataService implements AdminDataService {
         );
     }
 
-    public List<Map<String, Object>> appointments() {
-        return list(
-                record("id", 1, "hour", 9, "serviceName", "助浴护理", "timeRange", "09:00-10:30", "userName", "王秀兰", "status", "待服务"),
-                record("id", 2, "hour", 10, "serviceName", "肩颈康复", "timeRange", "10:00-11:00", "userName", "陈建国", "status", "服务中"),
-                record("id", 3, "hour", 14, "serviceName", "上门基础体检", "timeRange", "14:00-15:30", "userName", "赵桂英", "status", "已完成"),
-                record("id", 4, "hour", 16, "serviceName", "日常清洁", "timeRange", "16:00-18:00", "userName", "刘爱华", "status", "已取消")
+    public List<Map<String, Object>> appointments(ResourceQuery query) {
+        LocalDate start = query.startDateOr(LocalDate.now());
+        LocalDate end = query.endDateOr(start.plusDays(6));
+        if (end.isBefore(start) || end.isAfter(start.plusDays(6))) {
+            throw new IllegalArgumentException("预约看板最多查询连续 7 天");
+        }
+        List<Map<String, Object>> rows = list(
+                record("id", 1, "serviceDate", start.toString(), "productId", 4, "hour", 9, "serviceName", "助浴护理", "timeRange", "09:00-10:30", "userName", "王秀兰", "status", "待服务"),
+                record("id", 2, "serviceDate", start.plusDays(1).toString(), "productId", 2, "hour", 10, "serviceName", "肩颈康复", "timeRange", "10:00-11:00", "userName", "陈建国", "status", "服务中")
         );
+        return query.filter(rows);
     }
 
-    public PageResult<Map<String, Object>> users(String keyword) {
+    public PageResult<Map<String, Object>> users(ResourceQuery query) {
         List<Map<String, Object>> rows = list(
                 userSummary(10001, "兰姨", "王秀兰", "138****0001", "2026-06-18", "高血压", "重点关怀"),
                 userSummary(10002, "建国叔", "陈建国", "138****0002", "2026-06-21", "康复护理"),
                 userSummary(10003, "桂英", "赵桂英", "138****0003", "2026-06-28", "独居老人")
         );
-        if (keyword == null || keyword.trim().length() == 0) {
-            return new PageResult<Map<String, Object>>(rows.size(), rows);
-        }
-        List<Map<String, Object>> filtered = new ArrayList<Map<String, Object>>();
-        for (Map<String, Object> row : rows) {
-            if (stringValue(row.get("nickname")).contains(keyword) || stringValue(row.get("realName")).contains(keyword)) {
-                filtered.add(row);
-            }
-        }
+        List<Map<String, Object>> filtered = query.filter(rows);
         return new PageResult<Map<String, Object>>(filtered.size(), filtered);
     }
 
@@ -167,23 +164,25 @@ public class MockDataService implements AdminDataService {
         return record("accepted", true, "id", userId, "resource", "userTags");
     }
 
-    public PageResult<Map<String, Object>> resource(String name) {
+    public PageResult<Map<String, Object>> resource(String name, ResourceQuery query) {
         List<Map<String, Object>> rows = resources().get(name);
         if (rows == null) {
             rows = resources().get("posts");
         }
-        return new PageResult<Map<String, Object>>(rows.size(), rows);
+        List<Map<String, Object>> filtered = query.filter(rows);
+        return new PageResult<Map<String, Object>>(filtered.size(), filtered);
     }
 
     @Override
-    public PageResult<Map<String, Object>> workOrders(Long personnelId, Long customerId) {
+    public PageResult<Map<String, Object>> workOrders(Long personnelId, Long customerId, ResourceQuery query) {
         List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
         for (Map<String, Object> row : resources().get("workOrders")) {
             if (personnelId != null && !String.valueOf(personnelId).equals(String.valueOf(row.get("personnelId")))) continue;
             if (customerId != null && !String.valueOf(customerId).equals(String.valueOf(row.get("customerId")))) continue;
             rows.add(row);
         }
-        return new PageResult<Map<String, Object>>(rows.size(), rows);
+        List<Map<String, Object>> filtered = query.filter(rows);
+        return new PageResult<Map<String, Object>>(filtered.size(), filtered);
     }
 
     public Map<String, Object> createResource(String name, Map<String, Object> payload) {
@@ -198,13 +197,18 @@ public class MockDataService implements AdminDataService {
         return record("accepted", true, "id", id, "resource", name, "action", "delete");
     }
 
-    public Map<String, Object> analyticsOverview() {
-        return record("metrics", list(
-                record("label", "活跃用户", "value", 3280, "delta", "+9.8%"),
-                record("label", "成交金额", "value", "¥86.4万", "delta", "+14.1%"),
-                record("label", "完成工单", "value", 912, "delta", "+7.3%"),
-                record("label", "好评率", "value", "96.8%", "delta", "+2.4%")
-        ));
+    public Map<String, Object> analyticsOverview(ResourceQuery query) {
+        return record(
+                "metrics", list(
+                        record("label", "新增用户", "value", 12, "delta", "所选时段"),
+                        record("label", "成交金额", "value", "¥8640", "delta", "所选时段"),
+                        record("label", "完成工单", "value", 9, "delta", "所选时段"),
+                        record("label", "好评率", "value", "96.8%", "delta", "所选时段")
+                ),
+                "ageDistribution", list(record("name", "60-69岁", "value", 4), record("name", "70-79岁", "value", 5), record("name", "80岁以上", "value", 3)),
+                "tradeDistribution", list(record("name", "家政护理", "value", 6), record("name", "康复理疗", "value", 4)),
+                "serviceTrend", list(record("day", "07-12", "orders", 3, "amount", 1260), record("day", "07-13", "orders", 5, "amount", 2100))
+        );
     }
 
     public Map<String, Object> accepted(String action) {

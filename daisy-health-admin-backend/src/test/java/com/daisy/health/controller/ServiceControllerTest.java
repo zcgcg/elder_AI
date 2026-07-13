@@ -2,6 +2,7 @@ package com.daisy.health.controller;
 
 import com.daisy.health.common.PageResult;
 import com.daisy.health.service.AdminDataService;
+import com.daisy.health.service.ResourceQuery;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -11,6 +12,8 @@ import java.util.Map;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -20,7 +23,7 @@ class ServiceControllerTest {
     @Test
     void adminCanFilterWorkOrdersByServicePersonnelAndCustomer() throws Exception {
         AdminDataService dataService = mock(AdminDataService.class);
-        when(dataService.workOrders(2L, 10001L)).thenReturn(new PageResult<Map<String, Object>>(
+        when(dataService.workOrders(eq(2L), eq(10001L), any(ResourceQuery.class))).thenReturn(new PageResult<Map<String, Object>>(
                 1,
                 Collections.singletonList(record("id", 9L, "personnelName", "李华", "customer", "王秀兰"))
         ));

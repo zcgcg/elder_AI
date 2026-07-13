@@ -1,6 +1,9 @@
 <template>
   <section class="dashboard-page">
     <div class="dashboard-greeting">👏 早上好！Daisy</div>
+    <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
+      <template #default><el-button link type="primary" @click="load">重新加载</el-button></template>
+    </el-alert>
 
     <div class="metric-grid dashboard-metrics">
       <article v-for="(item, index) in dashboard.metrics" :key="item.label" class="metric-card rich-metric">
@@ -55,15 +58,15 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { Setting } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { getDashboard } from '../api/http'
-import { fallbackDashboard } from '../api/fallback'
 
-const dashboard = ref(fallbackDashboard)
+const dashboard = ref({ metrics: [], tagDistribution: [], serviceShare: [], trend: [] })
+const error = ref('')
 const shareChart = ref()
 const trendChart = ref()
 const quickLinks = [
   { label: '全部用户', path: '/users', icon: 'User', tone: 'mint' },
   { label: '报告管理', path: '/user-health/reports', icon: 'DocumentCopy', tone: 'cream' },
-  { label: '会话', path: '/service/work-orders', icon: 'Message', tone: 'rose' },
+  { label: '预约看板', path: '/schedule', icon: 'Calendar', tone: 'rose' },
   { label: '全部订单', path: '/trade/orders', icon: 'Coin', tone: 'violet' },
   { label: '工单管理', path: '/service/work-orders', icon: 'Document', tone: 'blue' },
   { label: '审核管理', path: '/service/audits', icon: 'Refresh', tone: 'green' },
@@ -115,13 +118,19 @@ function draw() {
   })
 }
 
-onMounted(async () => {
+async function load() {
+  error.value = ''
   try {
     dashboard.value = await getDashboard()
-  } catch (error) {
-    dashboard.value = fallbackDashboard
+  } catch (exception) {
+    dashboard.value = { metrics: [], tagDistribution: [], serviceShare: [], trend: [] }
+    error.value = exception.message || '工作台数据加载失败，请检查后端和数据库连接'
   }
   await nextTick()
-  draw()
+  if (shareChart.value && trendChart.value) draw()
+}
+
+onMounted(async () => {
+  await load()
 })
 </script>

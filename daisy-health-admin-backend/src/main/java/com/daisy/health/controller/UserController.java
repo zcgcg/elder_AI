@@ -3,6 +3,7 @@ package com.daisy.health.controller;
 import com.daisy.health.common.ApiResponse;
 import com.daisy.health.common.PageResult;
 import com.daisy.health.service.AdminDataService;
+import com.daisy.health.service.ResourceQuery;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -10,7 +11,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -25,8 +25,8 @@ public class UserController {
     }
 
     @GetMapping("/users")
-    public ApiResponse<PageResult<Map<String, Object>>> users(@RequestParam(required = false) String keyword) {
-        return ApiResponse.success(dataService.users(keyword));
+    public ApiResponse<PageResult<Map<String, Object>>> users(ResourceQuery query) {
+        return ApiResponse.success(dataService.users(query));
     }
 
     @PostMapping("/users")
@@ -91,7 +91,7 @@ public class UserController {
 
     @GetMapping("/messages")
     public ApiResponse<PageResult<Map<String, Object>>> userResources() {
-        return ApiResponse.success(dataService.resource("posts"));
+        return ApiResponse.success(dataService.resource("posts", new ResourceQuery()));
     }
 
     @PostMapping("/messages")

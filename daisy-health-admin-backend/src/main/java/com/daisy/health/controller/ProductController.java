@@ -3,6 +3,7 @@ package com.daisy.health.controller;
 import com.daisy.health.common.ApiResponse;
 import com.daisy.health.common.PageResult;
 import com.daisy.health.service.AdminDataService;
+import com.daisy.health.service.ResourceQuery;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,8 +25,8 @@ public class ProductController {
     }
 
     @GetMapping("/products")
-    public ApiResponse<PageResult<Map<String, Object>>> products() {
-        return ApiResponse.success(dataService.resource("products"));
+    public ApiResponse<PageResult<Map<String, Object>>> products(ResourceQuery query) {
+        return ApiResponse.success(dataService.resource("products", query));
     }
 
     @PostMapping("/products")

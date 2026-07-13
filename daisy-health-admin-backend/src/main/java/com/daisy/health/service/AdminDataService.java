@@ -14,9 +14,9 @@ public interface AdminDataService {
 
     Map<String, Object> dashboard();
 
-    List<Map<String, Object>> appointments();
+    List<Map<String, Object>> appointments(ResourceQuery query);
 
-    PageResult<Map<String, Object>> users(String keyword);
+    PageResult<Map<String, Object>> users(ResourceQuery query);
 
     Map<String, Object> createUser(Map<String, Object> payload);
 
@@ -36,9 +36,9 @@ public interface AdminDataService {
 
     Map<String, Object> updateUserTags(Long userId, Map<String, Object> payload);
 
-    PageResult<Map<String, Object>> resource(String name);
+    PageResult<Map<String, Object>> resource(String name, ResourceQuery query);
 
-    PageResult<Map<String, Object>> workOrders(Long personnelId, Long customerId);
+    PageResult<Map<String, Object>> workOrders(Long personnelId, Long customerId, ResourceQuery query);
 
     Map<String, Object> createResource(String name, Map<String, Object> payload);
 
@@ -46,7 +46,7 @@ public interface AdminDataService {
 
     Map<String, Object> deleteResource(String name, Long id);
 
-    Map<String, Object> analyticsOverview();
+    Map<String, Object> analyticsOverview(ResourceQuery query);
 
     Map<String, Object> accepted(String action);
 }

@@ -1,15 +1,18 @@
 <template>
   <section>
     <div class="page-heading">
-      <div><h1>预约看板</h1><p>9:00-18:00 当日服务安排</p></div>
+      <div><h1>预约看板</h1><p>{{ filters.date }} · 9:00-18:00 服务安排（保留 {{ dateWindowLabel }}）</p></div>
       <div class="filters compact">
-        <el-date-picker v-model="filters.date" type="date" placeholder="选择日期" />
+        <el-date-picker v-model="filters.date" type="date" value-format="YYYY-MM-DD" :clearable="false" :disabled-date="disabledDate" placeholder="选择日期" />
         <el-select v-model="filters.productId" placeholder="商品服务" clearable filterable>
           <el-option v-for="item in catalogOptions" :key="item.id" :label="item.name" :value="String(item.id)" />
         </el-select>
         <el-button type="primary" :icon="Plus" @click="openCreate">新建预约</el-button>
       </div>
     </div>
+    <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
+      <template #default><el-button link type="primary" @click="load">重新加载</el-button></template>
+    </el-alert>
     <section class="timeline-panel">
       <div class="timeline-wrapper">
         <div class="time-labels">
@@ -71,7 +74,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="服务人员ID"><el-input-number v-model="form.personnelId" :min="1" controls-position="right" /></el-form-item>
-        <el-form-item label="预约日期"><el-date-picker v-model="form.date" type="date" value-format="YYYY-MM-DD" /></el-form-item>
+        <el-form-item label="预约日期"><el-date-picker v-model="form.date" type="date" value-format="YYYY-MM-DD" :clearable="false" :disabled-date="disabledDate" /></el-form-item>
         <el-form-item label="开始时间"><el-time-picker v-model="form.startTime" value-format="HH:mm:ss" placeholder="开始时间" /></el-form-item>
         <el-form-item label="结束时间"><el-time-picker v-model="form.endTime" value-format="HH:mm:ss" placeholder="结束时间" /></el-form-item>
         <el-form-item label="金额"><el-input-number v-model="form.amount" :min="0" controls-position="right" disabled /></el-form-item>
@@ -89,22 +92,23 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { Plus, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createAppointment, deleteAppointment, getAppointments, getResource, getUsers, updateAppointment } from '../api/http'
+import { isOutsideWindow, sevenDayWindow } from '../utils/query'
 
-const filters = reactive({ date: new Date(), productId: '' })
+const dateWindow = sevenDayWindow()
+const filters = reactive({ date: dateWindow.startDate, productId: '' })
 const hours = Array.from({ length: 10 }, (_, index) => index + 9)
 const dialogVisible = ref(false)
 const saving = ref(false)
-const today = new Date().toISOString().slice(0, 10)
-const form = reactive({ productId: '', userRef: '', personnelId: 1, date: today, startTime: '09:00:00', endTime: '10:00:00', amount: 0 })
+const form = reactive({ productId: '', userRef: '', personnelId: 1, date: dateWindow.startDate, startTime: '09:00:00', endTime: '10:00:00', amount: 0 })
 const userOptions = ref([])
 const catalogOptions = ref([])
-const appointments = ref([
-  { id: 1, hour: 9, serviceName: '助浴护理', timeRange: '09:00-10:30', userName: '王秀兰', status: '待服务' },
-  { id: 2, hour: 10, serviceName: '肩颈康复', timeRange: '10:00-11:00', userName: '陈建国', status: '服务中' },
-  { id: 3, hour: 14, serviceName: '上门基础体检', timeRange: '14:00-15:30', userName: '赵桂英', status: '已完成' },
-  { id: 4, hour: 16, serviceName: '日常清洁', timeRange: '16:00-18:00', userName: '刘爱华', status: '已取消' }
-])
-const filtered = computed(() => filters.productId ? appointments.value.filter((item) => String(item.productId) === filters.productId) : appointments.value)
+const appointments = ref([])
+const error = ref('')
+const dateWindowLabel = `${dateWindow.startDate} 至 ${dateWindow.endDate}`
+const filtered = computed(() => appointments.value.filter((item) => {
+  if (item.serviceDate !== filters.date) return false
+  return !filters.productId || String(item.productId) === filters.productId
+}))
 
 const ROW_HEIGHT = 84
 const START_HOUR = 9
@@ -177,17 +181,24 @@ function statusLabel(status) {
 }
 function openCreate() {
   const first = catalogOptions.value[0]
-  Object.assign(form, { productId: first?.id ? String(first.id) : '', userRef: userOptions.value[0]?.id ? String(userOptions.value[0].id) : '', personnelId: 1, date: today, startTime: '09:00:00', endTime: '10:00:00', amount: Number(first?.price || 0) })
+  Object.assign(form, { productId: first?.id ? String(first.id) : '', userRef: userOptions.value[0]?.id ? String(userOptions.value[0].id) : '', personnelId: 1, date: filters.date, startTime: '09:00:00', endTime: '10:00:00', amount: Number(first?.price || 0) })
   dialogVisible.value = true
+}
+function disabledDate(date) {
+  return isOutsideWindow(date, dateWindow)
 }
 function syncAmount(productId) {
   const selected = catalogOptions.value.find((item) => String(item.id) === String(productId))
   form.amount = Number(selected?.price || 0)
 }
 async function load() {
+  error.value = ''
   try {
-    appointments.value = await getAppointments()
-  } catch (error) {}
+    appointments.value = await getAppointments(dateWindow)
+  } catch (exception) {
+    appointments.value = []
+    error.value = exception.message || '预约数据加载失败，请检查后端和数据库连接'
+  }
 }
 async function loadUsers() {
   try {

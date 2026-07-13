@@ -3,6 +3,7 @@ package com.daisy.health.controller;
 import com.daisy.health.common.ApiResponse;
 import com.daisy.health.common.PageResult;
 import com.daisy.health.service.AdminDataService;
+import com.daisy.health.service.ResourceQuery;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,8 +25,8 @@ public class TradeController {
     }
 
     @GetMapping("/orders")
-    public ApiResponse<PageResult<Map<String, Object>>> orders() {
-        return ApiResponse.success(dataService.resource("orders"));
+    public ApiResponse<PageResult<Map<String, Object>>> orders(ResourceQuery query) {
+        return ApiResponse.success(dataService.resource("orders", query));
     }
 
     @GetMapping("/orders/{id}")
@@ -54,8 +55,8 @@ public class TradeController {
     }
 
     @GetMapping("/after-sales")
-    public ApiResponse<PageResult<Map<String, Object>>> afterSales() {
-        return ApiResponse.success(dataService.resource("afterSales"));
+    public ApiResponse<PageResult<Map<String, Object>>> afterSales(ResourceQuery query) {
+        return ApiResponse.success(dataService.resource("afterSales", query));
     }
 
     @PostMapping("/after-sales")
@@ -79,8 +80,8 @@ public class TradeController {
     }
 
     @GetMapping("/reviews")
-    public ApiResponse<PageResult<Map<String, Object>>> reviews() {
-        return ApiResponse.success(dataService.resource("reviews"));
+    public ApiResponse<PageResult<Map<String, Object>>> reviews(ResourceQuery query) {
+        return ApiResponse.success(dataService.resource("reviews", query));
     }
 
     @PostMapping("/reviews")

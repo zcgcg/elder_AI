@@ -4,6 +4,9 @@
       <div><h1>{{ title }}</h1><p>{{ descriptor }}</p></div>
       <el-button v-if="canCreate" type="primary" :icon="Plus" @click="openCreate">新增</el-button>
     </div>
+    <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
+      <template #default><el-button link type="primary" @click="load">重新加载</el-button></template>
+    </el-alert>
     <div class="filters">
       <el-select v-if="resource === 'workOrders'" v-model="filters.personnelId" filterable clearable placeholder="查询服务人员">
         <el-option v-for="person in personnelOptions" :key="person.id" :label="`${person.name} · ${person.phone}`" :value="String(person.id)" />
@@ -11,13 +14,11 @@
       <el-select v-if="resource === 'workOrders'" v-model="filters.customerId" filterable clearable placeholder="查询用户">
         <el-option v-for="user in userOptions" :key="user.id" :label="`${user.realName || user.nickname} · ${user.phone}`" :value="String(user.id)" />
       </el-select>
-      <el-select v-model="filters.status" placeholder="状态" clearable>
-        <el-option label="待处理" value="待处理" />
-        <el-option label="处理中" value="处理中" />
-        <el-option label="已完成" value="已完成" />
+      <el-select v-model="filters.status" placeholder="状态" clearable filterable allow-create>
+        <el-option v-for="status in filterStatuses" :key="status" :label="status" :value="status" />
       </el-select>
-      <el-date-picker v-model="filters.dateRange" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" />
-      <el-input v-model="filters.keyword" placeholder="关键词搜索" clearable />
+      <el-date-picker v-model="filters.dateRange" type="daterange" value-format="YYYY-MM-DD" start-placeholder="开始日期" end-placeholder="结束日期" />
+      <el-input v-model="filters.keyword" placeholder="关键词搜索" clearable @keyup.enter="load" />
       <el-button type="primary" @click="load">搜索</el-button>
       <el-button @click="reset">重置</el-button>
     </div>
@@ -153,12 +154,13 @@ import { useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { assetUrl, createResource, deleteResource, getResource, getUsers, updateResource, uploadFile } from '../api/http'
-import { fallbackRows } from '../api/fallback'
+import { toQueryParams } from '../utils/query'
 
 const route = useRoute()
 const filters = reactive({ status: '', dateRange: [], keyword: '', personnelId: '', customerId: '' })
 const rows = ref([])
 const total = ref(0)
+const error = ref('')
 const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref(null)
@@ -180,6 +182,7 @@ const canCreate = computed(() => {
   if (resource.value === 'pointsRules') return hasAvailableOption('actionType')
   return true
 })
+const filterStatuses = ['启用', '禁用', '上架', '下架', '待审核', '已通过', '已驳回', '待接单', '待服务', '服务中', '处理中', '已完成', '已取消', '已关闭', '售后中', '已发布', '草稿', '已显示', '已隐藏', '已报名', '已到场']
 
 const descriptors = {
   personnel: '服务人员生命周期、负责区域与启用状态管理',
@@ -512,13 +515,15 @@ function tagType(value) {
   return 'info'
 }
 async function load() {
+  error.value = ''
   try {
-    const data = await getResource(resource.value, filters)
+    const data = await getResource(resource.value, toQueryParams(filters))
     rows.value = data.list || data
     total.value = data.total || rows.value.length
-  } catch (error) {
-    rows.value = fallbackRows[resource.value] || fallbackRows.posts
-    total.value = rows.value.length
+  } catch (exception) {
+    rows.value = []
+    total.value = 0
+    error.value = exception.message || '数据加载失败，请检查后端和数据库连接'
   }
 }
 function reset() {

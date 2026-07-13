@@ -246,6 +246,7 @@ public class JdbcPortalDataService implements PortalDataService {
     }
 
     @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> createElderlyWorkOrder(Map<String, Object> payload) {
         AuthenticatedUser current = requireRole("elderly");
         long userId = currentLegacyUserId();

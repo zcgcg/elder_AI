@@ -3,6 +3,7 @@ package com.daisy.health.controller;
 import com.daisy.health.common.ApiResponse;
 import com.daisy.health.common.PageResult;
 import com.daisy.health.service.AdminDataService;
+import com.daisy.health.service.ResourceQuery;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,9 +26,9 @@ public class OperationController {
     }
 
     @GetMapping({"/posts", "/activities", "/articles", "/recipes", "/diseases", "/institutions", "/videos", "/comments", "/foods", "/assessments"})
-    public ApiResponse<PageResult<Map<String, Object>>> list(HttpServletRequest request) {
+    public ApiResponse<PageResult<Map<String, Object>>> list(HttpServletRequest request, ResourceQuery query) {
         String resource = request.getRequestURI().substring(request.getRequestURI().lastIndexOf('/') + 1);
-        return ApiResponse.success(dataService.resource(resource));
+        return ApiResponse.success(dataService.resource(resource, query));
     }
 
     @PostMapping({"/posts", "/activities", "/articles", "/recipes", "/diseases", "/institutions", "/videos", "/comments", "/foods", "/assessments"})

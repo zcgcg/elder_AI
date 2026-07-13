@@ -8,6 +8,10 @@
 
 ## 最近修改
 
+- 完成 P0 收口：老人端创建 `service_order + work_order` 已加入事务，任一写入失败会整体回滚；管理端不再在接口失败时静默展示前端假数据。
+- 预约看板启用日期切换，默认一次加载并保留今天起连续 7 天的数据库工单；初始化数据覆盖 7 天，新增预约后会刷新同一时间窗口。
+- 用户列表、通用列表和数据分析页已接通关键词、状态、标签与起止日期查询参数；分析指标和三张图表均使用所选时段的真实 SQL 聚合，工单仍支持叠加服务人员和客户条件。
+- 移除未实现的全局搜索、通知和消息占位入口，避免把装饰控件误认为可用功能。
 - 完成移动端适配：管理后台在小屏设备上使用完整抽屉菜单，登录页、工作台、列表、宽表、筛选器、详情、表单、弹窗、预约看板、用户端和服务人员端均可在手机上操作；手机与电脑通过同一台本地后端和 MySQL 数据库共享数据，不依赖云服务器。
 - 新增后台安全登录体系：后台登录改为查询 `account + admin_profile`，密码使用 BCrypt 校验，登录成功后返回 JWT；后端 API 统一通过 `Authorization: Bearer <token>` 鉴权。
 - 新增 RBAC 权限体系：`role.permissions` 使用 JSON 定义模块权限，后端按 token 中的账号身份和请求路径校验模块权限，前端菜单和路由按权限过滤。
@@ -296,7 +300,6 @@ D:\agent_project\elder_AI
 │  └─ src
 │     ├─ api
 │     │  ├─ http.js
-│     │  └─ fallback.js
 │     ├─ layout
 │     │  └─ AdminLayout.vue
 │     ├─ router
@@ -329,8 +332,10 @@ D:\agent_project\elder_AI
 - 用户列表使用卡片式展示，支持标签选择、标签绑定、标签管理。
 - 用户详情已将个人信息和健康信息合并为同一个“个人信息”页签，并支持编辑保存。
 - 用户详情扩展 Tab 已覆盖用药信息、健康数据、设备信息、报告信息、订单信息、资产信息、内容信息、服务记录。
-- 预约看板支持新建和删除。
+- 预约看板支持在今天起连续 7 天内切换日期、新建、更新状态和删除；7 天数据均来自 `work_order`。
 - 通用列表支持新增、编辑、详情、删除；详情为只读查看，编辑保存写回原业务表。
+- 用户列表和通用列表支持真实的关键词、状态、标签和起止日期组合查询，不再只有筛选器外观。
+- 工作台、用户列表、通用列表和预约看板在接口失败时展示明确错误，不再静默切换到前端假数据。
 - 关联用户的新增/编辑支持按姓名、昵称、手机号或用户 ID 解析。
 - 管理端和用户端创建工单均支持选择服务人员；管理端工单页可按服务人员、用户查询。
 - 超级管理员可在右上角个人资料中选择预设头像或上传自定义头像。
@@ -546,7 +551,7 @@ AdminLayout.vue
 
 - 左侧 8 个主功能入口。
 - 右侧二级菜单。
-- 顶部搜索、通知、个人资料入口。
+- 页面导航和个人资料入口。
 - 个人资料弹窗保存到 `staff` 表，并同步统一账号资料；头像支持预设图片和自定义上传。
 
 API 封装：
@@ -745,16 +750,18 @@ PUT  /api/v1/auth/profile
 
 ```text
 GET    /api/v1/dashboard
-GET    /api/v1/appointments
+GET    /api/v1/appointments?startDate=2026-07-13&endDate=2026-07-19
 POST   /api/v1/appointments
 DELETE /api/v1/appointments/{id}
-GET    /api/v1/analytics/overview
+GET    /api/v1/analytics/overview?startDate=2026-07-01&endDate=2026-07-31
 ```
+
+预约看板接口最多查询连续 7 天；前端默认使用“今天至第 7 天”的窗口，并按 `serviceDate` 在本地切换当天看板。
 
 用户和标签：
 
 ```text
-GET    /api/v1/users
+GET    /api/v1/users?keyword=王秀兰&tag=重点关怀&startDate=2026-07-01&endDate=2026-07-31
 POST   /api/v1/users
 GET    /api/v1/users/{id}
 PUT    /api/v1/users/{id}
@@ -765,6 +772,17 @@ PUT    /api/v1/tags/{id}
 DELETE /api/v1/tags/{id}
 PUT    /api/v1/users/{id}/tags
 ```
+
+管理端通用列表支持以下公共查询参数：
+
+```text
+keyword    对当前行可见字段做关键词匹配
+status     按中文状态精确匹配
+startDate  起始日期，YYYY-MM-DD
+endDate    结束日期，YYYY-MM-DD
+```
+
+工单查询可额外使用 `personnelId` 和 `customerId`；用户查询可额外使用 `tag`。
 
 服务：
 
@@ -893,7 +911,8 @@ GET/POST/PUT/DELETE /api/v1/agreements
 最近一次验证：
 
 ```text
-后端：mvn -q test 通过
+后端：mvn.cmd -q test 通过（40 项）
+前端：npm.cmd test 通过（13 项）
 前端：npm.cmd run build 通过
 安全验证：后端编译测试通过，前端构建通过；JWT/RBAC 相关代码已进入构建链路
 ```

@@ -179,6 +179,27 @@ insert ignore into work_order(id, order_no, order_id, service_item, amount, pers
 (205, 'WOSEEDTODAY005', 5, '晚间健康随访', 69.00, 5, 10007, 'completed', now(), timestamp(curdate(), '18:30:00'), timestamp(curdate(), '19:10:00'), now()),
 (206, 'WOSEEDTODAY006', 6, '睡前血糖记录', 49.00, 6, 10008, 'pending', now(), timestamp(curdate(), '21:00:00'), null, now());
 
+insert into work_order(order_no, order_id, product_id, service_item, amount, personnel_id, customer_id, status, dispatch_time, service_time, complete_time, created_at) values
+('WOBOARD-DAY-0', 1, 3, '上门基础体检', 399.00, 3, 10003, 'pending', now(), timestamp(curdate(), '09:00:00'), null, now()),
+('WOBOARD-DAY-1', 6, 6, '肩周炎理疗套餐', 259.00, 5, 10012, 'pending', now(), timestamp(date_add(curdate(), interval 1 day), '10:00:00'), null, now()),
+('WOBOARD-DAY-2', 8, 8, '半日陪护服务', 329.00, 4, 10009, 'pending', now(), timestamp(date_add(curdate(), interval 2 day), '13:00:00'), null, now()),
+('WOBOARD-DAY-3', 7, 7, '慢病随访体检', 499.00, 6, 10007, 'pending', now(), timestamp(date_add(curdate(), interval 3 day), '09:30:00'), null, now()),
+('WOBOARD-DAY-4', 5, 5, '助餐陪诊服务', 169.00, 4, 10005, 'pending', now(), timestamp(date_add(curdate(), interval 4 day), '13:30:00'), null, now()),
+('WOBOARD-DAY-5', 9, 9, '术后肌力训练', 359.00, 5, 10006, 'pending', now(), timestamp(date_add(curdate(), interval 5 day), '10:00:00'), null, now()),
+('WOBOARD-DAY-6', 10, 10, '心脑血管专项体检', 699.00, 6, 10008, 'pending', now(), timestamp(date_add(curdate(), interval 6 day), '14:30:00'), null, now())
+on duplicate key update
+product_id = values(product_id),
+service_item = values(service_item),
+amount = values(amount),
+personnel_id = values(personnel_id),
+customer_id = values(customer_id),
+service_time = values(service_time);
+
+update work_order w
+join service_order o on o.id = w.order_id
+set w.product_id = o.product_id
+where w.product_id is null;
+
 insert ignore into after_sale(id, order_id, applicant_id, reason, status, created_at) values
 (2, 12, 10011, '用户临时身体不适', '处理中', date_sub(now(), interval 2 day));
 

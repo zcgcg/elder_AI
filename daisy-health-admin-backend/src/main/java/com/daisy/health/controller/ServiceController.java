@@ -3,6 +3,7 @@ package com.daisy.health.controller;
 import com.daisy.health.common.ApiResponse;
 import com.daisy.health.common.PageResult;
 import com.daisy.health.service.AdminDataService;
+import com.daisy.health.service.ResourceQuery;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,8 +26,8 @@ public class ServiceController {
     }
 
     @GetMapping("/personnel")
-    public ApiResponse<PageResult<Map<String, Object>>> personnel() {
-        return ApiResponse.success(dataService.resource("personnel"));
+    public ApiResponse<PageResult<Map<String, Object>>> personnel(ResourceQuery query) {
+        return ApiResponse.success(dataService.resource("personnel", query));
     }
 
     @PostMapping("/personnel")
@@ -45,8 +46,8 @@ public class ServiceController {
     }
 
     @GetMapping("/audits")
-    public ApiResponse<PageResult<Map<String, Object>>> audits() {
-        return ApiResponse.success(dataService.resource("audits"));
+    public ApiResponse<PageResult<Map<String, Object>>> audits(ResourceQuery query) {
+        return ApiResponse.success(dataService.resource("audits", query));
     }
 
     @PutMapping("/audits/{id}")
@@ -67,8 +68,9 @@ public class ServiceController {
     @GetMapping("/work-orders")
     public ApiResponse<PageResult<Map<String, Object>>> workOrders(
             @RequestParam(required = false) Long personnelId,
-            @RequestParam(required = false) Long customerId) {
-        return ApiResponse.success(dataService.workOrders(personnelId, customerId));
+            @RequestParam(required = false) Long customerId,
+            ResourceQuery query) {
+        return ApiResponse.success(dataService.workOrders(personnelId, customerId, query));
     }
 
     @GetMapping("/work-orders/{id}")

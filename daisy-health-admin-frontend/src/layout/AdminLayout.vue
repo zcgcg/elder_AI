@@ -34,12 +34,7 @@
     <el-container>
       <el-header class="topbar">
         <el-button class="mobile-menu-button" :icon="Menu" circle aria-label="打开功能菜单" @click="mobileNavOpen = true" />
-        <el-input class="global-search" placeholder="搜索用户、订单、工单" clearable>
-          <template #prefix><el-icon><Search /></el-icon></template>
-        </el-input>
         <div class="top-actions">
-          <el-button :icon="Bell" circle />
-          <el-button :icon="ChatDotRound" circle />
           <el-dropdown>
             <div class="profile">
               <el-avatar :size="34" :src="assetUrl(auth.user?.avatarUrl)">{{ auth.user?.name?.slice(0, 1) || '黛' }}</el-avatar>
@@ -66,15 +61,6 @@
       <div class="mobile-nav-brand">
         <span class="brand-heart">❤</span>
         <div><strong>黛西健康</strong><small>管理中心</small></div>
-      </div>
-      <div class="mobile-nav-tools">
-        <el-input placeholder="搜索用户、订单、工单" clearable>
-          <template #prefix><el-icon><Search /></el-icon></template>
-        </el-input>
-        <div>
-          <el-button :icon="Bell">通知</el-button>
-          <el-button :icon="ChatDotRound">消息</el-button>
-        </div>
       </div>
       <section v-for="group in visibleMenuGroups" :key="group.key" class="mobile-nav-group">
         <button
@@ -141,7 +127,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { Bell, ChatDotRound, Menu } from '@element-plus/icons-vue'
+import { Menu } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { assetUrl } from '../api/http'

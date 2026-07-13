@@ -2,6 +2,7 @@ package com.daisy.health.controller;
 
 import com.daisy.health.common.ApiResponse;
 import com.daisy.health.service.AdminDataService;
+import com.daisy.health.service.ResourceQuery;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,8 +30,8 @@ public class DashboardController {
     }
 
     @GetMapping("/appointments")
-    public ApiResponse<List<Map<String, Object>>> appointments() {
-        return ApiResponse.success(dataService.appointments());
+    public ApiResponse<List<Map<String, Object>>> appointments(ResourceQuery query) {
+        return ApiResponse.success(dataService.appointments(query));
     }
 
     @PostMapping("/appointments")
@@ -49,8 +50,7 @@ public class DashboardController {
     }
 
     @GetMapping("/analytics/overview")
-    public ApiResponse<Map<String, Object>> analyticsOverview() {
-        return ApiResponse.success(dataService.analyticsOverview());
+    public ApiResponse<Map<String, Object>> analyticsOverview(ResourceQuery query) {
+        return ApiResponse.success(dataService.analyticsOverview(query));
     }
 }
-
