@@ -4,6 +4,8 @@ import com.daisy.health.common.AuthenticatedUser;
 import com.daisy.health.common.JwtAuthFilter;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.support.GeneratedKeyHolder;
+import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,6 +13,11 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.servlet.http.HttpServletRequest;
+import java.sql.PreparedStatement;
+import java.sql.Statement;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -246,6 +253,7 @@ public class JdbcPortalDataService implements PortalDataService {
     }
 
     @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> createElderlyWorkOrder(Map<String, Object> payload) {
         AuthenticatedUser current = requireRole("elderly");
         long userId = currentLegacyUserId();
@@ -292,6 +300,49 @@ public class JdbcPortalDataService implements PortalDataService {
         );
         normalizeWorkOrderStatus(created);
         return created;
+    }
+
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public Map<String, Object> cancelElderlyWorkOrder(Long workOrderId, Map<String, Object> payload) {
+        long userId = currentLegacyUserId();
+        Map<String, Object> owned = ownedElderlyWorkOrderForUpdate(workOrderId, userId);
+        String status = stringValue(owned.get("status"));
+        if ("cancelled".equals(status)) {
+            return elderlyWorkOrder(workOrderId, userId);
+        }
+        if (!"pending".equals(status)) {
+            throw new IllegalArgumentException("只有待服务工单可以取消");
+        }
+        String reason = stringValue(payload == null ? null : payload.get("reason")).trim();
+        if (reason.length() > 200) throw new IllegalArgumentException("取消原因不能超过200字");
+        if (reason.isEmpty()) reason = "用户取消";
+        jdbcTemplate.update(
+                "update work_order set status = 'cancelled', cancel_reason = ? where id = ? and customer_id = ?",
+                reason,
+                workOrderId,
+                userId
+        );
+        jdbcTemplate.update("update service_order set status = 'closed' where id = ?", owned.get("orderId"));
+        return elderlyWorkOrder(workOrderId, userId);
+    }
+
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public Map<String, Object> rescheduleElderlyWorkOrder(Long workOrderId, Map<String, Object> payload) {
+        long userId = currentLegacyUserId();
+        Map<String, Object> owned = ownedElderlyWorkOrderForUpdate(workOrderId, userId);
+        if (!"pending".equals(stringValue(owned.get("status")))) {
+            throw new IllegalArgumentException("只有待服务工单可以改期");
+        }
+        String serviceTime = futureServiceTime(payload == null ? null : payload.get("serviceTime"));
+        jdbcTemplate.update(
+                "update work_order set service_time = ? where id = ? and customer_id = ?",
+                serviceTime,
+                workOrderId,
+                userId
+        );
+        return elderlyWorkOrder(workOrderId, userId);
     }
 
     @Override
@@ -352,6 +403,72 @@ public class JdbcPortalDataService implements PortalDataService {
         }
         ActivityEnrollmentSql.syncCount(jdbcTemplate, activityId);
         return enrollmentResult(activityId, activity.get("title"));
+    }
+
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public Map<String, Object> cancelElderlyActivity(Long activityId) {
+        long userId = currentLegacyUserId();
+        Map<String, Object> activity = one("select id, title from activity where id = ? for update", activityId);
+        if (activity.isEmpty()) throw new IllegalArgumentException("活动不存在");
+        Map<String, Object> enrollment = one(
+                "select id, status from activity_enroll where activity_id = ? and user_id = ? order by id desc limit 1 for update",
+                activityId,
+                userId
+        );
+        if (enrollment.isEmpty()) throw new IllegalArgumentException("您尚未报名该活动");
+        String status = stringValue(enrollment.get("status"));
+        if ("attended".equals(status)) throw new IllegalArgumentException("已参加的活动不能取消报名");
+        if (!"cancelled".equals(status)) {
+            jdbcTemplate.update(
+                    "update activity_enroll set status = 'cancelled', remark = '用户取消报名' where id = ? and user_id = ?",
+                    enrollment.get("id"),
+                    userId
+            );
+            ActivityEnrollmentSql.syncCount(jdbcTemplate, activityId);
+        }
+        Map<String, Object> result = new LinkedHashMap<String, Object>();
+        result.put("activityId", activityId);
+        result.put("activityTitle", activity.get("title"));
+        result.put("joined", false);
+        result.put("status", "已取消");
+        return result;
+    }
+
+    @Override
+    public List<Map<String, Object>> elderlyMessages() {
+        long userId = currentLegacyUserId();
+        return jdbcTemplate.queryForList(
+                "select id, content, case status when 'pending' then '待处理' when 'processing' then '处理中' when 'resolved' then '已解决' else status end as status, " +
+                        "date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from elderly_message where user_id = ? order by created_at desc, id desc",
+                userId
+        );
+    }
+
+    @Override
+    public Map<String, Object> createElderlyMessage(Map<String, Object> payload) {
+        long userId = currentLegacyUserId();
+        String content = stringValue(payload == null ? null : payload.get("content")).trim();
+        if (content.isEmpty()) throw new IllegalArgumentException("请输入留言内容");
+        if (content.length() > 500) throw new IllegalArgumentException("留言内容不能超过500字");
+        KeyHolder keyHolder = new GeneratedKeyHolder();
+        jdbcTemplate.update(connection -> {
+            PreparedStatement statement = connection.prepareStatement(
+                    "insert into elderly_message(user_id, content, status, created_at, updated_at) values(?, ?, 'pending', now(), now())",
+                    Statement.RETURN_GENERATED_KEYS
+            );
+            statement.setLong(1, userId);
+            statement.setString(2, content);
+            return statement;
+        }, keyHolder);
+        Number id = keyHolder.getKey();
+        if (id == null) throw new IllegalStateException("留言保存失败");
+        return one(
+                "select id, content, '待处理' as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt " +
+                        "from elderly_message where id = ? and user_id = ? limit 1",
+                id.longValue(),
+                userId
+        );
     }
 
     @Override
@@ -420,13 +537,41 @@ public class JdbcPortalDataService implements PortalDataService {
     }
 
     private String workOrderSelect() {
-        return "select w.id, w.order_no as orderNo, w.product_id as productId, w.service_item as serviceItem, w.amount, w.status, " +
+        return "select w.id, w.order_no as orderNo, w.product_id as productId, w.service_item as serviceItem, w.amount, w.status, w.cancel_reason as cancelReason, " +
                 "date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as dispatchTime, date_format(w.service_time, '%Y-%m-%d %H:%i') as serviceTime, " +
                 "date_format(w.complete_time, '%Y-%m-%d %H:%i') as completeTime, u.real_name as customerName, u.phone as customerPhone, u.address as customerAddress, " +
                 "p.id as personnelId, p.name as personnelName, p.phone as personnelPhone, " +
                 "o.order_no as serviceOrderNo, o.product_name as productName, o.service_type as serviceType " +
                 "from work_order w left join `user` u on w.customer_id = u.id left join service_personnel p on w.personnel_id = p.id " +
                 "left join service_order o on w.order_id = o.id";
+    }
+
+    private Map<String, Object> ownedElderlyWorkOrderForUpdate(Long workOrderId, long userId) {
+        Map<String, Object> row = one(
+                "select id, order_id as orderId, status from work_order where id = ? and customer_id = ? for update",
+                workOrderId,
+                userId
+        );
+        if (row.isEmpty()) throw new IllegalArgumentException("工单不存在或不属于当前用户");
+        return row;
+    }
+
+    private Map<String, Object> elderlyWorkOrder(Long workOrderId, long userId) {
+        Map<String, Object> row = one(workOrderSelect() + " where w.id = ? and w.customer_id = ? limit 1", workOrderId, userId);
+        if (row.isEmpty()) throw new IllegalArgumentException("工单不存在或不属于当前用户");
+        normalizeWorkOrderStatus(row);
+        return row;
+    }
+
+    private String futureServiceTime(Object value) {
+        String text = stringValue(value).trim();
+        try {
+            LocalDateTime parsed = LocalDateTime.parse(text, DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+            if (!parsed.isAfter(LocalDateTime.now())) throw new IllegalArgumentException("改期时间必须晚于当前时间");
+            return parsed.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+        } catch (DateTimeParseException ex) {
+            throw new IllegalArgumentException("改期时间格式应为 YYYY-MM-DD HH:mm:ss");
+        }
     }
 
     private void normalizeWorkOrderStatuses(List<Map<String, Object>> rows) {

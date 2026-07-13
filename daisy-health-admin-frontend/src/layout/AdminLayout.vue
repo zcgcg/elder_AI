@@ -34,12 +34,7 @@
     <el-container>
       <el-header class="topbar">
         <el-button class="mobile-menu-button" :icon="Menu" circle aria-label="打开功能菜单" @click="mobileNavOpen = true" />
-        <el-input class="global-search" placeholder="搜索用户、订单、工单" clearable>
-          <template #prefix><el-icon><Search /></el-icon></template>
-        </el-input>
         <div class="top-actions">
-          <el-button :icon="Bell" circle />
-          <el-button :icon="ChatDotRound" circle />
           <el-dropdown>
             <div class="profile">
               <el-avatar :size="34" :src="assetUrl(auth.user?.avatarUrl)">{{ auth.user?.name?.slice(0, 1) || '黛' }}</el-avatar>
@@ -66,15 +61,6 @@
       <div class="mobile-nav-brand">
         <span class="brand-heart">❤</span>
         <div><strong>黛西健康</strong><small>管理中心</small></div>
-      </div>
-      <div class="mobile-nav-tools">
-        <el-input placeholder="搜索用户、订单、工单" clearable>
-          <template #prefix><el-icon><Search /></el-icon></template>
-        </el-input>
-        <div>
-          <el-button :icon="Bell">通知</el-button>
-          <el-button :icon="ChatDotRound">消息</el-button>
-        </div>
       </div>
       <section v-for="group in visibleMenuGroups" :key="group.key" class="mobile-nav-group">
         <button
@@ -141,7 +127,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { Bell, ChatDotRound, Menu } from '@element-plus/icons-vue'
+import { Menu } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { assetUrl } from '../api/http'
@@ -157,7 +143,7 @@ const profileForm = reactive({ id: '', name: '', staffNo: '', phone: '', avatarU
 const activeGroup = ref('home')
 const menuGroups = [
   { key: 'home', module: 'dashboard', label: '首页', icon: 'House', children: [{ label: '工作台', path: '/dashboard' }, { label: '预约看板', path: '/schedule' }] },
-  { key: 'users', label: '用户', icon: 'User', children: [{ label: '全部用户', path: '/users' }, { label: '设备信息', path: '/user-health/devices' }, { label: '报告信息', path: '/user-health/reports' }, { label: '健康设置', path: '/user-health/healthSettings' }, { label: '优惠券管理', path: '/user-assets/coupons' }, { label: '用户积分', path: '/user-assets/userPoints' }, { label: '等级管理', path: '/user-assets/memberLevels' }, { label: '积分规则', path: '/user-assets/pointsRules' }] },
+  { key: 'users', label: '用户', icon: 'User', children: [{ label: '全部用户', path: '/users' }, { label: '留言处理', path: '/users/messages' }, { label: '设备信息', path: '/user-health/devices' }, { label: '报告信息', path: '/user-health/reports' }, { label: '健康设置', path: '/user-health/healthSettings' }, { label: '优惠券管理', path: '/user-assets/coupons' }, { label: '用户积分', path: '/user-assets/userPoints' }, { label: '等级管理', path: '/user-assets/memberLevels' }, { label: '积分规则', path: '/user-assets/pointsRules' }] },
   { key: 'service', label: '服务', icon: 'Service', children: [{ label: '服务人员', path: '/service/personnel' }, { label: '审核管理', path: '/service/audits' }, { label: '工单管理', path: '/service/work-orders' }] },
   { key: 'products', label: '商品服务', icon: 'Goods', children: [{ label: '商品服务管理', path: '/products' }] },
   { key: 'operations', label: '运营', icon: 'Star', children: [{ label: '动态管理', path: '/operations/posts' }, { label: '话题管理', path: '/operations/topics' }, { label: '轮播图管理', path: '/operations/banners' }, { label: '活动管理', path: '/operations/activities' }, { label: '活动报名', path: '/operations/activityEnrolls' }, { label: '食谱管理', path: '/operations/recipes' }, { label: '健康资讯', path: '/operations/articles' }, { label: '疾病宝典', path: '/operations/diseases' }, { label: '养老机构', path: '/operations/institutions' }, { label: '健康讲堂', path: '/operations/videos' }, { label: '食物管理', path: '/operations/foods' }, { label: '测评管理', path: '/operations/assessments' }] },

@@ -15,11 +15,14 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
@@ -103,6 +106,19 @@ class JdbcPortalDataServiceTest {
     }
 
     @Test
+    void elderlyWorkOrderChangesKeepTheOwnershipLockInsideAReadCommittedTransaction() throws Exception {
+        Transactional cancelTransaction = JdbcPortalDataService.class
+                .getMethod("cancelElderlyWorkOrder", Long.class, Map.class)
+                .getAnnotation(Transactional.class);
+        Transactional rescheduleTransaction = JdbcPortalDataService.class
+                .getMethod("rescheduleElderlyWorkOrder", Long.class, Map.class)
+                .getAnnotation(Transactional.class);
+
+        assertEquals(Isolation.READ_COMMITTED, cancelTransaction.isolation());
+        assertEquals(Isolation.READ_COMMITTED, rescheduleTransaction.isolation());
+    }
+
+    @Test
     void activityListUsesLatestEnrollmentAndKeepsJoinedHistoryVisible() {
         service.elderlyActivities();
 
@@ -140,6 +156,59 @@ class JdbcPortalDataServiceTest {
         assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
                 .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
                 .noneMatch(sql -> sql.startsWith("insert into service_order")));
+    }
+
+    @Test
+    void cancellingEnrollmentMarksLatestEnrollmentAndResyncsCount() {
+        when(jdbcTemplate.queryForList(contains("from activity where id"), eq(21L)))
+                .thenReturn(Collections.singletonList(record("id", 21L, "title", "社区健康义诊")));
+        when(jdbcTemplate.queryForList(contains("from activity_enroll where activity_id"), eq(21L), eq(7L)))
+                .thenReturn(Collections.singletonList(record("id", 55L, "status", "enrolled")));
+
+        Map<String, Object> result = service.cancelElderlyActivity(21L);
+
+        assertEquals(false, result.get("joined"));
+        verify(jdbcTemplate).update(startsWith("update activity_enroll set status = 'cancelled'"), eq(55L), eq(7L));
+        verify(jdbcTemplate).update(startsWith("update activity set"), eq(21L), eq(21L));
+    }
+
+    @Test
+    void completedWorkOrderCannotBeCancelledByElderlyUser() {
+        when(jdbcTemplate.queryForList(startsWith("select id, order_id as orderId"), eq(12L), eq(7L)))
+                .thenReturn(Collections.singletonList(record("id", 12L, "orderId", 31L, "status", "completed")));
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.cancelElderlyWorkOrder(12L, record("reason", "时间冲突"))
+        );
+
+        assertEquals("只有待服务工单可以取消", error.getMessage());
+        verify(jdbcTemplate, never()).update(startsWith("update work_order set status = 'cancelled'"), any(), any(), any());
+    }
+
+    @Test
+    void pendingWorkOrderCanBeRescheduledToFutureTime() {
+        when(jdbcTemplate.queryForList(startsWith("select id, order_id as orderId"), eq(13L), eq(7L)))
+                .thenReturn(Collections.singletonList(record("id", 13L, "orderId", 32L, "status", "pending")));
+        when(jdbcTemplate.queryForList(contains("where w.id = ? and w.customer_id = ? limit 1"), eq(13L), eq(7L)))
+                .thenReturn(Collections.singletonList(record("id", 13L, "status", "pending")));
+        String future = LocalDateTime.now().plusDays(2).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+
+        Map<String, Object> result = service.rescheduleElderlyWorkOrder(13L, record("serviceTime", future));
+
+        assertEquals("待服务", result.get("status"));
+        verify(jdbcTemplate).update(startsWith("update work_order set service_time"), eq(future), eq(13L), eq(7L));
+    }
+
+    @Test
+    void blankMessageIsRejectedBeforeInsert() {
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createElderlyMessage(record("content", "  "))
+        );
+
+        assertEquals("请输入留言内容", error.getMessage());
+        verify(jdbcTemplate, never()).update(startsWith("insert into elderly_message"), any(), any());
     }
 
     private Map<String, Object> record(Object... values) {

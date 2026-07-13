@@ -11,10 +11,13 @@
         <h1>{{ profile.realName || auth.user?.name || '我的健康' }}</h1>
         </div>
       </div>
-      <el-button @click="logout">
-        <el-icon><SwitchButton /></el-icon>
-        退出
-      </el-button>
+      <div class="portal-header-actions">
+        <el-button type="primary" plain @click="openMessageDialog">给管理员留言</el-button>
+        <el-button @click="logout">
+          <el-icon><SwitchButton /></el-icon>
+          退出
+        </el-button>
+      </div>
     </header>
 
     <el-alert v-if="error" :title="error" type="error" show-icon />
@@ -93,7 +96,10 @@
               <p><strong>地点：</strong>{{ item.location || '待通知' }}</p>
               <footer>
                 <span>{{ item.enrollTime ? `报名于 ${item.enrollTime}` : `已报名 ${item.enrolled} / ${item.quota} 人` }}</span>
-                <el-button type="primary" plain size="large" @click="openActivity(item)">查看详情</el-button>
+                <div class="activity-card-actions">
+                  <el-button type="danger" plain size="large" :loading="cancellingActivityId === item.id" @click="cancelActivity(item)">取消报名</el-button>
+                  <el-button type="primary" plain size="large" @click="openActivity(item)">查看详情</el-button>
+                </div>
               </footer>
             </div>
           </article>
@@ -202,6 +208,15 @@
           <el-table-column prop="status" label="状态" min-width="100">
             <template #default="{ row }">
               <el-tag :type="statusTone(row.status)">{{ row.status }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" min-width="150" fixed="right">
+            <template #default="{ row }">
+              <template v-if="row.status === '待服务'">
+                <el-button link type="primary" @click="openReschedule(row)">改期</el-button>
+                <el-button link type="danger" :loading="cancellingWorkOrderId === row.id" @click="cancelWorkOrder(row)">取消</el-button>
+              </template>
+              <span v-else class="muted-action">不可修改</span>
             </template>
           </el-table-column>
         </el-table>
@@ -317,6 +332,14 @@
           :disabled="!selectedActivity.canJoin"
           @click="joinActivity(selectedActivity)"
         >{{ selectedActivity.canJoin ? '加入活动' : '不可报名' }}</el-button>
+        <el-button
+          v-else-if="selectedActivity.enrollmentStatus === '已报名'"
+          type="danger"
+          plain
+          size="large"
+          :loading="cancellingActivityId === selectedActivity.id"
+          @click="cancelActivity(selectedActivity)"
+        >取消报名</el-button>
       </template>
     </el-dialog>
 
@@ -341,13 +364,44 @@
         <el-button type="primary" :loading="workOrderSaving" @click="submitWorkOrder">提交工单</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="rescheduleVisible" title="工单改期" width="520px">
+      <el-form :model="rescheduleForm" label-width="88px">
+        <el-form-item label="工单编号"><span>{{ rescheduleForm.orderNo }}</span></el-form-item>
+        <el-form-item label="服务日期" required><el-date-picker v-model="rescheduleForm.date" type="date" value-format="YYYY-MM-DD" /></el-form-item>
+        <el-form-item label="服务时间" required><el-time-picker v-model="rescheduleForm.time" value-format="HH:mm:ss" /></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="rescheduleVisible = false">取消</el-button>
+        <el-button type="primary" :loading="rescheduleSaving" @click="submitReschedule">确认改期</el-button>
+      </template>
+    </el-dialog>
+
+    <el-dialog v-model="messageVisible" title="给管理员留言" width="620px">
+      <el-form label-position="top">
+        <el-form-item label="留言内容" required>
+          <el-input v-model="messageContent" type="textarea" :rows="5" maxlength="500" show-word-limit placeholder="请描述需要管理员协助处理的事项" />
+        </el-form-item>
+      </el-form>
+      <section v-if="messages.length" class="message-history">
+        <h3>最近留言</h3>
+        <article v-for="item in messages.slice(0, 5)" :key="item.id">
+          <div><span>{{ item.createdAt }}</span><el-tag size="small" :type="messageStatusTone(item.status)">{{ item.status }}</el-tag></div>
+          <p>{{ item.content }}</p>
+        </article>
+      </section>
+      <template #footer>
+        <el-button @click="messageVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="messageSaving" @click="submitMessage">提交留言</el-button>
+      </template>
+    </el-dialog>
   </main>
 </template>
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { createHealthChartOption } from '../utils/healthChart'
@@ -356,6 +410,9 @@ import { splitUserActivities } from '../utils/activity'
 import { useAuthStore } from '../stores/auth'
 import {
   assetUrl,
+  cancelElderlyActivity,
+  cancelElderlyWorkOrder,
+  createElderlyMessage,
   createElderlyWorkOrder,
   enrollElderlyActivity,
   getElderlyActivities,
@@ -366,12 +423,14 @@ import {
   getElderlyHealthArticles,
   getElderlyHealthVideos,
   getElderlyMedications,
+  getElderlyMessages,
   getElderlyOrders,
   getElderlyPersonnel,
   getElderlyPoints,
   getElderlyProfile,
   getElderlyReports,
   getElderlyWorkOrders,
+  rescheduleElderlyWorkOrder,
   updateElderlyAvatar,
   updateElderlyDevice,
   updateElderlyProfile
@@ -407,6 +466,7 @@ const points = ref({})
 const catalogItems = ref([])
 const personnelOptions = ref([])
 const workOrders = ref([])
+const messages = ref([])
 const activities = ref([])
 const activityGroups = computed(() => splitUserActivities(activities.value))
 const myActivities = computed(() => activityGroups.value.mine)
@@ -415,6 +475,8 @@ const unavailableActivities = computed(() => activityGroups.value.unavailable)
 const healthArticles = ref([])
 const healthVideos = ref([])
 const enrollingActivityId = ref(null)
+const cancellingActivityId = ref(null)
+const cancellingWorkOrderId = ref(null)
 const activityRefreshing = ref(false)
 const articleDialogVisible = ref(false)
 const selectedArticle = ref({})
@@ -422,6 +484,12 @@ const activityDialogVisible = ref(false)
 const selectedActivity = ref({})
 const workOrderVisible = ref(false)
 const workOrderSaving = ref(false)
+const rescheduleVisible = ref(false)
+const rescheduleSaving = ref(false)
+const rescheduleForm = reactive({ id: null, orderNo: '', date: '', time: '09:00:00' })
+const messageVisible = ref(false)
+const messageSaving = ref(false)
+const messageContent = ref('')
 const avatarDialogVisible = ref(false)
 const avatarSaving = ref(false)
 const avatarPickerRef = ref(null)
@@ -490,7 +558,7 @@ function statusTone(status) {
 
 async function loadData() {
   try {
-    const [profileData, health, medicationData, deviceData, reportData, orderData, couponData, pointData, catalogData, workOrderData, activityData, articleData, videoData, personnelData] = await Promise.all([
+    const [profileData, health, medicationData, deviceData, reportData, orderData, couponData, pointData, catalogData, workOrderData, activityData, articleData, videoData, personnelData, messageData] = await Promise.all([
       getElderlyProfile(),
       getElderlyHealthData(),
       getElderlyMedications(),
@@ -504,7 +572,8 @@ async function loadData() {
       getElderlyActivities(),
       getElderlyHealthArticles(),
       getElderlyHealthVideos(),
-      getElderlyPersonnel()
+      getElderlyPersonnel(),
+      getElderlyMessages()
     ])
     profile.value = profileData
     healthData.value = health
@@ -520,6 +589,7 @@ async function loadData() {
     healthArticles.value = articleData
     healthVideos.value = videoData
     personnelOptions.value = personnelData
+    messages.value = messageData
     if (activeTab.value === 'health') {
       await nextTick()
       drawUserHealthChart()
@@ -684,6 +754,109 @@ async function joinActivity(item) {
   }
 }
 
+async function cancelActivity(item) {
+  try {
+    await ElMessageBox.confirm(`确认取消“${item.title}”的报名吗？`, '取消活动报名', { type: 'warning' })
+  } catch (action) {
+    return
+  }
+  cancellingActivityId.value = item.id
+  try {
+    await cancelElderlyActivity(item.id)
+    activities.value = await getElderlyActivities()
+    if (activityDialogVisible.value) activityDialogVisible.value = false
+    ElMessage.success('活动报名已取消')
+  } catch (err) {
+    ElMessage.error(err.message || '取消报名失败')
+  } finally {
+    cancellingActivityId.value = null
+  }
+}
+
+async function cancelWorkOrder(row) {
+  let reason = ''
+  try {
+    const result = await ElMessageBox.prompt('可填写取消原因', `取消工单 ${row.orderNo}`, {
+      inputPlaceholder: '选填，最多200字',
+      inputValidator: (value) => String(value || '').length <= 200 || '取消原因不能超过200字',
+      confirmButtonText: '确认取消',
+      cancelButtonText: '暂不取消',
+      type: 'warning'
+    })
+    reason = result.value || ''
+  } catch (action) {
+    return
+  }
+  cancellingWorkOrderId.value = row.id
+  try {
+    await cancelElderlyWorkOrder(row.id, { reason })
+    workOrders.value = await getElderlyWorkOrders()
+    orders.value = await getElderlyOrders()
+    ElMessage.success('工单已取消')
+  } catch (err) {
+    ElMessage.error(err.message || '工单取消失败')
+  } finally {
+    cancellingWorkOrderId.value = null
+  }
+}
+
+function openReschedule(row) {
+  const current = String(row.serviceTime || '').split(' ')
+  Object.assign(rescheduleForm, {
+    id: row.id,
+    orderNo: row.orderNo,
+    date: current[0] || today,
+    time: current[1] ? `${current[1]}:00`.slice(0, 8) : '09:00:00'
+  })
+  rescheduleVisible.value = true
+}
+
+async function submitReschedule() {
+  if (!rescheduleForm.date || !rescheduleForm.time) {
+    ElMessage.warning('请选择新的服务日期和时间')
+    return
+  }
+  rescheduleSaving.value = true
+  try {
+    await rescheduleElderlyWorkOrder(rescheduleForm.id, { serviceTime: `${rescheduleForm.date} ${rescheduleForm.time}` })
+    workOrders.value = await getElderlyWorkOrders()
+    rescheduleVisible.value = false
+    ElMessage.success('工单已改期')
+  } catch (err) {
+    ElMessage.error(err.message || '工单改期失败')
+  } finally {
+    rescheduleSaving.value = false
+  }
+}
+
+function openMessageDialog() {
+  messageContent.value = ''
+  messageVisible.value = true
+}
+
+async function submitMessage() {
+  const content = messageContent.value.trim()
+  if (!content) {
+    ElMessage.warning('请输入留言内容')
+    return
+  }
+  messageSaving.value = true
+  try {
+    await createElderlyMessage({ content })
+    messages.value = await getElderlyMessages()
+    messageContent.value = ''
+    ElMessage.success('留言已提交，管理员将在后台处理')
+  } catch (err) {
+    ElMessage.error(err.message || '留言提交失败')
+  } finally {
+    messageSaving.value = false
+  }
+}
+
+function messageStatusTone(status) {
+  return { '待处理': 'warning', '处理中': 'primary', '已解决': 'success' }[status] || 'info'
+}
+
 function openActivity(item) {
   selectedActivity.value = item
   activityDialogVisible.value = true
@@ -817,6 +990,12 @@ onMounted(loadData)
 .panel h2 {
   margin: 0 0 12px;
   font-size: 18px;
+}
+
+.portal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .health-chart {
@@ -976,6 +1155,35 @@ onMounted(loadData)
   line-height: 1.9;
 }
 
+.muted-action {
+  color: #9aa7ad;
+  font-size: 13px;
+}
+
+.message-history {
+  max-height: 280px;
+  overflow: auto;
+  border-top: 1px solid #e2eaee;
+}
+
+.message-history article {
+  padding: 12px 0;
+  border-bottom: 1px solid #edf1f2;
+}
+
+.message-history article > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #788991;
+}
+
+.message-history p {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
 .catalog-card {
   display: flex;
   min-height: 210px;
@@ -1039,6 +1247,10 @@ onMounted(loadData)
   .portal-header {
     align-items: flex-start;
     gap: 14px;
+  }
+  .portal-header-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
   .portal-identity {
     gap: 8px;

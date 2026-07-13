@@ -159,20 +159,28 @@ public class JdbcAdminDataService implements AdminDataService {
     }
 
     @Override
-    public List<Map<String, Object>> appointments() {
-        return jdbcTemplate.queryForList(
-                "select w.id, w.product_id as productId, p.category, hour(w.service_time) as hour, w.service_item as serviceName, w.amount, " +
+    public List<Map<String, Object>> appointments(ResourceQuery query) {
+        LocalDate start = query.startDateOr(LocalDate.now());
+        LocalDate end = query.endDateOr(start.plusDays(6));
+        if (end.isBefore(start) || end.isAfter(start.plusDays(6))) {
+            throw new IllegalArgumentException("预约看板最多查询连续 7 天");
+        }
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select w.id, date_format(w.service_time, '%Y-%m-%d') as serviceDate, w.product_id as productId, p.category, hour(w.service_time) as hour, w.service_item as serviceName, w.amount, " +
                         "concat(date_format(w.service_time, '%H:%i'), '-', date_format(coalesce(w.complete_time, date_add(w.service_time, interval 1 hour)), '%H:%i')) as timeRange, " +
                         "u.real_name as userName, " +
                         "case w.status when 'pending' then '待服务' when 'service_in' then '服务中' when 'completed' then '已完成' when 'cancelled' then '已取消' else w.status end as status " +
                         "from work_order w left join `user` u on w.customer_id = u.id left join product p on w.product_id = p.id " +
-                        "where date(w.service_time) = curdate() order by w.service_time"
+                        "where date(w.service_time) between ? and ? order by w.service_time",
+                start,
+                end
         );
+        return query.filter(rows);
     }
 
     @Override
-    public PageResult<Map<String, Object>> users(String keyword) {
-        String like = "%" + (keyword == null ? "" : keyword.trim()) + "%";
+    public PageResult<Map<String, Object>> users(ResourceQuery query) {
+        String like = "%" + (query.getKeyword() == null ? "" : query.getKeyword().trim()) + "%";
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "select u.id, u.nickname, u.real_name as realName, u.phone, u.avatar_url as avatarUrl, date_format(u.created_at, '%Y-%m-%d %H:%i:%s') as createdAt, " +
                         "group_concat(t.id order by t.id separator ',') as tagIds, group_concat(t.name order by t.id separator ',') as tags " +
@@ -185,6 +193,7 @@ public class JdbcAdminDataService implements AdminDataService {
         );
         normalizeTags(rows);
         normalizeTagIds(rows);
+        rows = query.filter(rows);
         return new PageResult<Map<String, Object>>(rows.size(), rows);
     }
 
@@ -395,40 +404,98 @@ public class JdbcAdminDataService implements AdminDataService {
     }
 
     @Override
-    public PageResult<Map<String, Object>> resource(String name) {
+    public PageResult<Map<String, Object>> messages() {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select m.id, m.user_id as userId, u.real_name as userName, u.phone, m.content, " +
+                        "case m.status when 'pending' then '待处理' when 'processing' then '处理中' when 'resolved' then '已解决' else m.status end as status, " +
+                        "date_format(m.created_at, '%Y-%m-%d %H:%i') as createdAt, date_format(m.updated_at, '%Y-%m-%d %H:%i') as updatedAt " +
+                        "from elderly_message m join `user` u on u.id = m.user_id order by m.created_at desc, m.id desc"
+        );
+        Map<String, Map<String, Object>> grouped = new LinkedHashMap<String, Map<String, Object>>();
+        for (Map<String, Object> row : rows) {
+            String userKey = String.valueOf(row.get("userId"));
+            Map<String, Object> group = grouped.get(userKey);
+            if (group == null) {
+                group = record(
+                        "userId", row.get("userId"),
+                        "userName", row.get("userName"),
+                        "phone", row.get("phone"),
+                        "messageCount", 0,
+                        "pendingCount", 0,
+                        "lastMessageTime", row.get("createdAt"),
+                        "messages", new ArrayList<Map<String, Object>>()
+                );
+                grouped.put(userKey, group);
+            }
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> messages = (List<Map<String, Object>>) group.get("messages");
+            messages.add(record(
+                    "id", row.get("id"),
+                    "content", row.get("content"),
+                    "status", row.get("status"),
+                    "createdAt", row.get("createdAt"),
+                    "updatedAt", row.get("updatedAt")
+            ));
+            group.put("messageCount", ((Number) group.get("messageCount")).intValue() + 1);
+            if ("待处理".equals(row.get("status"))) {
+                group.put("pendingCount", ((Number) group.get("pendingCount")).intValue() + 1);
+            }
+        }
+        List<Map<String, Object>> result = new ArrayList<Map<String, Object>>(grouped.values());
+        return new PageResult<Map<String, Object>>(result.size(), result);
+    }
+
+    @Override
+    public Map<String, Object> updateMessageStatus(Long id, Map<String, Object> payload) {
+        String displayStatus = stringValue(payload == null ? null : payload.get("status")).trim();
+        Map<String, String> statuses = new LinkedHashMap<String, String>();
+        statuses.put("待处理", "pending");
+        statuses.put("处理中", "processing");
+        statuses.put("已解决", "resolved");
+        String storedStatus = statuses.get(displayStatus);
+        if (storedStatus == null) throw new IllegalArgumentException("留言状态只能是待处理、处理中或已解决");
+        if (jdbcTemplate.update("update elderly_message set status = ?, updated_at = now() where id = ?", storedStatus, id) != 1) {
+            throw new IllegalArgumentException("留言不存在");
+        }
+        return record("id", id, "status", displayStatus, "accepted", true);
+    }
+
+    @Override
+    public PageResult<Map<String, Object>> resource(String name, ResourceQuery query) {
         List<Map<String, Object>> rows;
         if ("personnel".equals(name)) {
             rows = jdbcTemplate.queryForList("select id, name, phone, service_type as serviceType, area, audit_status as auditStatus, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as updatedAt from service_personnel order by id");
         } else if ("audits".equals(name)) {
             rows = jdbcTemplate.queryForList("select id, name, phone, service_type as serviceType, area, audit_status as auditStatus, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as updatedAt from service_personnel order by id");
         } else if ("workOrders".equals(name)) {
-            rows = workOrders(null, null).getList();
+            rows = workOrders(null, null, new ResourceQuery()).getList();
         } else if ("products".equals(name)) {
             rows = jdbcTemplate.queryForList("select id, name, code, item_type as itemType, category, description, duration, price, if(status = 1, '上架', '下架') as status, date_format(updated_at, '%Y-%m-%d %H:%i') as updatedAt from product order by item_type desc, category, id");
         } else if ("orders".equals(name)) {
-            rows = jdbcTemplate.queryForList("select o.id, o.order_no as orderNo, o.product_id as productId, o.product_name as productName, u.real_name as buyer, o.amount, o.service_type as serviceType, case o.status when 'pending_accept' then '待接单' when 'pending_service' then '待服务' when 'completed' then '已完成' when 'closed' then '已关闭' when 'after_sale' then '售后中' else o.status end as status from service_order o left join `user` u on o.buyer_id = u.id order by o.id");
+            rows = jdbcTemplate.queryForList("select o.id, o.order_no as orderNo, o.product_id as productId, o.product_name as productName, u.real_name as buyer, o.amount, o.service_type as serviceType, case o.status when 'pending_accept' then '待接单' when 'pending_service' then '待服务' when 'completed' then '已完成' when 'closed' then '已关闭' when 'after_sale' then '售后中' else o.status end as status, date_format(o.created_at, '%Y-%m-%d %H:%i') as createdAt from service_order o left join `user` u on o.buyer_id = u.id order by o.id");
         } else if ("afterSales".equals(name)) {
-            rows = jdbcTemplate.queryForList("select a.id, o.order_no as orderNo, u.real_name as applicant, a.reason, a.status from after_sale a left join service_order o on a.order_id = o.id left join `user` u on a.applicant_id = u.id order by a.id");
+            rows = jdbcTemplate.queryForList("select a.id, o.order_no as orderNo, u.real_name as applicant, a.reason, a.status, date_format(a.created_at, '%Y-%m-%d %H:%i') as createdAt from after_sale a left join service_order o on a.order_id = o.id left join `user` u on a.applicant_id = u.id order by a.id");
         } else if ("reviews".equals(name)) {
-            rows = jdbcTemplate.queryForList("select r.id, p.name as productName, r.product_id as productId, u.real_name as user, r.rating, r.content, if(r.visible = 1, '已显示', '已隐藏') as status from review r left join product p on r.product_id = p.id left join `user` u on r.user_id = u.id order by r.id");
+            rows = jdbcTemplate.queryForList("select r.id, p.name as productName, r.product_id as productId, u.real_name as user, r.rating, r.content, if(r.visible = 1, '已显示', '已隐藏') as status, date_format(r.created_at, '%Y-%m-%d %H:%i') as createdAt from review r left join product p on r.product_id = p.id left join `user` u on r.user_id = u.id order by r.id");
         } else if ("staffs".equals(name)) {
-            rows = jdbcTemplate.queryForList("select s.id, s.staff_no as staffNo, s.name, s.phone, s.role_id as roleId, r.name as role, s.remark, if(s.status = 1, '启用', '禁用') as status from staff s left join role r on s.role_id = r.id order by s.id");
+            rows = jdbcTemplate.queryForList("select s.id, s.staff_no as staffNo, s.name, s.phone, s.role_id as roleId, r.name as role, s.remark, if(s.status = 1, '启用', '禁用') as status, date_format(s.updated_at, '%Y-%m-%d %H:%i') as updatedAt from staff s left join role r on s.role_id = r.id order by s.id");
         } else if ("roles".equals(name)) {
-            rows = jdbcTemplate.queryForList("select id, name, description, '启用' as status from role order by id");
+            rows = jdbcTemplate.queryForList("select id, name, description, '启用' as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from role order by id");
         } else if ("logs".equals(name)) {
             rows = jdbcTemplate.queryForList("select id, operator, action_type as actionType, target, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from operation_log order by id desc");
         } else if ("agreements".equals(name)) {
-            rows = jdbcTemplate.queryForList("select id, title, type, if(status = 1, '启用', '禁用') as status from agreement order by id");
+            rows = jdbcTemplate.queryForList("select id, title, type, if(status = 1, '启用', '禁用') as status, date_format(updated_at, '%Y-%m-%d %H:%i') as updatedAt from agreement order by id");
         } else if (phaseTableName(name) != null) {
             rows = phaseRows(name);
         } else {
             rows = operationContent(name);
         }
+        rows = query.filter(rows);
         return new PageResult<Map<String, Object>>(rows.size(), rows);
     }
 
     @Override
-    public PageResult<Map<String, Object>> workOrders(Long personnelId, Long customerId) {
+    public PageResult<Map<String, Object>> workOrders(Long personnelId, Long customerId, ResourceQuery query) {
         StringBuilder sql = new StringBuilder(
                 "select w.id, w.order_no as orderNo, w.order_id as orderId, o.order_no as serviceOrderNo, " +
                         "w.product_id as productId, w.service_item as serviceItem, w.amount, " +
@@ -438,7 +505,8 @@ public class JdbcAdminDataService implements AdminDataService {
                         "when 'completed' then '已完成' when 'cancelled' then '已取消' else w.status end as status, " +
                         "date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as dispatchTime, " +
                         "date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as updatedAt, " +
-                        "date_format(w.service_time, '%Y-%m-%d %H:%i:%s') as serviceTime " +
+                        "date_format(w.service_time, '%Y-%m-%d %H:%i:%s') as serviceTime, " +
+                        "date_format(w.service_time, '%Y-%m-%d') as filterDate " +
                         "from work_order w left join `user` u on w.customer_id = u.id " +
                         "left join service_personnel p on w.personnel_id = p.id " +
                         "left join service_order o on w.order_id = o.id where 1 = 1"
@@ -454,6 +522,7 @@ public class JdbcAdminDataService implements AdminDataService {
         }
         sql.append(" order by w.id desc");
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(sql.toString(), args.toArray());
+        rows = query.filter(rows);
         return new PageResult<Map<String, Object>>(rows.size(), rows);
     }
 
@@ -722,13 +791,51 @@ public class JdbcAdminDataService implements AdminDataService {
     }
 
     @Override
-    public Map<String, Object> analyticsOverview() {
-        return record("metrics", list(
-                record("label", "活跃用户", "value", count("select count(*) from `user` where status = 1"), "delta", "+9.8%"),
-                record("label", "成交金额", "value", "¥" + money(countAmount()), "delta", "+14.1%"),
-                record("label", "完成工单", "value", count("select count(*) from work_order where status = 'completed'"), "delta", "+7.3%"),
-                record("label", "好评率", "value", goodRate(), "delta", "+2.4%")
-        ));
+    public Map<String, Object> analyticsOverview(ResourceQuery query) {
+        LocalDate start = query.startDateOr(LocalDate.now().minusDays(29));
+        LocalDate end = query.endDateOr(LocalDate.now());
+        if (end.isBefore(start)) {
+            throw new IllegalArgumentException("结束日期不能早于开始日期");
+        }
+        BigDecimal amount = jdbcTemplate.queryForObject(
+                "select coalesce(sum(amount), 0) from service_order where date(created_at) between ? and ?",
+                BigDecimal.class,
+                start,
+                end
+        );
+        long reviewTotal = count("select count(*) from review where date(created_at) between ? and ?", start, end);
+        long goodReviews = count("select count(*) from review where rating >= 4 and date(created_at) between ? and ?", start, end);
+        String goodRate = reviewTotal == 0 ? "0%" : String.format("%.1f%%", goodReviews * 100.0 / reviewTotal);
+        List<Map<String, Object>> ageDistribution = jdbcTemplate.queryForList(
+                "select case when timestampdiff(year, birthday, curdate()) < 70 then '60-69岁' " +
+                        "when timestampdiff(year, birthday, curdate()) < 80 then '70-79岁' else '80岁以上' end as name, " +
+                        "count(*) as value from `user` where date(created_at) between ? and ? group by name order by name",
+                start,
+                end
+        );
+        List<Map<String, Object>> tradeDistribution = jdbcTemplate.queryForList(
+                "select service_type as name, count(*) as value from service_order where date(created_at) between ? and ? group by service_type order by value desc",
+                start,
+                end
+        );
+        List<Map<String, Object>> serviceTrend = jdbcTemplate.queryForList(
+                "select date_format(created_at, '%Y-%m-%d') as day, count(*) as orders, coalesce(sum(amount), 0) as amount " +
+                        "from service_order where date(created_at) between ? and ? " +
+                        "group by date_format(created_at, '%Y-%m-%d') order by day",
+                start,
+                end
+        );
+        return record(
+                "metrics", list(
+                        record("label", "新增用户", "value", count("select count(*) from `user` where date(created_at) between ? and ?", start, end), "delta", "所选时段"),
+                        record("label", "成交金额", "value", "¥" + money(amount), "delta", "所选时段"),
+                        record("label", "完成工单", "value", count("select count(*) from work_order where status = 'completed' and date(coalesce(complete_time, created_at)) between ? and ?", start, end), "delta", "所选时段"),
+                        record("label", "好评率", "value", goodRate, "delta", "所选时段")
+                ),
+                "ageDistribution", ageDistribution,
+                "tradeDistribution", tradeDistribution,
+                "serviceTrend", serviceTrend
+        );
     }
 
     @Override
@@ -743,7 +850,7 @@ public class JdbcAdminDataService implements AdminDataService {
     private List<Map<String, Object>> operationContent(String type) {
         String normalized = type == null ? "posts" : type;
         return jdbcTemplate.queryForList(
-                "select id, title, publisher, likes, location, quota, author, if(status = 1, '已发布', '草稿') as status from operation_content where type = ? order by id",
+                "select id, title, publisher, likes, location, quota, author, if(status = 1, '已发布', '草稿') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from operation_content where type = ? order by id",
                 normalized
         );
     }
@@ -879,35 +986,35 @@ public class JdbcAdminDataService implements AdminDataService {
     }
 
     private List<Map<String, Object>> phaseRows(String name) {
-        if ("healthSettings".equals(name)) return jdbcTemplate.queryForList("select h.id, u.real_name as userName, h.heart_rate_upper as heartRateUpper, h.heart_rate_lower as heartRateLower, h.step_goal as stepGoal, h.sleep_goal as sleepGoal, if(h.medication_reminder = 1, '启用', '禁用') as status from health_settings h left join `user` u on h.user_id = u.id order by h.id");
+        if ("healthSettings".equals(name)) return jdbcTemplate.queryForList("select h.id, u.real_name as userName, h.heart_rate_upper as heartRateUpper, h.heart_rate_lower as heartRateLower, h.step_goal as stepGoal, h.sleep_goal as sleepGoal, if(h.medication_reminder = 1, '启用', '禁用') as status, date_format(h.updated_at, '%Y-%m-%d %H:%i') as updatedAt from health_settings h left join `user` u on h.user_id = u.id order by h.id");
         if ("healthData".equals(name)) return jdbcTemplate.queryForList("select h.id, u.real_name as userName, h.data_type as dataType, h.value, h.unit, date_format(h.record_date, '%Y-%m-%d') as recordDate, date_format(h.record_time, '%H:%i:%s') as recordTime, h.source from health_data h left join `user` u on h.user_id = u.id order by h.record_date desc, h.id desc");
-        if ("medications".equals(name)) return jdbcTemplate.queryForList("select m.id, u.real_name as userName, m.period, m.drug_name as drugName, m.frequency, date_format(m.take_time, '%H:%i:%s') as takeTime, m.dosage, if(m.reminder_enabled = 1, '启用', '禁用') as status from medication_record m left join `user` u on m.user_id = u.id order by m.id");
-        if ("devices".equals(name)) return jdbcTemplate.queryForList("select d.id, u.real_name as userName, d.device_name as deviceName, d.device_type as deviceType, d.device_code as deviceCode, if(d.status = 1, '绑定', '解绑') as status from device d left join `user` u on d.user_id = u.id order by d.id");
+        if ("medications".equals(name)) return jdbcTemplate.queryForList("select m.id, u.real_name as userName, m.period, m.drug_name as drugName, m.frequency, date_format(m.take_time, '%H:%i:%s') as takeTime, m.dosage, if(m.reminder_enabled = 1, '启用', '禁用') as status, date_format(m.created_at, '%Y-%m-%d %H:%i') as createdAt from medication_record m left join `user` u on m.user_id = u.id order by m.id");
+        if ("devices".equals(name)) return jdbcTemplate.queryForList("select d.id, u.real_name as userName, d.device_name as deviceName, d.device_type as deviceType, d.device_code as deviceCode, if(d.status = 1, '绑定', '解绑') as status, date_format(d.created_at, '%Y-%m-%d %H:%i') as createdAt from device d left join `user` u on d.user_id = u.id order by d.id");
         if ("reports".equals(name)) return jdbcTemplate.queryForList("select r.id, u.real_name as userName, r.title, r.report_type as reportType, date_format(r.report_date, '%Y-%m-%d') as reportDate, r.file_url as fileUrl, r.doctor_name as doctorName, r.summary from report r left join `user` u on r.user_id = u.id order by r.id");
         if ("coupons".equals(name)) return jdbcTemplate.queryForList("select id, coupon_no as couponNo, name, type, discount, min_amount as minAmount, status, date_format(expire_date, '%Y-%m-%d') as expireDate from coupon order by id");
-        if ("userPoints".equals(name)) return jdbcTemplate.queryForList("select p.id, u.real_name as userName, p.points, p.total_earned as totalEarned, p.total_spent as totalSpent, p.level, p.growth_value as growthValue from user_points p left join `user` u on p.user_id = u.id order by p.id");
+        if ("userPoints".equals(name)) return jdbcTemplate.queryForList("select p.id, u.real_name as userName, p.points, p.total_earned as totalEarned, p.total_spent as totalSpent, p.level, p.growth_value as growthValue, date_format(p.updated_at, '%Y-%m-%d %H:%i') as updatedAt from user_points p left join `user` u on p.user_id = u.id order by p.id");
         if ("pointsRecords".equals(name)) return jdbcTemplate.queryForList("select r.id, u.real_name as userName, r.change_value as changeValue, r.reason, date_format(r.created_at, '%Y-%m-%d %H:%i') as createdAt from points_record r left join `user` u on r.user_id = u.id order by r.id desc");
-        if ("memberLevels".equals(name)) return jdbcTemplate.queryForList("select id, name, min_growth as minGrowth, max_growth as maxGrowth, benefits, if(status = 1, '启用', '禁用') as status from member_level where name in ('普通', '银卡', '金卡') order by field(name, '普通', '银卡', '金卡'), id");
-        if ("pointsRules".equals(name)) return jdbcTemplate.queryForList("select id, case action_type when 'signin' then '签到' when 'order' then '完成订单' when 'review' then '发布评价' else action_type end as actionType, description, points, growth, if(status = 1, '启用', '禁用') as status from points_rule where action_type in ('signin', 'order', 'review') order by field(action_type, 'signin', 'order', 'review'), id");
-        if ("productCategories".equals(name)) return jdbcTemplate.queryForList("select id, name, code, description, sort_order as sortOrder, if(status = 1, '启用', '禁用') as status from product_category order by sort_order, id");
-        if ("serviceItems".equals(name)) return jdbcTemplate.queryForList("select s.id, s.product_id as productId, p.name as productName, s.name, s.description, s.duration, s.price, if(s.status = 1, '启用', '禁用') as status from service_item s left join product p on s.product_id = p.id order by s.id");
-        if ("banners".equals(name)) return jdbcTemplate.queryForList("select id, title, image_url as imageUrl, location, sort_order as sortOrder, if(status = 1, '启用', '禁用') as status from banner order by sort_order, id");
+        if ("memberLevels".equals(name)) return jdbcTemplate.queryForList("select id, name, min_growth as minGrowth, max_growth as maxGrowth, benefits, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from member_level where name in ('普通', '银卡', '金卡') order by field(name, '普通', '银卡', '金卡'), id");
+        if ("pointsRules".equals(name)) return jdbcTemplate.queryForList("select id, case action_type when 'signin' then '签到' when 'order' then '完成订单' when 'review' then '发布评价' else action_type end as actionType, description, points, growth, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from points_rule where action_type in ('signin', 'order', 'review') order by field(action_type, 'signin', 'order', 'review'), id");
+        if ("productCategories".equals(name)) return jdbcTemplate.queryForList("select id, name, code, description, sort_order as sortOrder, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from product_category order by sort_order, id");
+        if ("serviceItems".equals(name)) return jdbcTemplate.queryForList("select s.id, s.product_id as productId, p.name as productName, s.name, s.description, s.duration, s.price, if(s.status = 1, '启用', '禁用') as status, date_format(s.created_at, '%Y-%m-%d %H:%i') as createdAt from service_item s left join product p on s.product_id = p.id order by s.id");
+        if ("banners".equals(name)) return jdbcTemplate.queryForList("select id, title, image_url as imageUrl, location, sort_order as sortOrder, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from banner order by sort_order, id");
         if ("activities".equals(name)) return jdbcTemplate.queryForList(
                 "select a.id, a.title, a.cover_url as coverUrl, a.location, date_format(a.start_time, '%Y-%m-%d %H:%i:%s') as startTime, " +
                         "date_format(a.end_time, '%Y-%m-%d %H:%i:%s') as endTime, a.quota, coalesce(ec.enrolled, 0) as enrolled, a.content, " +
                         "case a.status when 'published' then '已发布' when 'draft' then '草稿' when 'ended' then '已结束' else a.status end as status " +
                         "from activity a left join " + ActivityEnrollmentSql.LATEST_ACTIVE_COUNTS + " on ec.activity_id = a.id order by a.id"
         );
-        if ("activityEnrolls".equals(name)) return jdbcTemplate.queryForList("select e.id, e.activity_id as activityId, a.title as activityTitle, u.real_name as userName, case e.status when 'enrolled' then '已报名' when 'cancelled' then '已取消' when 'attended' then '已到场' else e.status end as status, e.remark from activity_enroll e left join activity a on e.activity_id = a.id left join `user` u on e.user_id = u.id order by e.id");
-        if ("topics".equals(name)) return jdbcTemplate.queryForList("select id, name, description, post_count as postCount, if(status = 1, '启用', '禁用') as status from topic order by id");
-        if ("recipes".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, ingredients, steps, calories, suitable_for as suitableFor, if(status = 1, '启用', '禁用') as status from recipe order by id");
-        if ("articles".equals(name)) return jdbcTemplate.queryForList("select id, title, summary, content, author, category, view_count as viewCount, if(status = 1, '已发布', '草稿') as status from article order by id");
-        if ("diseases".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, summary, symptoms, prevention, if(status = 1, '启用', '禁用') as status from disease order by id");
-        if ("institutions".equals(name)) return jdbcTemplate.queryForList("select id, name as title, type, address, phone, rating, capacity, if(status = 1, '启用', '禁用') as status from institution order by id");
-        if ("videos".equals(name)) return jdbcTemplate.queryForList("select id, title, lecturer, category, video_url as videoUrl, duration, view_count as viewCount, if(status = 1, '已发布', '草稿') as status from video order by id");
-        if ("foods".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, calories, protein, fat, carbs, if(status = 1, '启用', '禁用') as status from food order by id");
-        if ("assessments".equals(name)) return jdbcTemplate.queryForList("select id, title, description, case type when 'sleep' then '睡眠测评' when 'fall' then '跌倒风险' when 'custom' then '综合测评' else type end as type, if(status = 1, '启用', '禁用') as status from assessment order by id");
-        if ("assessmentResults".equals(name)) return jdbcTemplate.queryForList("select r.id, a.title as assessmentTitle, u.real_name as userName, r.score, r.result from assessment_result r left join assessment a on r.assessment_id = a.id left join `user` u on r.user_id = u.id order by r.id");
+        if ("activityEnrolls".equals(name)) return jdbcTemplate.queryForList("select e.id, e.activity_id as activityId, a.title as activityTitle, u.real_name as userName, case e.status when 'enrolled' then '已报名' when 'cancelled' then '已取消' when 'attended' then '已到场' else e.status end as status, e.remark, date_format(e.enroll_time, '%Y-%m-%d %H:%i') as enrollTime from activity_enroll e left join activity a on e.activity_id = a.id left join `user` u on e.user_id = u.id order by e.id");
+        if ("topics".equals(name)) return jdbcTemplate.queryForList("select id, name, description, post_count as postCount, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from topic order by id");
+        if ("recipes".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, ingredients, steps, calories, suitable_for as suitableFor, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from recipe order by id");
+        if ("articles".equals(name)) return jdbcTemplate.queryForList("select id, title, summary, content, author, category, view_count as viewCount, if(status = 1, '已发布', '草稿') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from article order by id");
+        if ("diseases".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, summary, symptoms, prevention, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from disease order by id");
+        if ("institutions".equals(name)) return jdbcTemplate.queryForList("select id, name as title, type, address, phone, rating, capacity, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from institution order by id");
+        if ("videos".equals(name)) return jdbcTemplate.queryForList("select id, title, lecturer, category, video_url as videoUrl, duration, view_count as viewCount, if(status = 1, '已发布', '草稿') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from video order by id");
+        if ("foods".equals(name)) return jdbcTemplate.queryForList("select id, name as title, category, calories, protein, fat, carbs, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from food order by id");
+        if ("assessments".equals(name)) return jdbcTemplate.queryForList("select id, title, description, case type when 'sleep' then '睡眠测评' when 'fall' then '跌倒风险' when 'custom' then '综合测评' else type end as type, if(status = 1, '启用', '禁用') as status, date_format(created_at, '%Y-%m-%d %H:%i') as createdAt from assessment order by id");
+        if ("assessmentResults".equals(name)) return jdbcTemplate.queryForList("select r.id, a.title as assessmentTitle, u.real_name as userName, r.score, r.result, date_format(r.created_at, '%Y-%m-%d %H:%i') as createdAt from assessment_result r left join assessment a on r.assessment_id = a.id left join `user` u on r.user_id = u.id order by r.id");
         return new ArrayList<Map<String, Object>>();
     }
 

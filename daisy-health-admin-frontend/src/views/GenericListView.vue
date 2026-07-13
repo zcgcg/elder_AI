@@ -4,7 +4,10 @@
       <div><h1>{{ title }}</h1><p>{{ descriptor }}</p></div>
       <el-button v-if="canCreate" type="primary" :icon="Plus" @click="openCreate">新增</el-button>
     </div>
-    <div class="filters">
+    <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
+      <template #default><el-button link type="primary" @click="load">重新加载</el-button></template>
+    </el-alert>
+    <div v-if="searchEnabled" class="filters">
       <el-select v-if="resource === 'workOrders'" v-model="filters.personnelId" filterable clearable placeholder="查询服务人员">
         <el-option v-for="person in personnelOptions" :key="person.id" :label="`${person.name} · ${person.phone}`" :value="String(person.id)" />
       </el-select>
@@ -12,12 +15,10 @@
         <el-option v-for="user in userOptions" :key="user.id" :label="`${user.realName || user.nickname} · ${user.phone}`" :value="String(user.id)" />
       </el-select>
       <el-select v-model="filters.status" placeholder="状态" clearable>
-        <el-option label="待处理" value="待处理" />
-        <el-option label="处理中" value="处理中" />
-        <el-option label="已完成" value="已完成" />
+        <el-option v-for="status in filterStatuses" :key="status" :label="status" :value="status" />
       </el-select>
-      <el-date-picker v-model="filters.dateRange" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" />
-      <el-input v-model="filters.keyword" placeholder="关键词搜索" clearable />
+      <el-date-picker v-model="filters.dateRange" type="daterange" value-format="YYYY-MM-DD" start-placeholder="开始日期" end-placeholder="结束日期" />
+      <el-input v-model="filters.keyword" placeholder="关键词搜索" clearable @keyup.enter="load" />
       <el-button type="primary" @click="load">搜索</el-button>
       <el-button @click="reset">重置</el-button>
     </div>
@@ -153,12 +154,14 @@ import { useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { assetUrl, createResource, deleteResource, getResource, getUsers, updateResource, uploadFile } from '../api/http'
-import { fallbackRows } from '../api/fallback'
+import { toQueryParams } from '../utils/query'
+import { isListSearchEnabled, listSearchStatuses } from '../utils/listSearch'
 
 const route = useRoute()
 const filters = reactive({ status: '', dateRange: [], keyword: '', personnelId: '', customerId: '' })
 const rows = ref([])
 const total = ref(0)
+const error = ref('')
 const dialogVisible = ref(false)
 const saving = ref(false)
 const editingId = ref(null)
@@ -171,7 +174,7 @@ const readonly = ref(false)
 const resource = computed(() => route.meta.resourceFromParam ? route.params.resource : route.meta.resource)
 const title = computed(() => titleMap[resource.value] || route.meta.title)
 const dialogTitle = computed(() => readonly.value ? `${title.value}详情` : (editingId.value ? `编辑${title.value}` : `新增${title.value}`))
-const descriptor = computed(() => descriptors[resource.value] || '列表筛选、批量操作、状态流转与数据维护')
+const descriptor = computed(() => descriptors[resource.value] || '列表浏览、批量操作、状态流转与数据维护')
 const columns = computed(() => columnMap[resource.value] || defaultColumns)
 const createFields = computed(() => createFieldMap[resource.value] || createFieldMap.posts)
 const canCreate = computed(() => {
@@ -180,6 +183,8 @@ const canCreate = computed(() => {
   if (resource.value === 'pointsRules') return hasAvailableOption('actionType')
   return true
 })
+const searchEnabled = computed(() => isListSearchEnabled(resource.value))
+const filterStatuses = computed(() => listSearchStatuses(resource.value))
 
 const descriptors = {
   personnel: '服务人员生命周期、负责区域与启用状态管理',
@@ -512,13 +517,16 @@ function tagType(value) {
   return 'info'
 }
 async function load() {
+  error.value = ''
   try {
-    const data = await getResource(resource.value, filters)
+    const params = searchEnabled.value ? toQueryParams(filters) : undefined
+    const data = await getResource(resource.value, params)
     rows.value = data.list || data
     total.value = data.total || rows.value.length
-  } catch (error) {
-    rows.value = fallbackRows[resource.value] || fallbackRows.posts
-    total.value = rows.value.length
+  } catch (exception) {
+    rows.value = []
+    total.value = 0
+    error.value = exception.message || '数据加载失败，请检查后端和数据库连接'
   }
 }
 function reset() {

@@ -19,4 +19,18 @@ class SeedDataContractTest {
         assertTrue(restore >= 0, "primary service test account must be restored");
         assertTrue(restore < mirror, "service test account must be restored before account mirroring");
     }
+
+    @Test
+    void appointmentBoardSeedsEveryDayInTheSevenDayWindow() throws Exception {
+        ClassPathResource resource = new ClassPathResource("data.sql");
+        String sql = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+
+        assertTrue(sql.contains("'WOBOARD-DAY-0'"));
+        for (int day = 1; day <= 6; day++) {
+            assertTrue(sql.contains("'WOBOARD-DAY-" + day + "'"), "missing appointment seed for day " + day);
+            assertTrue(sql.contains("interval " + day + " day"), "missing appointment date for day " + day);
+        }
+        assertTrue(sql.contains("on duplicate key update"));
+        assertTrue(sql.contains("set w.product_id = o.product_id"));
+    }
 }

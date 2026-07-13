@@ -10,6 +10,7 @@ import GenericListView from '../views/GenericListView.vue'
 import AnalyticsView from '../views/AnalyticsView.vue'
 import UserPortalView from '../views/UserPortalView.vue'
 import ServicePortalView from '../views/ServicePortalView.vue'
+import MessageManagementView from '../views/MessageManagementView.vue'
 
 const routes = [
   { path: '/login', component: LoginView },
@@ -23,6 +24,7 @@ const routes = [
       { path: 'dashboard', component: DashboardView, meta: { title: '工作台' } },
       { path: 'schedule', component: ScheduleView, meta: { title: '预约看板' } },
       { path: 'users', component: UsersView, meta: { title: '全部用户' } },
+      { path: 'users/messages', component: MessageManagementView, meta: { title: '留言处理' } },
       { path: 'users/:id', component: UserDetailView, meta: { title: '用户详情' } },
       { path: 'user-assets/:resource', component: GenericListView, meta: { title: '用户资产', resourceFromParam: true } },
       { path: 'user-health/:resource', component: GenericListView, meta: { title: '用户健康扩展', resourceFromParam: true } },

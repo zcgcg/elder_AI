@@ -2,6 +2,7 @@ package com.daisy.health.controller;
 
 import com.daisy.health.common.ApiResponse;
 import com.daisy.health.service.AdminDataService;
+import com.daisy.health.service.ResourceQuery;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,8 +19,8 @@ public class AnalyticsController {
     }
 
     @GetMapping({"/users/overview", "/users/age", "/users/gender", "/users/social", "/trade/overview", "/trade/products", "/trade/repurchase", "/service/work-orders", "/service/performance", "/reviews"})
-    public ApiResponse<Map<String, Object>> analytics() {
-        return ApiResponse.success(dataService.analyticsOverview());
+    public ApiResponse<Map<String, Object>> analytics(ResourceQuery query) {
+        return ApiResponse.success(dataService.analyticsOverview(query));
     }
 }
 

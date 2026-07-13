@@ -3,6 +3,7 @@ package com.daisy.health.controller;
 import com.daisy.health.common.ApiResponse;
 import com.daisy.health.common.PageResult;
 import com.daisy.health.service.AdminDataService;
+import com.daisy.health.service.ResourceQuery;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -30,8 +31,8 @@ public class PhaseResourceController {
             "/member-levels", "/points-rules", "/banners",
             "/activity-enrolls", "/topics", "/assessment-results", "/medications", "/health-data"
     })
-    public ApiResponse<PageResult<Map<String, Object>>> list(HttpServletRequest request) {
-        return ApiResponse.success(dataService.resource(resourceName(request)));
+    public ApiResponse<PageResult<Map<String, Object>>> list(HttpServletRequest request, ResourceQuery query) {
+        return ApiResponse.success(dataService.resource(resourceName(request), query));
     }
 
     @PostMapping({

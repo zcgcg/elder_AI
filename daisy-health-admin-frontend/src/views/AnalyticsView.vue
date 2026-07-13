@@ -2,8 +2,8 @@
   <section>
     <div class="page-heading">
       <div><h1>数据分析</h1><p>用户、交易、商品、工单、业绩与评价数据概览</p></div>
-      <el-date-picker v-model="range" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" />
     </div>
+    <el-alert v-if="error" :title="error" type="error" show-icon :closable="false" />
     <div class="metric-grid">
       <article v-for="item in metrics" :key="item.label" class="metric-card"><span>{{ item.label }}</span><strong>{{ item.value }}</strong><el-tag type="success">{{ item.delta }}</el-tag></article>
     </div>
@@ -19,11 +19,13 @@
 import { nextTick, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import { getAnalytics } from '../api/http'
-
-const range = ref([])
+const error = ref('')
 const ageChart = ref()
 const tradeChart = ref()
 const serviceChart = ref()
+const ageDistribution = ref([])
+const tradeDistribution = ref([])
+const serviceTrend = ref([])
 const metrics = ref([
   { label: '活跃用户', value: 3280, delta: '+9.8%' },
   { label: '成交金额', value: '¥86.4万', delta: '+14.1%' },
@@ -32,30 +34,47 @@ const metrics = ref([
 ])
 
 function draw() {
+  echarts.getInstanceByDom(ageChart.value)?.dispose()
+  echarts.getInstanceByDom(tradeChart.value)?.dispose()
+  echarts.getInstanceByDom(serviceChart.value)?.dispose()
   echarts.init(ageChart.value).setOption({
-    series: [{ type: 'pie', radius: '70%', data: [{ name: '60-69岁', value: 42 }, { name: '70-79岁', value: 36 }, { name: '80岁以上', value: 22 }], color: ['#00D39C', '#1890FF', '#FAAD14'] }]
+    series: [{ type: 'pie', radius: '70%', data: ageDistribution.value, color: ['#00D39C', '#1890FF', '#FAAD14'] }]
   })
   echarts.init(tradeChart.value).setOption({
-    xAxis: { type: 'category', data: ['家政', '康复', '体检'] },
+    xAxis: { type: 'category', data: tradeDistribution.value.map((item) => item.name) },
     yAxis: { type: 'value' },
-    series: [{ type: 'bar', data: [420, 360, 280], itemStyle: { color: '#00D39C', borderRadius: 4 } }]
+    series: [{ type: 'bar', data: tradeDistribution.value.map((item) => item.value), itemStyle: { color: '#00D39C', borderRadius: 4 } }]
   })
   echarts.init(serviceChart.value).setOption({
     color: ['#00D39C', '#1890FF'],
     tooltip: { trigger: 'axis' },
     legend: { data: ['工单量', '成交额'] },
-    xAxis: { type: 'category', data: ['1月', '2月', '3月', '4月', '5月', '6月'] },
+    xAxis: { type: 'category', data: serviceTrend.value.map((item) => item.day) },
     yAxis: { type: 'value' },
-    series: [{ name: '工单量', type: 'line', smooth: true, data: [320, 410, 430, 520, 690, 760] }, { name: '成交额', type: 'line', smooth: true, data: [26, 31, 38, 44, 58, 72] }]
+    series: [{ name: '工单量', type: 'line', smooth: true, data: serviceTrend.value.map((item) => item.orders) }, { name: '成交额', type: 'line', smooth: true, data: serviceTrend.value.map((item) => item.amount) }]
   })
 }
 
-onMounted(async () => {
+async function load() {
+  error.value = ''
   try {
     const data = await getAnalytics()
     if (data.metrics) metrics.value = data.metrics
-  } catch (error) {}
+    ageDistribution.value = data.ageDistribution || []
+    tradeDistribution.value = data.tradeDistribution || []
+    serviceTrend.value = data.serviceTrend || []
+  } catch (exception) {
+    metrics.value = []
+    ageDistribution.value = []
+    tradeDistribution.value = []
+    serviceTrend.value = []
+    error.value = exception.message || '分析数据加载失败'
+  }
   await nextTick()
-  draw()
+  if (ageChart.value && tradeChart.value && serviceChart.value) draw()
+}
+
+onMounted(async () => {
+  await load()
 })
 </script>

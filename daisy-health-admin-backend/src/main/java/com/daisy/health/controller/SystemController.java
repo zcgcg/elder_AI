@@ -3,6 +3,7 @@ package com.daisy.health.controller;
 import com.daisy.health.common.ApiResponse;
 import com.daisy.health.common.PageResult;
 import com.daisy.health.service.AdminDataService;
+import com.daisy.health.service.ResourceQuery;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,8 +25,8 @@ public class SystemController {
     }
 
     @GetMapping("/staffs")
-    public ApiResponse<PageResult<Map<String, Object>>> staffs() {
-        return ApiResponse.success(dataService.resource("staffs"));
+    public ApiResponse<PageResult<Map<String, Object>>> staffs(ResourceQuery query) {
+        return ApiResponse.success(dataService.resource("staffs", query));
     }
 
     @PostMapping("/staffs")
@@ -44,8 +45,8 @@ public class SystemController {
     }
 
     @GetMapping("/roles")
-    public ApiResponse<PageResult<Map<String, Object>>> roles() {
-        return ApiResponse.success(dataService.resource("roles"));
+    public ApiResponse<PageResult<Map<String, Object>>> roles(ResourceQuery query) {
+        return ApiResponse.success(dataService.resource("roles", query));
     }
 
     @PostMapping("/roles")
@@ -64,13 +65,13 @@ public class SystemController {
     }
 
     @GetMapping("/logs")
-    public ApiResponse<PageResult<Map<String, Object>>> logs() {
-        return ApiResponse.success(dataService.resource("logs"));
+    public ApiResponse<PageResult<Map<String, Object>>> logs(ResourceQuery query) {
+        return ApiResponse.success(dataService.resource("logs", query));
     }
 
     @GetMapping("/agreements")
-    public ApiResponse<PageResult<Map<String, Object>>> agreements() {
-        return ApiResponse.success(dataService.resource("agreements"));
+    public ApiResponse<PageResult<Map<String, Object>>> agreements(ResourceQuery query) {
+        return ApiResponse.success(dataService.resource("agreements", query));
     }
 
     @PostMapping("/agreements")
