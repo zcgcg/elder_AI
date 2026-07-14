@@ -156,6 +156,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { assetUrl, createResource, deleteResource, getResource, getUsers, updateResource, uploadFile } from '../api/http'
 import { toQueryParams } from '../utils/query'
 import { isListSearchEnabled, listSearchStatuses } from '../utils/listSearch'
+import { eligiblePersonnel } from '../utils/personnel'
 
 const route = useRoute()
 const filters = reactive({ status: '', dateRange: [], keyword: '', personnelId: '', customerId: '' })
@@ -636,7 +637,7 @@ async function loadOptions() {
   if (activities.status === 'fulfilled') activityOptions.value = activities.value.list || activities.value || []
   if (personnel.status === 'fulfilled') {
     const options = personnel.value.list || personnel.value || []
-    personnelOptions.value = options.filter((item) => item.status === '启用' && item.auditStatus === '已通过')
+    personnelOptions.value = eligiblePersonnel(options)
   }
 }
 async function submitCreate() {

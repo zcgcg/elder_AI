@@ -70,7 +70,16 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="服务人员ID"><el-input-number v-model="form.personnelId" :min="1" controls-position="right" /></el-form-item>
+        <el-form-item label="服务人员" required>
+          <el-select v-model="form.personnelId" filterable clearable placeholder="请输入姓名选择服务人员">
+            <el-option
+              v-for="person in personnelOptions"
+              :key="person.id"
+              :label="`${person.name} · ${person.serviceType} · ${person.phone}`"
+              :value="String(person.id)"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item label="预约日期"><el-date-picker v-model="form.date" type="date" value-format="YYYY-MM-DD" :clearable="false" :disabled-date="disabledDate" /></el-form-item>
         <el-form-item label="开始时间"><el-time-picker v-model="form.startTime" value-format="HH:mm:ss" placeholder="开始时间" /></el-form-item>
         <el-form-item label="结束时间"><el-time-picker v-model="form.endTime" value-format="HH:mm:ss" placeholder="结束时间" /></el-form-item>
@@ -90,15 +99,17 @@ import { Plus, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createAppointment, deleteAppointment, getAppointments, getResource, getUsers, updateAppointment } from '../api/http'
 import { isOutsideWindow, sevenDayWindow } from '../utils/query'
+import { eligiblePersonnel } from '../utils/personnel'
 
 const dateWindow = sevenDayWindow()
 const filters = reactive({ date: dateWindow.startDate })
 const hours = Array.from({ length: 10 }, (_, index) => index + 9)
 const dialogVisible = ref(false)
 const saving = ref(false)
-const form = reactive({ productId: '', userRef: '', personnelId: 1, date: dateWindow.startDate, startTime: '09:00:00', endTime: '10:00:00', amount: 0 })
+const form = reactive({ productId: '', userRef: '', personnelId: '', date: dateWindow.startDate, startTime: '09:00:00', endTime: '10:00:00', amount: 0 })
 const userOptions = ref([])
 const catalogOptions = ref([])
+const personnelOptions = ref([])
 const appointments = ref([])
 const error = ref('')
 const dateWindowLabel = `${dateWindow.startDate} 至 ${dateWindow.endDate}`
@@ -175,7 +186,7 @@ function statusLabel(status) {
 }
 function openCreate() {
   const first = catalogOptions.value[0]
-  Object.assign(form, { productId: first?.id ? String(first.id) : '', userRef: userOptions.value[0]?.id ? String(userOptions.value[0].id) : '', personnelId: 1, date: filters.date, startTime: '09:00:00', endTime: '10:00:00', amount: Number(first?.price || 0) })
+  Object.assign(form, { productId: first?.id ? String(first.id) : '', userRef: userOptions.value[0]?.id ? String(userOptions.value[0].id) : '', personnelId: '', date: filters.date, startTime: '09:00:00', endTime: '10:00:00', amount: Number(first?.price || 0) })
   dialogVisible.value = true
 }
 function disabledDate(date) {
@@ -210,9 +221,21 @@ async function loadCatalog() {
     catalogOptions.value = []
   }
 }
+async function loadPersonnel() {
+  try {
+    const data = await getResource('personnel')
+    personnelOptions.value = eligiblePersonnel(data.list || data || [])
+  } catch (error) {
+    personnelOptions.value = []
+  }
+}
 async function submitCreate() {
   if (!form.productId) {
     ElMessage.warning('请选择商品服务')
+    return
+  }
+  if (!form.personnelId) {
+    ElMessage.warning('请选择服务人员')
     return
   }
   saving.value = true
@@ -254,7 +277,7 @@ async function changeStatus(item, status) {
 }
 
 onMounted(async () => {
-  await Promise.all([load(), loadUsers(), loadCatalog()])
+  await Promise.all([load(), loadUsers(), loadCatalog(), loadPersonnel()])
 })
 </script>
 
