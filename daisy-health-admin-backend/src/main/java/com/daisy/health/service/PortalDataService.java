@@ -22,6 +22,10 @@ public interface PortalDataService {
 
     List<Map<String, Object>> elderlyOrders();
 
+    List<Map<String, Object>> elderlyReviews();
+
+    Map<String, Object> createElderlyReview(Map<String, Object> payload);
+
     List<Map<String, Object>> elderlyCoupons();
 
     Map<String, Object> elderlyPoints();

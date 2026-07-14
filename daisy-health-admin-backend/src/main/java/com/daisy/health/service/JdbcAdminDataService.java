@@ -63,7 +63,7 @@ public class JdbcAdminDataService implements AdminDataService {
         String phone = stringValue(payload.get("phone"));
         String password = stringValue(payload.get("password"));
         if (phone.length() == 0 || password.length() == 0) {
-            throw new IllegalArgumentException("Account and password are required");
+            throw new IllegalArgumentException("账号和密码不能为空");
         }
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
                 "select id, phone, password_hash as passwordHash, role_type as roleType, nickname, avatar_url as avatarUrl " +
@@ -71,12 +71,12 @@ public class JdbcAdminDataService implements AdminDataService {
                 phone
         );
         if (rows.isEmpty()) {
-            throw new IllegalArgumentException("Account or password is incorrect");
+            throw new IllegalArgumentException("账号或密码错误");
         }
         Map<String, Object> account = rows.get(0);
         String storedPassword = stringValue(account.get("passwordHash"));
         if (!passwordEncoder.matches(password, storedPassword) && !password.equals(storedPassword)) {
-            throw new IllegalArgumentException("Account or password is incorrect");
+            throw new IllegalArgumentException("账号或密码错误");
         }
         Long accountId = ((Number) account.get("id")).longValue();
         if (password.equals(storedPassword)) {
@@ -89,7 +89,7 @@ public class JdbcAdminDataService implements AdminDataService {
         jdbcTemplate.update("update account set last_login_time = now() where id = ?", accountId);
         Map<String, Object> user = loginUser(accountId, stringValue(account.get("roleType")));
         if (user.isEmpty()) {
-            throw new IllegalArgumentException("Account profile is not configured");
+            throw new IllegalArgumentException("账号资料未配置");
         }
         user.remove("passwordHash");
         String roleType = stringValue(user.get("roleType"));
@@ -110,7 +110,7 @@ public class JdbcAdminDataService implements AdminDataService {
                 ? jdbcTemplate.queryForList(staffProfileSql() + " where a.status = 1 and a.role_type = 'staff' order by a.id limit 1")
                 : jdbcTemplate.queryForList(staffProfileSql() + " where a.id = ? and a.status = 1 limit 1", current.getAccountId());
         if (rows.isEmpty()) {
-            return record("id", 1, "staffNo", "S0001", "name", "System Admin", "phone", "13800000000", "role", "Admin", "roleType", "staff", "avatarUrl", "", "remark", "", "permissions", Collections.emptyMap());
+            return record("id", 1, "staffNo", "S0001", "name", "系统管理员", "phone", "13800000000", "role", "超级管理员", "roleType", "staff", "avatarUrl", "", "remark", "", "permissions", Collections.emptyMap());
         }
         Map<String, Object> row = rows.get(0);
         row.put("permissions", permissionsMap(row.remove("permissions")));
@@ -129,7 +129,7 @@ public class JdbcAdminDataService implements AdminDataService {
         if (payload.containsKey("roleId")) {
             values.put("role_id", longValue(payload, "roleId", firstId("role")));
         } else if (payload.containsKey("role")) {
-            values.put("role_id", roleIdByName(text(payload, "role", "Admin")));
+            values.put("role_id", roleIdByName(text(payload, "role", "超级管理员")));
         }
         values.put("updater", "System");
         updateById("staff", id, values);
@@ -280,19 +280,19 @@ public class JdbcAdminDataService implements AdminDataService {
                 "birthday", nullIfBlank(text(payload, "birthday", "")),
                 "phone", phone,
                 "id_card", nullIfBlank(text(payload, "idCard", "")),
-                "address", text(payload, "address", "Shanghai"),
-                "bio", text(payload, "bio", "Created from admin"),
+                "address", text(payload, "address", "上海市"),
+                "bio", text(payload, "bio", "由管理端创建"),
                 "height", decimal(payload, "height", BigDecimal.valueOf(160)),
                 "weight", decimal(payload, "weight", BigDecimal.valueOf(60)),
                 "ethnicity", text(payload, "ethnicity", "汉族"),
                 "education", text(payload, "education", "高中"),
                 "blood_type", text(payload, "bloodType", "A"),
                 "rh_negative", booleanCode(payload.get("rhNegative")),
-                "chronic_disease", text(payload, "chronicDisease", "None"),
+                "chronic_disease", text(payload, "chronicDisease", "无"),
                 "sleep_quality", text(payload, "sleepQuality", "良好"),
-                "smoking_freq", text(payload, "smokingFreq", "None"),
-                "drinking_freq", text(payload, "drinkingFreq", "None"),
-                "exercise_freq", text(payload, "exerciseFreq", "Weekly"),
+                "smoking_freq", text(payload, "smokingFreq", "无"),
+                "drinking_freq", text(payload, "drinkingFreq", "无"),
+                "exercise_freq", text(payload, "exerciseFreq", "每周"),
                 "diet_preference", text(payload, "dietPreference", "清淡"),
                 "emergency_contact", text(payload, "emergencyContact", ""),
                 "emergency_phone", text(payload, "emergencyPhone", ""),
@@ -546,7 +546,7 @@ public class JdbcAdminDataService implements AdminDataService {
         } else if ("afterSales".equals(name)) {
             rows = jdbcTemplate.queryForList("select a.id, o.order_no as orderNo, u.real_name as applicant, a.reason, a.status, date_format(a.created_at, '%Y-%m-%d %H:%i') as createdAt from after_sale a left join service_order o on a.order_id = o.id left join `user` u on a.applicant_id = u.id order by a.id");
         } else if ("reviews".equals(name)) {
-            rows = jdbcTemplate.queryForList("select r.id, p.name as productName, r.product_id as productId, u.real_name as user, r.rating, r.content, if(r.visible = 1, '已显示', '已隐藏') as status, date_format(r.created_at, '%Y-%m-%d %H:%i') as createdAt from review r left join product p on r.product_id = p.id left join `user` u on r.user_id = u.id order by r.id");
+            rows = jdbcTemplate.queryForList("select r.id, p.name as productName, r.product_id as productId, u.real_name as user, r.rating, r.content, if(r.visible = 1, '已显示', '已隐藏') as status, date_format(r.created_at, '%Y-%m-%d %H:%i') as createdAt from review r left join product p on r.product_id = p.id left join `user` u on r.user_id = u.id order by r.id desc");
         } else if ("staffs".equals(name)) {
             rows = jdbcTemplate.queryForList("select s.id, s.staff_no as staffNo, s.name, s.phone, s.role_id as roleId, r.name as role, s.remark, if(s.status = 1, '启用', '禁用') as status, date_format(s.updated_at, '%Y-%m-%d %H:%i') as updatedAt from staff s left join role r on s.role_id = r.id order by s.id");
         } else if ("roles".equals(name)) {

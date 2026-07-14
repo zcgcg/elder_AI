@@ -199,6 +199,67 @@ public class JdbcPortalDataService implements PortalDataService {
     }
 
     @Override
+    public List<Map<String, Object>> elderlyReviews() {
+        return elderlyReviewRows(null, currentLegacyUserId());
+    }
+
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public Map<String, Object> createElderlyReview(Map<String, Object> payload) {
+        long userId = currentLegacyUserId();
+        long orderId = requiredLong(payload, "orderId", "请选择要评价的服务");
+        int rating;
+        try {
+            Object value = payload == null ? null : payload.get("rating");
+            rating = value instanceof Number ? ((Number) value).intValue() : Integer.parseInt(stringValue(value).trim());
+        } catch (Exception ignored) {
+            throw new IllegalArgumentException("请选择1至5星评分");
+        }
+        if (rating < 1 || rating > 5) throw new IllegalArgumentException("请选择1至5星评分");
+        String content = stringValue(payload == null ? null : payload.get("content")).trim();
+        if (content.length() > 500) throw new IllegalArgumentException("评价内容不能超过500字");
+
+        Map<String, Object> order = one(
+                "select o.id, o.product_id as productId, o.product_name as productName " +
+                        "from service_order o join work_order w on w.order_id = o.id " +
+                        "where o.id = ? and o.buyer_id = ? and w.status = 'completed' limit 1 for update",
+                orderId,
+                userId
+        );
+        if (order.isEmpty()) throw new IllegalArgumentException("只能评价本人已完成的服务");
+        if (!jdbcTemplate.queryForList(
+                "select id from review where order_id = ? and user_id = ? limit 1",
+                orderId,
+                userId
+        ).isEmpty()) {
+            throw new IllegalArgumentException("该服务已经评价，不能重复提交");
+        }
+        jdbcTemplate.update(
+                "insert into review(order_id, product_id, user_id, rating, content, visible) values(?, ?, ?, ?, ?, 1)",
+                orderId,
+                order.get("productId"),
+                userId,
+                rating,
+                content
+        );
+        List<Map<String, Object>> created = elderlyReviewRows(orderId, userId);
+        return created.isEmpty() ? new LinkedHashMap<String, Object>() : created.get(0);
+    }
+
+    private List<Map<String, Object>> elderlyReviewRows(Long orderId, long userId) {
+        String select = "select o.id as orderId, o.order_no as orderNo, o.product_name as productName, " +
+                "w.service_item as serviceItem, p.name as personnelName, date_format(w.complete_time, '%Y-%m-%d %H:%i') as completeTime, " +
+                "r.id as reviewId, r.rating, r.content, r.id is not null as reviewed, " +
+                "date_format(r.created_at, '%Y-%m-%d %H:%i') as reviewedAt " +
+                "from service_order o join work_order w on w.order_id = o.id and w.status = 'completed' " +
+                "left join service_personnel p on p.id = w.personnel_id " +
+                "left join review r on r.order_id = o.id and r.user_id = o.buyer_id ";
+        return orderId == null
+                ? jdbcTemplate.queryForList(select + "where o.buyer_id = ? order by w.complete_time desc, o.id desc", userId)
+                : jdbcTemplate.queryForList(select + "where o.id = ? and o.buyer_id = ? order by w.complete_time desc, o.id desc", orderId, userId);
+    }
+
+    @Override
     public List<Map<String, Object>> elderlyCoupons() {
         return jdbcTemplate.queryForList(
                 "select id, coupon_no as couponNo, name, type, discount, min_amount as minAmount, status, " +
@@ -518,7 +579,7 @@ public class JdbcPortalDataService implements PortalDataService {
         ownedWorkOrder(id, personnelId);
         String status = stringValue(payload == null ? null : payload.get("status")).trim();
         if (!SERVICE_STATUSES.contains(status)) {
-            throw new IllegalArgumentException("Unsupported work order status");
+            throw new IllegalArgumentException("不支持该工单状态");
         }
         if ("completed".equals(status)) {
             jdbcTemplate.update("update work_order set status = ?, complete_time = coalesce(complete_time, now()) where id = ? and personnel_id = ?", status, id, personnelId);
@@ -531,7 +592,7 @@ public class JdbcPortalDataService implements PortalDataService {
     private Map<String, Object> ownedWorkOrder(Long id, long personnelId) {
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(workOrderSelect() + " where w.id = ? and w.personnel_id = ? limit 1", id, personnelId);
         if (rows.isEmpty()) {
-            throw new SecurityException("Work order is not assigned to current service account");
+            throw new SecurityException("该工单未分配给当前服务人员");
         }
         return rows.get(0);
     }
@@ -701,7 +762,7 @@ public class JdbcPortalDataService implements PortalDataService {
         AuthenticatedUser user = requireRole("elderly");
         List<Map<String, Object>> rows = jdbcTemplate.queryForList("select legacy_user_id from elderly_profile where account_id = ? limit 1", user.getAccountId());
         if (rows.isEmpty()) {
-            throw new SecurityException("Current account has no elderly profile");
+            throw new SecurityException("当前账号未配置用户档案");
         }
         return ((Number) rows.get(0).get("legacy_user_id")).longValue();
     }
@@ -710,7 +771,7 @@ public class JdbcPortalDataService implements PortalDataService {
         AuthenticatedUser user = requireRole("service");
         List<Map<String, Object>> rows = jdbcTemplate.queryForList("select legacy_personnel_id from service_profile where account_id = ? limit 1", user.getAccountId());
         if (rows.isEmpty()) {
-            throw new SecurityException("Current account has no service profile");
+            throw new SecurityException("当前账号未配置服务人员档案");
         }
         return ((Number) rows.get(0).get("legacy_personnel_id")).longValue();
     }
@@ -718,7 +779,7 @@ public class JdbcPortalDataService implements PortalDataService {
     private AuthenticatedUser requireRole(String roleType) {
         AuthenticatedUser user = currentUser();
         if (user == null || !roleType.equals(user.getRoleType())) {
-            throw new SecurityException("Current account cannot access this portal");
+            throw new SecurityException("当前账号无权访问此端口");
         }
         return user;
     }

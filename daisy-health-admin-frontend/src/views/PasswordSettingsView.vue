@@ -15,7 +15,8 @@
 
     <el-tabs v-model="activeTab" class="password-settings-tabs">
       <el-tab-pane label="用户密码重置" name="users">
-        <el-table :data="users" stripe>
+        <paged-list :items="users" v-slot="{ items }">
+        <el-table :data="items" stripe>
           <el-table-column prop="realName" label="用户" min-width="140" />
           <el-table-column prop="nickname" label="昵称" min-width="130" />
           <el-table-column prop="phone" label="手机号" min-width="150" />
@@ -25,9 +26,11 @@
             </template>
           </el-table-column>
         </el-table>
+        </paged-list>
       </el-tab-pane>
       <el-tab-pane label="服务人员密码重置" name="personnel">
-        <el-table :data="personnel" stripe>
+        <paged-list :items="personnel" v-slot="{ items }">
+        <el-table :data="items" stripe>
           <el-table-column prop="name" label="服务人员" min-width="140" />
           <el-table-column prop="phone" label="手机号" min-width="150" />
           <el-table-column prop="serviceType" label="服务类型" min-width="140" />
@@ -37,6 +40,7 @@
             </template>
           </el-table-column>
         </el-table>
+        </paged-list>
       </el-tab-pane>
     </el-tabs>
 
@@ -48,6 +52,7 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PasswordChangeDialog from '../components/PasswordChangeDialog.vue'
+import PagedList from '../components/PagedList.vue'
 import { getResource, getUsers, resetPersonnelPassword, resetUserPassword } from '../api/http'
 
 const activeTab = ref('users')

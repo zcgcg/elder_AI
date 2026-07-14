@@ -79,6 +79,30 @@ class ElderlyPortalControllerTest {
     }
 
     @Test
+    void userCanListCompletedServicesAndSubmitAReview() throws Exception {
+        when(portalDataService.elderlyReviews()).thenReturn(Collections.singletonList(
+                record("orderId", 31L, "productName", "助浴护理", "reviewed", false)
+        ));
+        when(portalDataService.createElderlyReview(any())).thenReturn(
+                record("orderId", 31L, "rating", 5, "content", "服务很细心", "reviewed", true)
+        );
+
+        mockMvc.perform(get("/api/v1/elderly/reviews"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].orderId").value(31))
+                .andExpect(jsonPath("$.data[0].reviewed").value(false));
+
+        mockMvc.perform(post("/api/v1/elderly/reviews")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"orderId\":31,\"rating\":5,\"content\":\"服务很细心\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.rating").value(5))
+                .andExpect(jsonPath("$.data.reviewed").value(true));
+
+        verify(portalDataService).createElderlyReview(any());
+    }
+
+    @Test
     void userCanChooseFromEligibleServicePersonnelWhenCreatingWorkOrder() throws Exception {
         when(portalDataService.elderlyPersonnel()).thenReturn(Collections.singletonList(
                 record("id", 2L, "name", "李华", "serviceType", "康复理疗")

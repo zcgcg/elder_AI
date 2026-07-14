@@ -67,6 +67,16 @@ public class ElderlyPortalController {
         return ApiResponse.success(portalDataService.elderlyOrders());
     }
 
+    @GetMapping("/reviews")
+    public ApiResponse<List<Map<String, Object>>> reviews() {
+        return ApiResponse.success(portalDataService.elderlyReviews());
+    }
+
+    @PostMapping("/reviews")
+    public ApiResponse<Map<String, Object>> createReview(@RequestBody Map<String, Object> payload) {
+        return ApiResponse.success(portalDataService.createElderlyReview(payload));
+    }
+
     @GetMapping("/coupons")
     public ApiResponse<List<Map<String, Object>>> coupons() {
         return ApiResponse.success(portalDataService.elderlyCoupons());

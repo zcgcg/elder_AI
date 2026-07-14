@@ -53,21 +53,21 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         String header = request.getHeader("Authorization");
         if (header == null || !header.startsWith("Bearer ")) {
-            write(response, HttpServletResponse.SC_UNAUTHORIZED, 1002, "Missing authentication token");
+            write(response, HttpServletResponse.SC_UNAUTHORIZED, 1002, "缺少登录凭证");
             return;
         }
         try {
             AuthenticatedUser user = jwtService.parse(header.substring(7));
             request.setAttribute(USER_ATTRIBUTE, user);
             if (!permissionService.canAccess(user, request.getMethod(), request.getRequestURI())) {
-                write(response, HttpServletResponse.SC_FORBIDDEN, 1003, "Permission denied");
+                write(response, HttpServletResponse.SC_FORBIDDEN, 1003, "没有访问权限");
                 return;
             }
             chain.doFilter(request, response);
         } catch (SecurityException ex) {
             write(response, HttpServletResponse.SC_FORBIDDEN, 1003, ex.getMessage());
         } catch (Exception ex) {
-            write(response, HttpServletResponse.SC_UNAUTHORIZED, 1002, "Invalid or expired token");
+            write(response, HttpServletResponse.SC_UNAUTHORIZED, 1002, "登录凭证无效或已过期");
         }
     }
 

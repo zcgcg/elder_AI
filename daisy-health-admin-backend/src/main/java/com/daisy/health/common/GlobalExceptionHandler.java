@@ -1,5 +1,7 @@
 package com.daisy.health.common;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -7,6 +9,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ApiResponse<Void> handleBusiness(IllegalArgumentException ex) {
         return ApiResponse.error(1005, ex.getMessage());
@@ -29,6 +33,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ApiResponse<Void> handleException(Exception ex) {
-        return ApiResponse.error(5000, ex.getMessage());
+        LOGGER.error("未处理的系统异常", ex);
+        return ApiResponse.error(5000, "系统处理失败，请稍后重试");
     }
 }

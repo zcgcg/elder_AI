@@ -63,8 +63,8 @@
             <el-descriptions-item label="地址">{{ profile.address }}</el-descriptions-item>
             <el-descriptions-item label="民族">{{ profile.ethnicity || '-' }}</el-descriptions-item>
             <el-descriptions-item label="文化程度">{{ profile.education || '-' }}</el-descriptions-item>
-            <el-descriptions-item label="身高">{{ profile.height ? `${profile.height} cm` : '-' }}</el-descriptions-item>
-            <el-descriptions-item label="体重">{{ profile.weight ? `${profile.weight} kg` : '-' }}</el-descriptions-item>
+            <el-descriptions-item label="身高">{{ profile.height ? `${profile.height} 厘米` : '-' }}</el-descriptions-item>
+            <el-descriptions-item label="体重">{{ profile.weight ? `${profile.weight} 千克` : '-' }}</el-descriptions-item>
             <el-descriptions-item label="血型">{{ profile.bloodType || '-' }}</el-descriptions-item>
             <el-descriptions-item label="RH阴性">{{ profile.rhNegative ? '是' : '否' }}</el-descriptions-item>
             <el-descriptions-item label="慢病">{{ profile.chronicDisease }}</el-descriptions-item>
@@ -87,8 +87,9 @@
             <el-button :loading="activityRefreshing" @click="refreshActivities">刷新活动</el-button>
           </div>
         </div>
+        <paged-list :items="myActivities" v-slot="{ items }">
         <section class="content-grid">
-          <article v-for="item in myActivities" :key="`mine-${item.id}`" class="portal-content-card activity-card-mine">
+          <article v-for="item in items" :key="`mine-${item.id}`" class="portal-content-card activity-card-mine">
             <img v-if="item.coverUrl" :src="assetUrl(item.coverUrl)" :alt="item.title" />
             <div class="content-card-body">
               <div class="content-meta"><el-tag type="success">{{ item.enrollmentStatus || '已报名' }}</el-tag><span>{{ item.startTime }}</span></div>
@@ -106,13 +107,15 @@
           </article>
           <el-empty v-if="!myActivities.length" description="您还没有参加活动，可在下方选择报名" />
         </section>
+        </paged-list>
 
         <el-divider />
         <div class="activity-section-heading">
           <div><h2>可选择的活动</h2><p>活动内容由管理端统一发布并实时同步</p></div>
         </div>
+        <paged-list :items="availableActivities" v-slot="{ items }">
         <section class="content-grid">
-          <article v-for="item in availableActivities" :key="`available-${item.id}`" class="portal-content-card">
+          <article v-for="item in items" :key="`available-${item.id}`" class="portal-content-card">
             <img v-if="item.coverUrl" :src="assetUrl(item.coverUrl)" :alt="item.title" />
             <div class="content-card-body">
               <div class="content-meta"><el-tag>{{ item.status }}</el-tag><span>{{ item.startTime }}</span></div>
@@ -132,14 +135,16 @@
           </article>
           <el-empty v-if="!availableActivities.length" description="暂无可报名活动" />
         </section>
+        </paged-list>
 
         <template v-if="unavailableActivities.length">
           <el-divider />
           <div class="activity-section-heading">
             <div><h2>往期或暂不可报名</h2><p>仍可查看活动详情，已结束或名额已满的活动不能报名</p></div>
           </div>
+          <paged-list :items="unavailableActivities" v-slot="{ items }">
           <section class="content-grid">
-            <article v-for="item in unavailableActivities" :key="`unavailable-${item.id}`" class="portal-content-card activity-card-muted">
+            <article v-for="item in items" :key="`unavailable-${item.id}`" class="portal-content-card activity-card-muted">
               <img v-if="item.coverUrl" :src="assetUrl(item.coverUrl)" :alt="item.title" />
               <div class="content-card-body">
                 <div class="content-meta"><el-tag type="info">{{ item.enrollmentStatus || item.status }}</el-tag><span>{{ item.startTime }}</span></div>
@@ -150,11 +155,13 @@
               </div>
             </article>
           </section>
+          </paged-list>
         </template>
       </el-tab-pane>
       <el-tab-pane label="健康资讯" name="articles">
+        <paged-list :items="healthArticles" v-slot="{ items }">
         <section class="content-grid">
-          <article v-for="item in healthArticles" :key="item.id" class="portal-content-card">
+          <article v-for="item in items" :key="item.id" class="portal-content-card">
             <img v-if="item.coverUrl" :src="assetUrl(item.coverUrl)" :alt="item.title" />
             <div class="content-card-body">
               <div class="content-meta"><el-tag type="success">{{ item.category || '健康' }}</el-tag><span>{{ item.createdAt }}</span></div>
@@ -165,10 +172,12 @@
           </article>
           <el-empty v-if="!healthArticles.length" description="暂无健康资讯" />
         </section>
+        </paged-list>
       </el-tab-pane>
       <el-tab-pane label="健康讲堂" name="videos">
+        <paged-list :items="healthVideos" v-slot="{ items }">
         <section class="content-grid">
-          <article v-for="item in healthVideos" :key="item.id" class="portal-content-card">
+          <article v-for="item in items" :key="item.id" class="portal-content-card">
             <img v-if="item.coverUrl" :src="assetUrl(item.coverUrl)" :alt="item.title" />
             <div class="content-card-body">
               <div class="content-meta"><el-tag type="warning">{{ item.category || '健康讲堂' }}</el-tag><span>{{ formatDuration(item.duration) }}</span></div>
@@ -179,10 +188,12 @@
           </article>
           <el-empty v-if="!healthVideos.length" description="暂无健康讲堂" />
         </section>
+        </paged-list>
       </el-tab-pane>
       <el-tab-pane label="商品服务" name="catalog">
+        <paged-list :items="catalogItems" v-slot="{ items }">
         <section class="catalog-grid">
-          <article v-for="item in catalogItems" :key="item.id" class="catalog-card">
+          <article v-for="item in items" :key="item.id" class="catalog-card">
             <div>
               <el-tag size="small">{{ item.itemType || '服务' }}</el-tag>
               <span>{{ item.category }}</span>
@@ -196,9 +207,11 @@
             </footer>
           </article>
         </section>
+        </paged-list>
       </el-tab-pane>
       <el-tab-pane label="我的工单" name="workOrders">
-        <el-table :data="workOrders" stripe>
+        <paged-list :items="workOrders" v-slot="{ items }">
+        <el-table :data="items" stripe>
           <el-table-column prop="orderNo" label="工单编号" min-width="160" />
           <el-table-column prop="serviceItem" label="服务项目" min-width="160" />
           <el-table-column prop="customerName" label="客户" min-width="110" />
@@ -221,6 +234,31 @@
             </template>
           </el-table-column>
         </el-table>
+        </paged-list>
+      </el-tab-pane>
+      <el-tab-pane label="服务评价" name="reviews">
+        <paged-list :items="reviews" v-slot="{ items }">
+          <el-table :data="items" stripe>
+            <el-table-column prop="orderNo" label="订单编号" min-width="160" />
+            <el-table-column prop="serviceItem" label="服务项目" min-width="150" />
+            <el-table-column prop="personnelName" label="服务人员" min-width="110" />
+            <el-table-column prop="completeTime" label="完成时间" min-width="160" />
+            <el-table-column label="我的评分" min-width="170">
+              <template #default="{ row }">
+                <el-rate v-if="row.reviewed" :model-value="Number(row.rating)" disabled show-score score-template="{value} 星" />
+                <el-tag v-else type="warning">待评价</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="content" label="评价内容" min-width="220" />
+            <el-table-column label="操作" width="110" fixed="right">
+              <template #default="{ row }">
+                <el-button v-if="!row.reviewed" link type="primary" @click="openReview(row)">评价服务</el-button>
+                <span v-else class="muted-action">已评价</span>
+              </template>
+            </el-table-column>
+          </el-table>
+          <el-empty v-if="!reviews.length" description="暂无已完成的服务" />
+        </paged-list>
       </el-tab-pane>
       <el-tab-pane label="健康数据" name="health">
         <section class="panel">
@@ -234,12 +272,16 @@
       <el-tab-pane label="设备报告" name="devices">
         <section class="panel">
           <h2>我的设备</h2>
-          <el-table :data="devices" stripe>
-            <el-table-column v-for="column in deviceColumns" :key="column.prop" :prop="column.prop" :label="column.label" :min-width="column.width || 120" />
+          <paged-list :items="devices" v-slot="{ items }">
+          <el-table :data="items" stripe>
+            <el-table-column v-for="column in deviceColumns" :key="column.prop" :prop="column.prop" :label="column.label" :min-width="column.width || 120">
+              <template #default="{ row }">{{ localizeValue(row[column.prop]) }}</template>
+            </el-table-column>
             <el-table-column label="操作" width="90">
               <template #default="{ row }"><el-button link type="primary" @click="openDeviceEditor(row)">编辑</el-button></template>
             </el-table-column>
           </el-table>
+          </paged-list>
         </section>
         <data-table :rows="reports" :columns="reportColumns" title="健康报告" />
       </el-tab-pane>
@@ -269,8 +311,8 @@
         <el-form-item label="个人简介"><el-input v-model="profileForm.bio" type="textarea" /></el-form-item>
         <el-form-item label="民族"><el-input v-model="profileForm.ethnicity" /></el-form-item>
         <el-form-item label="文化程度"><el-input v-model="profileForm.education" /></el-form-item>
-        <el-form-item label="身高(cm)"><el-input-number v-model="profileForm.height" :min="0" /></el-form-item>
-        <el-form-item label="体重(kg)"><el-input-number v-model="profileForm.weight" :min="0" /></el-form-item>
+        <el-form-item label="身高（厘米）"><el-input-number v-model="profileForm.height" :min="0" /></el-form-item>
+        <el-form-item label="体重（千克）"><el-input-number v-model="profileForm.weight" :min="0" /></el-form-item>
         <el-form-item label="血型"><el-select v-model="profileForm.bloodType" clearable><el-option v-for="type in ['A', 'B', 'O', 'AB']" :key="type" :label="type" :value="type" /></el-select></el-form-item>
         <el-form-item label="RH阴性"><el-switch v-model="profileForm.rhNegative" /></el-form-item>
         <el-form-item label="慢性病"><el-input v-model="profileForm.chronicDisease" /></el-form-item>
@@ -396,6 +438,20 @@
         <el-button type="primary" :loading="messageSaving" @click="submitMessage">提交留言</el-button>
       </template>
     </el-dialog>
+    <el-dialog v-model="reviewVisible" title="评价服务" width="560px">
+      <el-form label-position="top">
+        <el-form-item label="服务项目"><strong>{{ reviewForm.serviceItem }}</strong></el-form-item>
+        <el-form-item label="服务人员"><span>{{ reviewForm.personnelName || '未指定' }}</span></el-form-item>
+        <el-form-item label="服务评分" required><el-rate v-model="reviewForm.rating" size="large" show-text /></el-form-item>
+        <el-form-item label="评价内容">
+          <el-input v-model="reviewForm.content" type="textarea" :rows="5" maxlength="500" show-word-limit placeholder="请填写您对本次服务的评价" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="reviewVisible = false">取消</el-button>
+        <el-button type="primary" :loading="reviewSaving" @click="submitReview">提交评价</el-button>
+      </template>
+    </el-dialog>
     <password-change-dialog v-model="passwordVisible" />
   </main>
 </template>
@@ -407,15 +463,18 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import PasswordChangeDialog from '../components/PasswordChangeDialog.vue'
+import PagedList from '../components/PagedList.vue'
 import { createHealthChartOption } from '../utils/healthChart'
 import { useResponsiveColumns } from '../utils/viewport'
 import { splitUserActivities } from '../utils/activity'
+import { localizeValue } from '../utils/localizeValue'
 import { useAuthStore } from '../stores/auth'
 import {
   assetUrl,
   cancelElderlyActivity,
   cancelElderlyWorkOrder,
   createElderlyMessage,
+  createElderlyReview,
   createElderlyWorkOrder,
   enrollElderlyActivity,
   getElderlyActivities,
@@ -428,6 +487,7 @@ import {
   getElderlyMedications,
   getElderlyMessages,
   getElderlyOrders,
+  getElderlyReviews,
   getElderlyPersonnel,
   getElderlyPoints,
   getElderlyProfile,
@@ -440,13 +500,19 @@ import {
 } from '../api/http'
 
 const DataTable = {
+  components: { PagedList },
+  methods: { localizeValue },
   props: { rows: { type: Array, default: () => [] }, columns: { type: Array, default: () => [] }, title: String },
   template: `
     <section class="panel">
       <h2 v-if="title">{{ title }}</h2>
-      <el-table :data="rows" stripe>
-        <el-table-column v-for="column in columns" :key="column.prop" :prop="column.prop" :label="column.label" :min-width="column.width || 120" />
-      </el-table>
+      <paged-list :items="rows" v-slot="{ items }">
+        <el-table :data="items" stripe>
+          <el-table-column v-for="column in columns" :key="column.prop" :prop="column.prop" :label="column.label" :min-width="column.width || 120">
+            <template #default="{ row }">{{ localizeValue(row[column.prop]) }}</template>
+          </el-table-column>
+        </el-table>
+      </paged-list>
     </section>
   `
 }
@@ -470,6 +536,7 @@ const points = ref({})
 const catalogItems = ref([])
 const personnelOptions = ref([])
 const workOrders = ref([])
+const reviews = ref([])
 const messages = ref([])
 const activities = ref([])
 const activityGroups = computed(() => splitUserActivities(activities.value))
@@ -494,6 +561,9 @@ const rescheduleForm = reactive({ id: null, orderNo: '', date: '', time: '09:00:
 const messageVisible = ref(false)
 const messageSaving = ref(false)
 const messageContent = ref('')
+const reviewVisible = ref(false)
+const reviewSaving = ref(false)
+const reviewForm = reactive({ orderId: null, serviceItem: '', personnelName: '', rating: 5, content: '' })
 const avatarDialogVisible = ref(false)
 const avatarSaving = ref(false)
 const avatarPickerRef = ref(null)
@@ -562,13 +632,14 @@ function statusTone(status) {
 
 async function loadData() {
   try {
-    const [profileData, health, medicationData, deviceData, reportData, orderData, couponData, pointData, catalogData, workOrderData, activityData, articleData, videoData, personnelData, messageData] = await Promise.all([
+    const [profileData, health, medicationData, deviceData, reportData, orderData, reviewData, couponData, pointData, catalogData, workOrderData, activityData, articleData, videoData, personnelData, messageData] = await Promise.all([
       getElderlyProfile(),
       getElderlyHealthData(),
       getElderlyMedications(),
       getElderlyDevices(),
       getElderlyReports(),
       getElderlyOrders(),
+      getElderlyReviews(),
       getElderlyCoupons(),
       getElderlyPoints(),
       getElderlyCatalogItems(),
@@ -585,6 +656,7 @@ async function loadData() {
     devices.value = deviceData
     reports.value = reportData
     orders.value = orderData
+    reviews.value = reviewData
     coupons.value = couponData
     points.value = pointData
     catalogItems.value = catalogData
@@ -600,6 +672,35 @@ async function loadData() {
     }
   } catch (err) {
     error.value = err.message || '加载失败'
+  }
+}
+
+function openReview(row) {
+  Object.assign(reviewForm, {
+    orderId: row.orderId,
+    serviceItem: row.serviceItem || row.productName,
+    personnelName: row.personnelName || '',
+    rating: 5,
+    content: ''
+  })
+  reviewVisible.value = true
+}
+
+async function submitReview() {
+  if (!reviewForm.rating) {
+    ElMessage.warning('请选择服务评分')
+    return
+  }
+  reviewSaving.value = true
+  try {
+    await createElderlyReview({ orderId: reviewForm.orderId, rating: reviewForm.rating, content: reviewForm.content.trim() })
+    reviews.value = await getElderlyReviews()
+    reviewVisible.value = false
+    ElMessage.success('评价已提交，并已同步到管理端')
+  } catch (err) {
+    ElMessage.error(err.message || '评价提交失败')
+  } finally {
+    reviewSaving.value = false
   }
 }
 

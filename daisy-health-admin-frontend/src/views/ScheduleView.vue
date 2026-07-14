@@ -10,6 +10,7 @@
     <el-alert v-if="error" :title="error" type="error" show-icon :closable="false">
       <template #default><el-button link type="primary" @click="load">重新加载</el-button></template>
     </el-alert>
+    <paged-list :items="laidOut" v-slot="{ items }">
     <section class="timeline-panel">
       <div class="timeline-wrapper">
         <div class="time-labels">
@@ -20,7 +21,7 @@
         <div class="appointment-area">
           <div v-for="hour in hours" :key="hour" class="hour-line"></div>
           <article
-            v-for="item in laidOut"
+            v-for="item in items"
             :key="item.id"
             class="appointment-card"
             :style="cardStyle(item)"
@@ -47,6 +48,7 @@
         </div>
       </div>
     </section>
+    </paged-list>
 
     <el-dialog v-model="dialogVisible" title="新建预约" width="620px">
       <el-form :model="form" label-width="96px">
@@ -100,6 +102,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createAppointment, deleteAppointment, getAppointments, getResource, getUsers, updateAppointment } from '../api/http'
 import { isOutsideWindow, sevenDayWindow } from '../utils/query'
 import { eligiblePersonnel } from '../utils/personnel'
+import PagedList from '../components/PagedList.vue'
 
 const dateWindow = sevenDayWindow()
 const filters = reactive({ date: dateWindow.startDate })

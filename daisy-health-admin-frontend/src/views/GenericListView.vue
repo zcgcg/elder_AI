@@ -26,13 +26,14 @@
       <el-button>批量操作</el-button>
       <el-button>导出数据</el-button>
     </div>
-    <el-table :data="rows" stripe>
+    <paged-list :items="rows" v-slot="{ items }">
+    <el-table :data="items" stripe>
       <el-table-column v-for="column in columns" :key="column.prop" :prop="column.prop" :label="column.label" :min-width="column.width || 120">
         <template #default="{ row }">
-          <el-tag v-if="isStatusColumn(column.prop)" :type="tagType(row[column.prop])">{{ row[column.prop] }}</el-tag>
+          <el-tag v-if="isStatusColumn(column.prop)" :type="tagType(row[column.prop])">{{ localizeValue(row[column.prop]) }}</el-tag>
           <img v-else-if="column.type === 'image' && row[column.prop]" class="table-thumb" :src="assetUrl(row[column.prop])" :alt="row.title || row.name || column.label" />
           <el-button v-else-if="column.type === 'file'" link type="primary" :disabled="!row[column.prop]" @click="openFile(row[column.prop])">查看</el-button>
-          <span v-else>{{ row[column.prop] }}</span>
+          <span v-else>{{ localizeValue(row[column.prop]) }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="190" align="right">
@@ -43,7 +44,7 @@
         </template>
       </el-table-column>
     </el-table>
-    <div class="pagination"><el-pagination layout="prev, pager, next, total" :total="total" /></div>
+    </paged-list>
 
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="620px">
       <el-form :model="form" label-width="112px">
@@ -157,11 +158,12 @@ import { assetUrl, createResource, deleteResource, getResource, getUsers, update
 import { toQueryParams } from '../utils/query'
 import { isListSearchEnabled, listSearchStatuses } from '../utils/listSearch'
 import { eligiblePersonnel } from '../utils/personnel'
+import { localizeValue } from '../utils/localizeValue'
+import PagedList from '../components/PagedList.vue'
 
 const route = useRoute()
 const filters = reactive({ status: '', dateRange: [], keyword: '', personnelId: '', customerId: '' })
 const rows = ref([])
-const total = ref(0)
 const error = ref('')
 const dialogVisible = ref(false)
 const saving = ref(false)
@@ -190,9 +192,9 @@ const filterStatuses = computed(() => listSearchStatuses(resource.value))
 const descriptors = {
   personnel: '服务人员生命周期、负责区域与启用状态管理',
   audits: '服务人员资质审核，通过或驳回申请',
-  workOrders: '待服务、服务中、已完成、已取消工单流转',
+  workOrders: '履约工单：负责派人、服务时间和执行进度，不承担交易结算',
   products: '统一维护商品与服务，工单金额以此处价格为准',
-  orders: '订单从待接单到服务完成的全生命周期管理',
+  orders: '交易订单：负责商品、买家、金额和交易状态，履约进度请到工单查看',
   afterSales: '售后申请审核、处理和关闭',
   reviews: '服务评价回复、隐藏与统计',
   posts: '生活圈动态内容运营',
@@ -254,7 +256,7 @@ const columnMap = {
   products: [{ prop: 'name', label: '商品服务', width: 190 }, { prop: 'itemType', label: '类型' }, { prop: 'category', label: '分类' }, { prop: 'duration', label: '时长(分钟)' }, { prop: 'price', label: '价格' }, { prop: 'status', label: '状态' }, { prop: 'updatedAt', label: '更新时间', width: 170 }],
   orders: [{ prop: 'orderNo', label: '订单编号', width: 170 }, { prop: 'productName', label: '商品信息' }, { prop: 'buyer', label: '买家' }, { prop: 'amount', label: '金额' }, { prop: 'serviceType', label: '服务类型' }, { prop: 'status', label: '订单状态' }],
   afterSales: [{ prop: 'orderNo', label: '订单编号', width: 170 }, { prop: 'applicant', label: '申请人' }, { prop: 'reason', label: '售后原因' }, { prop: 'status', label: '状态' }],
-  reviews: [{ prop: 'productName', label: '商品' }, { prop: 'user', label: '用户' }, { prop: 'rating', label: '评分' }, { prop: 'status', label: '状态' }],
+  reviews: [{ prop: 'productName', label: '商品' }, { prop: 'user', label: '用户' }, { prop: 'rating', label: '评分' }, { prop: 'content', label: '评价内容', width: 220 }, { prop: 'status', label: '状态' }, { prop: 'createdAt', label: '评价时间', width: 170 }],
   staffs: [{ prop: 'staffNo', label: '员工编号' }, { prop: 'name', label: '姓名' }, { prop: 'role', label: '角色' }, { prop: 'status', label: '状态' }],
   roles: [{ prop: 'name', label: '角色名称' }, { prop: 'description', label: '描述', width: 220 }, { prop: 'status', label: '状态' }],
   logs: [{ prop: 'operator', label: '操作人' }, { prop: 'actionType', label: '操作类型' }, { prop: 'target', label: '操作对象' }, { prop: 'createdAt', label: '操作时间', width: 170 }]
@@ -374,8 +376,8 @@ Object.assign(createFieldMap, {
   devices: [
     { prop: 'userRef', label: '用户', type: 'user' },
     { prop: 'deviceName', label: '设备名称', required: true, placeholder: '如：小米手环8' },
-    { prop: 'deviceType', label: '设备类型', placeholder: 'band/watch/scale' },
-    { prop: 'deviceCode', label: '设备编号', placeholder: '设备编号或 MAC' },
+    { prop: 'deviceType', label: '设备类型', placeholder: '如：智能手环、智能手表、智能体重秤' },
+    { prop: 'deviceCode', label: '设备编号', placeholder: '请输入设备编号' },
     { prop: 'status', label: '状态', type: 'select', options: ['绑定', '解绑'] }
   ],
   reports: [
@@ -445,8 +447,8 @@ Object.assign(createFieldMap, {
   banners: [
     { prop: 'title', label: '标题', required: true, placeholder: '轮播标题' },
     { prop: 'imageUrl', label: '图片', required: true, type: 'upload', category: 'banner', accept: '.jpg,.jpeg,.png,.webp', preview: 'image' },
-    { prop: 'linkUrl', label: '跳转URL', placeholder: '跳转链接' },
-    { prop: 'location', label: '位置', placeholder: 'home/activity' },
+    { prop: 'linkUrl', label: '跳转链接', placeholder: '跳转链接' },
+    { prop: 'location', label: '位置', placeholder: '如：首页、活动页' },
     { prop: 'sortOrder', label: '排序', type: 'number' },
     { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用'] }
   ],
@@ -489,7 +491,7 @@ Object.assign(createFieldMap, {
     { prop: 'title', label: '视频标题', required: true, placeholder: '视频标题' },
     { prop: 'lecturer', label: '讲师', placeholder: '讲师' },
     { prop: 'category', label: '分类', placeholder: '分类' },
-    { prop: 'videoUrl', label: '视频URL', placeholder: '视频 URL' },
+    { prop: 'videoUrl', label: '视频链接', placeholder: '视频链接' },
     { prop: 'duration', label: '时长秒', type: 'number' }
   ],
   foods: [
@@ -523,10 +525,8 @@ async function load() {
     const params = searchEnabled.value ? toQueryParams(filters) : undefined
     const data = await getResource(resource.value, params)
     rows.value = data.list || data
-    total.value = data.total || rows.value.length
   } catch (exception) {
     rows.value = []
-    total.value = 0
     error.value = exception.message || '数据加载失败，请检查后端和数据库连接'
   }
 }

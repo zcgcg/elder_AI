@@ -56,7 +56,7 @@ public class PermissionService {
         try {
             return objectMapper.readValue(rows.get(0), new TypeReference<Map<String, List<String>>>() {});
         } catch (Exception ex) {
-            throw new SecurityException("Invalid permission configuration");
+            throw new SecurityException("权限配置无效");
         }
     }
 

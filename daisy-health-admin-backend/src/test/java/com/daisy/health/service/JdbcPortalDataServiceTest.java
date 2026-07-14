@@ -159,6 +159,60 @@ class JdbcPortalDataServiceTest {
     }
 
     @Test
+    void completedOwnedServiceCanBeReviewedOnce() {
+        when(jdbcTemplate.queryForList(startsWith("select o.id, o.product_id as productId"), eq(31L), eq(7L)))
+                .thenReturn(Collections.singletonList(record("id", 31L, "productId", 9L, "productName", "助浴护理")));
+        when(jdbcTemplate.queryForList(startsWith("select id from review"), eq(31L), eq(7L)))
+                .thenReturn(Collections.<Map<String, Object>>emptyList());
+        when(jdbcTemplate.queryForList(startsWith("select o.id as orderId"), eq(31L), eq(7L)))
+                .thenReturn(Collections.singletonList(record(
+                        "orderId", 31L, "productName", "助浴护理", "rating", 5,
+                        "content", "服务很细心", "reviewed", true
+                )));
+
+        Map<String, Object> result = service.createElderlyReview(
+                record("orderId", 31L, "rating", 5, "content", " 服务很细心 ")
+        );
+
+        assertEquals(true, result.get("reviewed"));
+        assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
+                .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
+                .anyMatch(sql -> sql.startsWith("select o.id, o.product_id as productId") && sql.contains("for update")));
+        verify(jdbcTemplate).update(
+                startsWith("insert into review"), eq(31L), eq(9L), eq(7L), eq(5), eq("服务很细心")
+        );
+    }
+
+    @Test
+    void serviceCannotBeReviewedUntilItsWorkOrderIsCompleted() {
+        when(jdbcTemplate.queryForList(startsWith("select o.id, o.product_id as productId"), eq(31L), eq(7L)))
+                .thenReturn(Collections.<Map<String, Object>>emptyList());
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createElderlyReview(record("orderId", 31L, "rating", 5))
+        );
+
+        assertEquals("只能评价本人已完成的服务", error.getMessage());
+        verify(jdbcTemplate, never()).update(startsWith("insert into review"), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void duplicateServiceReviewIsRejected() {
+        when(jdbcTemplate.queryForList(startsWith("select o.id, o.product_id as productId"), eq(31L), eq(7L)))
+                .thenReturn(Collections.singletonList(record("id", 31L, "productId", 9L)));
+        when(jdbcTemplate.queryForList(startsWith("select id from review"), eq(31L), eq(7L)))
+                .thenReturn(Collections.singletonList(record("id", 77L)));
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createElderlyReview(record("orderId", 31L, "rating", 4))
+        );
+
+        assertEquals("该服务已经评价，不能重复提交", error.getMessage());
+    }
+
+    @Test
     void cancellingEnrollmentMarksLatestEnrollmentAndResyncsCount() {
         when(jdbcTemplate.queryForList(contains("from activity where id"), eq(21L)))
                 .thenReturn(Collections.singletonList(record("id", 21L, "title", "社区健康义诊")));

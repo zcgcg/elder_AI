@@ -42,7 +42,8 @@
           刷新
         </el-button>
       </div>
-      <el-table :data="filteredOrders" stripe @row-click="selectOrder">
+      <paged-list :items="filteredOrders" v-slot="{ items }">
+      <el-table :data="items" stripe @row-click="selectOrder">
         <el-table-column prop="orderNo" label="工单号" min-width="150" />
         <el-table-column prop="serviceItem" label="服务项目" min-width="170" />
         <el-table-column prop="customerName" label="客户" min-width="110" />
@@ -55,6 +56,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </paged-list>
     </section>
 
     <el-dialog v-model="detailVisible" title="工单详情" width="760px">
@@ -86,6 +88,7 @@ import { useAuthStore } from '../stores/auth'
 import { getServiceProfile, getServiceWorkOrder, getServiceWorkOrders, updateServiceWorkOrderStatus } from '../api/http'
 import { useResponsiveColumns } from '../utils/viewport'
 import PasswordChangeDialog from '../components/PasswordChangeDialog.vue'
+import PagedList from '../components/PagedList.vue'
 
 const router = useRouter()
 const auth = useAuthStore()

@@ -20,14 +20,15 @@
       </el-select>
     </div>
 
+    <paged-list :items="rows" v-slot="{ items }">
     <div v-if="viewMode === '卡片'" class="user-card-grid">
-      <article v-for="user in rows" :key="user.id" class="user-profile-card">
+      <article v-for="user in items" :key="user.id" class="user-profile-card">
         <el-button class="user-delete-btn" :icon="Delete" text @click="removeUser(user)" />
         <div class="user-card-head">
           <el-avatar :size="54" :src="assetUrl(user.avatarUrl)">{{ user.realName?.slice(0, 1) }}</el-avatar>
           <div>
             <strong>{{ user.nickname || user.realName }}</strong>
-            <span>ID:{{ user.id }}</span>
+            <span>编号：{{ user.id }}</span>
           </div>
         </div>
         <div class="user-tag-strip">
@@ -53,7 +54,7 @@
       </article>
     </div>
 
-    <el-table v-else :data="rows" stripe>
+    <el-table v-else :data="items" stripe>
       <el-table-column prop="nickname" label="用户名" min-width="130" />
       <el-table-column prop="realName" label="真实姓名" />
       <el-table-column prop="phone" label="手机号" min-width="130" />
@@ -72,6 +73,7 @@
         </template>
       </el-table-column>
     </el-table>
+    </paged-list>
 
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑用户' : '新增用户'" width="620px">
       <el-form :model="newUser" label-width="96px">
@@ -126,7 +128,8 @@
         <el-button type="primary" @click="saveTag">{{ tagEditingId ? '保存标签' : '新增标签' }}</el-button>
         <el-button v-if="tagEditingId" @click="resetTagForm">取消编辑</el-button>
       </div>
-      <el-table :data="tags" stripe>
+      <paged-list :items="tags" v-slot="{ items }">
+      <el-table :data="items" stripe>
         <el-table-column prop="name" label="标签名称" />
         <el-table-column label="颜色">
           <template #default="{ row }"><span class="soft-tag mini" :class="`soft-tag-${row.color || 'green'}`">{{ row.name }}</span></template>
@@ -140,6 +143,7 @@
           </template>
         </el-table-column>
       </el-table>
+      </paged-list>
     </el-dialog>
   </section>
 </template>
@@ -149,6 +153,7 @@ import { nextTick, onMounted, reactive, ref } from 'vue'
 import { Delete, Plus, PriceTag } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import AvatarPicker from '../components/AvatarPicker.vue'
+import PagedList from '../components/PagedList.vue'
 import { assetUrl, createTag, createUser, deleteTag, deleteUser, getTags, getUsers, updateTag, updateUser, updateUserTags } from '../api/http'
 
 const viewMode = ref('卡片')

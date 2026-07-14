@@ -80,8 +80,8 @@
         <el-form-item label="个人简介"><el-input v-model="profileForm.bio" type="textarea" /></el-form-item>
         <el-form-item label="民族"><el-input v-model="profileForm.ethnicity" /></el-form-item>
         <el-form-item label="文化程度"><el-input v-model="profileForm.education" /></el-form-item>
-        <el-form-item label="身高(cm)"><el-input-number v-model="profileForm.height" :min="0" controls-position="right" /></el-form-item>
-        <el-form-item label="体重(kg)"><el-input-number v-model="profileForm.weight" :min="0" controls-position="right" /></el-form-item>
+        <el-form-item label="身高（厘米）"><el-input-number v-model="profileForm.height" :min="0" controls-position="right" /></el-form-item>
+        <el-form-item label="体重（千克）"><el-input-number v-model="profileForm.weight" :min="0" controls-position="right" /></el-form-item>
         <el-form-item label="血型"><el-select v-model="profileForm.bloodType"><el-option label="A" value="A" /><el-option label="B" value="B" /><el-option label="O" value="O" /><el-option label="AB" value="AB" /></el-select></el-form-item>
         <el-form-item label="RH阴性"><el-switch v-model="profileForm.rhNegative" /></el-form-item>
         <el-form-item label="慢性病"><el-input v-model="profileForm.chronicDisease" /></el-form-item>
@@ -110,7 +110,7 @@
             <el-option v-for="item in personnelOptions" :key="item.id" :label="`${item.name} · ${item.serviceType} · ${item.phone}`" :value="String(item.id)" />
           </el-select>
           <el-select v-else-if="field.type === 'select'" v-model="sectionForm[field.prop]" placeholder="请选择">
-            <el-option v-for="option in field.options" :key="option" :label="option" :value="option" />
+            <el-option v-for="option in field.options" :key="selectOptionValue(option)" :label="selectOptionLabel(option)" :value="selectOptionValue(option)" />
           </el-select>
           <el-date-picker v-else-if="field.type === 'date'" v-model="sectionForm[field.prop]" type="date" value-format="YYYY-MM-DD" />
           <el-time-picker v-else-if="field.type === 'time'" v-model="sectionForm[field.prop]" value-format="HH:mm:ss" />
@@ -143,19 +143,27 @@
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import * as echarts from 'echarts'
-import { ElButton, ElMessage, ElMessageBox, ElTable, ElTableColumn } from 'element-plus'
+import { ElButton, ElMessage, ElMessageBox, ElPagination, ElTable, ElTableColumn } from 'element-plus'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { assetUrl, createResource, deleteResource, getResource, getUser, updateResource, updateUser, uploadFile } from '../api/http'
 import { createHealthChartOption } from '../utils/healthChart'
 import { useResponsiveColumns } from '../utils/viewport'
+import { PAGE_SIZE, normalizePage, paginate } from '../utils/pagination'
+import { localizeValue } from '../utils/localizeValue'
 
 const EditableTable = defineComponent({
   props: { section: String, rows: Array, columns: Array },
   emits: ['create', 'edit', 'remove'],
   setup(props, { emit }) {
+    const currentPage = ref(1)
+    const pagedRows = computed(() => paginate(props.rows || [], currentPage.value))
+    watch(() => props.rows, () => { currentPage.value = 1 })
+    watch(() => (props.rows || []).length, (total) => {
+      currentPage.value = normalizePage(currentPage.value, total)
+    })
     return () => h('div', [
       h('div', { class: 'tab-actions' }, [h(ElButton, { type: 'primary', onClick: () => emit('create', props.section) }, () => '新增')]),
-      h(ElTable, { data: props.rows || [], stripe: true }, () => [
+      h(ElTable, { data: pagedRows.value, stripe: true }, () => [
         ...(props.columns || []).map((column) => {
           if (column.type === 'file') {
             return h(ElTableColumn, { prop: column.prop, label: column.label, minWidth: column.width || 120 }, {
@@ -164,7 +172,9 @@ const EditableTable = defineComponent({
                 : h('span', '-')
             })
           }
-          return h(ElTableColumn, { prop: column.prop, label: column.label, minWidth: column.width || 120 })
+          return h(ElTableColumn, { prop: column.prop, label: column.label, minWidth: column.width || 120 }, {
+            default: ({ row }) => localizeValue(row[column.prop])
+          })
         }),
         h(ElTableColumn, { label: '操作', width: 150, align: 'right' }, {
           default: ({ row }) => [
@@ -172,7 +182,14 @@ const EditableTable = defineComponent({
             h(ElButton, { link: true, type: 'danger', onClick: () => emit('remove', props.section, row) }, () => '删除')
           ]
         })
-      ])
+      ]),
+      (props.rows || []).length > PAGE_SIZE
+        ? h(ElPagination, {
+            class: 'pagination', background: true, layout: 'prev, pager, next, total',
+            pageSize: PAGE_SIZE, total: (props.rows || []).length, currentPage: currentPage.value,
+            'onUpdate:currentPage': (page) => { currentPage.value = page }
+          })
+        : null
     ])
   }
 })
@@ -210,14 +227,14 @@ const sectionMap = {
     resource: 'healthData',
     defaults: () => ({ userRef: String(user.value.id), dataType: 'weight', value: '', unit: 'kg', recordDate: new Date().toISOString().slice(0, 10), recordTime: '08:00:00', source: '后台录入' }),
     columns: [{ prop: 'recordDate', label: '日期' }, { prop: 'dataType', label: '数据类型' }, { prop: 'value', label: '数值' }, { prop: 'unit', label: '单位' }, { prop: 'source', label: '来源' }],
-    fields: [{ prop: 'dataType', label: '数据类型', type: 'select', options: ['weight', 'heart_rate', 'blood_pressure', 'blood_sugar'] }, { prop: 'value', label: '数值', required: true }, { prop: 'unit', label: '单位' }, { prop: 'recordDate', label: '日期', type: 'date' }, { prop: 'recordTime', label: '时间', type: 'time' }, { prop: 'source', label: '来源' }]
+    fields: [{ prop: 'dataType', label: '数据类型', type: 'select', options: [{ label: '体重', value: 'weight' }, { label: '心率', value: 'heart_rate' }, { label: '血压', value: 'blood_pressure' }, { label: '血糖', value: 'blood_sugar' }] }, { prop: 'value', label: '数值', required: true }, { prop: 'unit', label: '单位' }, { prop: 'recordDate', label: '日期', type: 'date' }, { prop: 'recordTime', label: '时间', type: 'time' }, { prop: 'source', label: '来源' }]
   },
   devices: {
     title: '设备信息',
     resource: 'devices',
     defaults: () => ({ userRef: String(user.value.id), deviceName: '', deviceType: 'band', deviceCode: '', status: '启用' }),
     columns: [{ prop: 'deviceName', label: '设备名称' }, { prop: 'deviceType', label: '类型' }, { prop: 'deviceCode', label: '编号' }, { prop: 'status', label: '状态' }],
-    fields: [{ prop: 'deviceName', label: '设备名称', required: true }, { prop: 'deviceType', label: '设备类型' }, { prop: 'deviceCode', label: '设备编号' }, { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用', '绑定', '解绑'] }]
+    fields: [{ prop: 'deviceName', label: '设备名称', required: true }, { prop: 'deviceType', label: '设备类型', type: 'select', options: [{ label: '智能手环', value: 'band' }, { label: '智能手表', value: 'watch' }, { label: '智能体重秤', value: 'scale' }] }, { prop: 'deviceCode', label: '设备编号' }, { prop: 'status', label: '状态', type: 'select', options: ['启用', '禁用', '绑定', '解绑'] }]
   },
   reports: {
     title: '报告信息',
@@ -264,6 +281,8 @@ const sectionMap = {
 }
 
 const currentSection = computed(() => sectionMap[editingSection.value] || { title: '', fields: [], resource: '' })
+const selectOptionValue = (option) => typeof option === 'object' ? option.value : option
+const selectOptionLabel = (option) => typeof option === 'object' ? option.label : option
 const sectionDialogTitle = computed(() => `${editingId.value ? '编辑' : '新增'}${currentSection.value.title}`)
 const healthDataRows = computed(() => (user.value.healthData || []).map((item) => ({
   ...item,
@@ -274,7 +293,7 @@ const healthDataRows = computed(() => (user.value.healthData || []).map((item) =
 const profileFields = computed(() => [
   { label: '昵称', value: user.value.nickname }, { label: '真实姓名', value: user.value.realName }, { label: '性别', value: user.value.gender }, { label: '出生日期', value: user.value.birthday },
   { label: '手机号', value: user.value.phone }, { label: '身份证号', value: user.value.idCard }, { label: '家庭住址', value: user.value.address }, { label: '个人简介', value: user.value.bio },
-  { label: '民族', value: user.value.ethnicity }, { label: '文化程度', value: user.value.education }, { label: '身高', value: user.value.height ? `${user.value.height} cm` : '' }, { label: '体重', value: user.value.weight ? `${user.value.weight} kg` : '' },
+  { label: '民族', value: user.value.ethnicity }, { label: '文化程度', value: user.value.education }, { label: '身高', value: user.value.height ? `${user.value.height} 厘米` : '' }, { label: '体重', value: user.value.weight ? `${user.value.weight} 千克` : '' },
   { label: '血型', value: user.value.bloodType }, { label: 'RH阴性', value: user.value.rhNegative ? '是' : '否' }, { label: '慢性病', value: user.value.chronicDisease }, { label: '睡眠质量', value: user.value.sleepQuality },
   { label: '吸烟频率', value: user.value.smokingFreq }, { label: '饮酒频率', value: user.value.drinkingFreq }, { label: '运动频率', value: user.value.exerciseFreq }, { label: '饮食偏好', value: user.value.dietPreference },
   { label: '紧急联系人', value: user.value.emergencyContact }, { label: '紧急电话', value: user.value.emergencyPhone }

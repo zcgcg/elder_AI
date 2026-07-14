@@ -16,11 +16,13 @@
       <article><span>已解决</span><strong>{{ statusCounts['已解决'] }}</strong></article>
     </div>
 
-    <el-table :data="groups" stripe row-key="userId">
+    <paged-list :items="groups" v-slot="{ items }">
+    <el-table :data="items" stripe row-key="userId">
       <el-table-column type="expand">
         <template #default="{ row }">
+          <paged-list :items="row.messages" v-slot="{ items: messages }">
           <div class="user-message-list">
-            <article v-for="message in row.messages" :key="message.id" class="user-message-item">
+            <article v-for="message in messages" :key="message.id" class="user-message-item">
               <div class="message-time">{{ message.createdAt }}</div>
               <p>{{ message.content }}</p>
               <el-select
@@ -33,6 +35,7 @@
               </el-select>
             </article>
           </div>
+          </paged-list>
         </template>
       </el-table-column>
       <el-table-column prop="userName" label="用户" min-width="140" />
@@ -43,6 +46,7 @@
       </el-table-column>
       <el-table-column prop="lastMessageTime" label="最近留言时间" min-width="180" />
     </el-table>
+    </paged-list>
     <el-empty v-if="!loading && !groups.length && !error" description="暂无用户留言" />
   </section>
 </template>
@@ -51,6 +55,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getMessages, updateMessageStatus } from '../api/http'
+import PagedList from '../components/PagedList.vue'
 
 const groups = ref([])
 const error = ref('')

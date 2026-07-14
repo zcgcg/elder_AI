@@ -62,7 +62,7 @@
       </section>
     </section>
 
-    <footer class="login-footer">Copyright © DaisyAxure All Rights Reserved</footer>
+    <footer class="login-footer">© DaisyAxure 版权所有</footer>
   </main>
 </template>
 
