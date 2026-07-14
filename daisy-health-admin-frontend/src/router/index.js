@@ -12,6 +12,7 @@ import UserPortalView from '../views/UserPortalView.vue'
 import ServicePortalView from '../views/ServicePortalView.vue'
 import MessageManagementView from '../views/MessageManagementView.vue'
 import PasswordSettingsView from '../views/PasswordSettingsView.vue'
+import { isNativeApp, serverConfig } from '../config/runtime.js'
 
 const routes = [
   { path: '/login', component: LoginView },
@@ -54,6 +55,10 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
+  if (isNativeApp && !serverConfig.isConfigured()) {
+    if (auth.isAuthenticated) auth.clearSession()
+    return to.path === '/login' ? true : '/login'
+  }
   if (to.path !== '/login' && !auth.isAuthenticated) return '/login'
   if (auth.isAuthenticated && !auth.user) {
     try {

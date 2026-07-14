@@ -7,9 +7,22 @@
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
     "test": "node --test src/**/*.test.js",
-    "preview": "vite preview --host 0.0.0.0 --port 4173"
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "app:sync": "npm run build && cap sync android",
+    "app:open": "npm run app:sync && cap open android",
+    "app:lint": "npm run app:sync && cd android && gradlew.bat lint",
+    "app:debug": "npm run app:sync && cd android && gradlew.bat assembleDebug",
+    "app:release": "npm run app:sync && cd android && gradlew.bat assembleRelease"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/browser": "^8.0.3",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/network": "^8.0.1",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "@element-plus/icons-vue": "^2.3.1",
     "@vitejs/plugin-vue": "^5.2.4",
     "axios": "^1.7.9",
@@ -20,5 +33,8 @@
     "vue": "^3.5.13",
     "vue-router": "^4.5.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@capacitor/cli": "^8.4.1",
+    "typescript": "^5.9.3"
+  }
 }

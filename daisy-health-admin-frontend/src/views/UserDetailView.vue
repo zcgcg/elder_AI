@@ -146,6 +146,7 @@ import * as echarts from 'echarts'
 import { ElButton, ElMessage, ElMessageBox, ElPagination, ElTable, ElTableColumn } from 'element-plus'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import { assetUrl, createResource, deleteResource, getResource, getUser, updateResource, updateUser, uploadFile } from '../api/http'
+import { openExternalUrl } from '../native/app.js'
 import { createHealthChartOption } from '../utils/healthChart'
 import { useResponsiveColumns } from '../utils/viewport'
 import { PAGE_SIZE, normalizePage, paginate } from '../utils/pagination'
@@ -168,7 +169,7 @@ const EditableTable = defineComponent({
           if (column.type === 'file') {
             return h(ElTableColumn, { prop: column.prop, label: column.label, minWidth: column.width || 120 }, {
               default: ({ row }) => row[column.prop]
-                ? h(ElButton, { link: true, type: 'primary', onClick: () => window.open(assetUrl(row[column.prop]), '_blank') }, () => '查看')
+                ? h(ElButton, { link: true, type: 'primary', onClick: () => openExternalUrl(assetUrl(row[column.prop])) }, () => '查看')
                 : h('span', '-')
             })
           }
@@ -383,7 +384,7 @@ async function handleSectionUpload(field, options) {
 }
 function openFile(url) {
   if (!url) return
-  window.open(assetUrl(url), '_blank')
+  openExternalUrl(assetUrl(url))
 }
 function fileNameFromUrl(url) {
   return String(url || '').split('/').filter(Boolean).pop() || '已上传文件'

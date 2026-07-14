@@ -1,11 +1,14 @@
 import axios from 'axios'
+import { normalizeServerOrigin } from '../config/server.js'
+import { isNativeApp, serverConfig } from '../config/runtime.js'
+import { isNetworkConnected } from '../native/app.js'
 
 const service = axios.create({
-  baseURL: '/api/v1',
   timeout: 8000
 })
 
 service.interceptors.request.use((config) => {
+  config.baseURL = serverConfig.apiBaseUrl()
   const token = localStorage.getItem('daisy_token')
   if (token) config.headers.Authorization = `Bearer ${token}`
   return config
@@ -23,8 +26,9 @@ service.interceptors.response.use(
 
 function normalizeHttpError(error) {
   const message = error?.response?.data?.message || error?.message || ''
-  if (error?.code === 'ECONNABORTED') return apiError('请求超时，请确认后端服务 8080 已启动', error.code)
-  if (message === 'Network Error' || !error?.response) return apiError('无法连接后端服务，请先启动 8080 后端', error?.code)
+  if (isNativeApp && !isNetworkConnected()) return apiError('当前网络不可用，请连接 Wi-Fi 或移动网络', error?.code)
+  if (error?.code === 'ECONNABORTED') return apiError('请求超时，请检查服务器地址和后端服务', error.code)
+  if (message === 'Network Error' || !error?.response) return apiError('无法连接服务器，请检查服务器地址、Wi-Fi 和后端服务', error?.code)
   return apiError(message || '请求失败', error?.response?.data?.code, error?.response?.status)
 }
 
@@ -36,6 +40,18 @@ function apiError(message, code, status) {
 }
 
 export const login = (payload) => service.post('/auth/login', payload)
+export const pingServer = async (origin) => {
+  const normalized = normalizeServerOrigin(origin, { native: isNativeApp })
+  let response
+  try {
+    response = await axios.get(`${normalized}/api/v1/auth/ping`, { timeout: 5000 })
+  } catch (error) {
+    throw normalizeHttpError(error)
+  }
+  const body = response.data
+  if (!body || body.code !== 0 || body.data?.status !== 'UP') throw apiError('服务器探活响应无效')
+  return { origin: normalized, ...body.data }
+}
 export const logout = () => service.post('/auth/logout')
 export const profile = () => service.get('/auth/profile')
 export const updateProfile = (payload) => service.put('/auth/profile', payload)
@@ -64,8 +80,7 @@ export const uploadFile = (file, category) => {
   return service.post('/uploads', data)
 }
 export const assetUrl = (url) => {
-  if (!url || !String(url).startsWith('/uploads/')) return url
-  return url
+  return serverConfig.assetUrl(url)
 }
 const resourcePaths = {
   workOrders: 'work-orders',

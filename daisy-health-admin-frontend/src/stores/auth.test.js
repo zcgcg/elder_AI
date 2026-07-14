@@ -12,11 +12,15 @@ globalThis.localStorage = {
 
 const requests = []
 let rejectLogout = false
+let loginRole = 'admin'
 axios.defaults.adapter = async (config) => {
   requests.push(config)
   if (rejectLogout) throw new Error('backend unavailable')
+  const data = config.url === '/auth/login'
+    ? { token: `${loginRole}-jwt`, user: { id: 1, roleType: loginRole } }
+    : { accepted: true }
   return {
-    data: { code: 0, message: 'success', data: { accepted: true } },
+    data: { code: 0, message: 'success', data },
     status: 200,
     statusText: 'OK',
     headers: {},
@@ -25,6 +29,31 @@ axios.defaults.adapter = async (config) => {
 }
 
 const { useAuthStore } = await import('./auth.js')
+
+function emptyStore() {
+  storage.clear()
+  requests.length = 0
+  rejectLogout = false
+  setActivePinia(createPinia())
+  return useAuthStore()
+}
+
+test('admin, elderly and service logins enter their matching mobile homes', async () => {
+  const auth = emptyStore()
+  const cases = [
+    ['admin', '/dashboard'],
+    ['elderly', '/portal/user'],
+    ['service', '/portal/service']
+  ]
+
+  for (const [role, expectedPath] of cases) {
+    loginRole = role
+    await auth.signIn({ phone: role, password: 'test-password' })
+    assert.equal(auth.user.roleType, role)
+    assert.equal(auth.homePath, expectedPath)
+    assert.equal(localStorage.getItem('daisy_token'), `${role}-jwt`)
+  }
+})
 
 function authenticatedStore() {
   storage.clear()

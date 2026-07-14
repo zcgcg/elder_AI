@@ -7,6 +7,7 @@
 本项目包含一个 Vue 3 管理后台和一个 Spring Boot 后端 API，默认接入 MySQL 数据库。项目按 `黛西健康_概要设计报告.md` 和 `D:\agent_project\elder_AI_opencode\原型对比分析报告.md` 逐步实现，目前已覆盖后台首页、用户、服务、商品、运营、交易、数据、系统等主要管理模块。
 
 ## 最近修改
+- 新增 Android App 工程：使用 Capacitor 8 复用现有 Vue 3 前端，应用名为“黛西健康”、包名为 `com.daisy.health`，覆盖管理员、老人用户和服务人员三类身份。App 首次启动需要配置并测试后端服务器地址，局域网使用电脑 WLAN IPv4，未来可切换 HTTPS 公网地址。
 - 补齐移动端可见的退出登录入口：管理端在抽屉菜单底部提供常驻按钮，老人用户端和服务人员端在头部操作区提供醒目的整行按钮；点击后调用后端退出接口、清理本地登录状态并返回登录页。
 
 - 修复移动端退出登录链路：管理端、老人用户端和服务人员端现在都会先调用 `POST /api/v1/auth/logout`，再清除本地 JWT、用户与权限缓存并返回登录页；即使本地后端暂时不可达，也会完成本地退出，避免残留登录状态。
@@ -158,6 +159,81 @@ Remove-NetFirewallRule -DisplayName "Daisy Health Vite 5173"
 7. 再用老人用户账号在手机创建一张工单；管理员电脑端刷新“服务 → 工单管理”，确认能看到同一工单；服务人员手机端刷新后确认被分配的工单可见。
 
 如果电脑能访问但手机不能访问，按顺序检查：手机 URL 是否使用电脑 WLAN IPv4、两端是否同一 Wi-Fi、防火墙 `5173` 是否放行、路由器是否开启 AP 隔离、Vite 是否仍显示 `Network` 地址。数据页面能打开但保存失败时，再检查后端 `8080` 和 MySQL 是否正常运行。
+
+## Android App 构建与真机测试
+
+Android App 位于 `daisy-health-admin-frontend/android`，应用名称为“黛西健康”，包名为 `com.daisy.health`，最低支持 Android 7（API 24）。App 与电脑浏览器共用 Spring Boot、MySQL 和 `uploads/`，不会把业务数据保存在手机本地，也不依赖云服务器。
+
+### 1. 安装 Android 构建环境
+
+1. 安装 Android Studio 2025.2.1 或更高版本，使用 Android Studio 自带的 JDK。
+2. 在 Android Studio 的 `Tools -> SDK Manager` 安装 Android SDK Platform 36、Android SDK Build-Tools 和 Platform-Tools。
+3. 设置 `ANDROID_HOME` 为 SDK 目录，通常是 `C:\Users\用户名\AppData\Local\Android\Sdk`，并把 `%ANDROID_HOME%\platform-tools` 加入 `PATH`。
+4. 执行 `adb --version` 和 `java -version`，确认真机工具和 Android Studio JDK 可用。Spring Boot 后端仍可继续使用项目原有的 JDK 8。
+
+### 2. 启动本地服务器
+
+```powershell
+cd D:\agent_project\elder_AI\daisy-health-admin-backend
+mvn spring-boot:run
+```
+
+App 会直接访问电脑的 `8080`，无需启动 Vite。确认使用的是可信任 Wi-Fi 后，以管理员 PowerShell 仅向本地子网放行端口：
+
+```powershell
+New-NetFirewallRule -DisplayName "Daisy Health API 8080" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 8080 -Profile Any -RemoteAddress LocalSubnet
+```
+
+测试结束后可删除规则：
+
+```powershell
+Remove-NetFirewallRule -DisplayName "Daisy Health API 8080"
+```
+
+### 3. 同步、调试与签名打包
+
+```powershell
+cd D:\agent_project\elder_AI\daisy-health-admin-frontend
+cmd /c npm install
+cmd /c npm run app:sync
+cmd /c npm run app:debug
+```
+
+调试 APK 输出到 `android/app/build/outputs/apk/debug/app-debug.apk`。真机开启“开发者选项”和 USB 调试后，也可以执行 `cmd /c npx cap run android`。
+
+首次创建 release 签名文件时执行下面的命令，并妥善保存 keystore 及密码；丢失后将无法对同一 App 进行覆盖升级。`*.jks` 和 `*.keystore` 已被 Git 忽略。
+
+```powershell
+keytool -genkeypair -v -keystore D:\secure\daisy-health-release.jks -alias daisy-health -keyalg RSA -keysize 2048 -validity 10000
+$env:DAISY_ANDROID_KEYSTORE='D:\secure\daisy-health-release.jks'
+$env:DAISY_ANDROID_KEYSTORE_PASSWORD='你的keystore密码'
+$env:DAISY_ANDROID_KEY_ALIAS='daisy-health'
+$env:DAISY_ANDROID_KEY_PASSWORD='你的key密码'
+cmd /c npm run app:release
+```
+
+签名 APK 输出到 `android/app/build/outputs/apk/release/app-release.apk`。签名密码和 keystore 不得提交到 Git、GitHub 或 Gitee。
+
+也可以在 `android/keystore.properties` 保存同名配置项 `storeFile`、`storePassword`、`keyAlias`、`keyPassword`。该文件已被 Git 忽略，环境变量存在时优先使用环境变量。
+
+### 4. 首次连接
+
+1. 电脑与手机连接同一 Wi-Fi，执行 `ipconfig` 获取电脑 WLAN IPv4。
+2. 安装并打开 APK。首次启动会强制显示“服务器设置”。
+3. 局域网填写 `http://电脑WLAN IPv4:8080`，例如 `http://192.168.1.20:8080`，点击“测试并保存”。不要填写 `localhost` 或 `127.0.0.1`。
+4. 公网地址只允许 HTTPS，例如 `https://api.example.com`；App 会拒绝公网明文 HTTP。
+5. 返回登录页，使用管理员、老人用户和服务人员账号分别登录。更换服务器地址会自动清除旧服务器的登录状态。
+
+### 5. 真机验收清单
+
+1. 管理员：验证移动抽屉中的全部授权菜单、列表分页、增删改查、图表、上传、报告打开和退出登录。
+2. 老人用户：验证资料与头像、健康数据、用药、设备、报告、服务预约、工单、评价、活动、留言和退出登录。
+3. 服务人员：验证工单列表、详情、状态流转、刷新、修改密码和退出登录。
+4. 手机新建或修改一条测试数据，电脑刷新确认出现；电脑修改后，App 刷新确认同步。
+5. 依次测试错误 IP、关闭 Wi-Fi、关闭 Spring Boot、JWT 过期和服务器地址切换，确认显示中文错误并可返回服务器设置。
+6. 安装旧版后再覆盖安装新版 release APK，确认服务器地址保留且业务数据仍来自同一后端。
+
+常见故障：连接测试失败时依次检查 WLAN IPv4、同一 Wi-Fi、AP 隔离、Windows 防火墙、Spring Boot `8080` 和 MySQL；App 能登录但图片不显示时检查 `/uploads/**` 是否可由 `http://电脑IP:8080` 访问。
 
 ## 技术栈
 

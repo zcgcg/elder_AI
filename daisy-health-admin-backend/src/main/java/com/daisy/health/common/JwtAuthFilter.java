@@ -18,6 +18,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
     private static final List<String> PERMIT_URLS = Arrays.asList(
             "/api/v1/auth/login",
+            "/api/v1/auth/ping",
             "/error"
     );
 

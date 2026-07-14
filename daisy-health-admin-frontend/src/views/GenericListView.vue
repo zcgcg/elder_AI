@@ -155,6 +155,7 @@ import { useRoute } from 'vue-router'
 import { Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { assetUrl, createResource, deleteResource, getResource, getUsers, updateResource, uploadFile } from '../api/http'
+import { openExternalUrl } from '../native/app.js'
 import { toQueryParams } from '../utils/query'
 import { isListSearchEnabled, listSearchStatuses } from '../utils/listSearch'
 import { eligiblePersonnel } from '../utils/personnel'
@@ -615,7 +616,7 @@ async function handleFieldUpload(field, options) {
 }
 function openFile(url) {
   if (!url) return
-  window.open(assetUrl(url), '_blank')
+  openExternalUrl(assetUrl(url))
 }
 function fileNameFromUrl(url) {
   return String(url || '').split('/').filter(Boolean).pop() || '已上传文件'

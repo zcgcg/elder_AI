@@ -24,6 +24,7 @@
           </svg>
         </div>
         <h2>欢迎登录</h2>
+        <server-settings ref="serverSettingsRef" />
 
         <el-form class="login-form" :model="form" :rules="rules" ref="formRef" @keyup.enter="submit">
           <el-form-item prop="phone">
@@ -72,6 +73,8 @@ import { ElMessage } from 'element-plus'
 import { CircleCloseFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import ServerSettings from '../components/ServerSettings.vue'
+import { isNativeApp, serverConfig } from '../config/runtime.js'
 import { loginFailureMessage } from '../utils/loginFeedback'
 import loginPicture from '../../assets/login_picture.png'
 
@@ -80,6 +83,7 @@ const auth = useAuthStore()
 const formRef = ref()
 const loading = ref(false)
 const loginError = ref('')
+const serverSettingsRef = ref()
 const form = reactive({ phone: '', password: '', agreed: true })
 const rules = {
   phone: [{ required: true, message: '请输入账号', trigger: 'blur' }],
@@ -88,6 +92,11 @@ const rules = {
 
 async function submit() {
   loginError.value = ''
+  if (isNativeApp && !serverConfig.isConfigured()) {
+    serverSettingsRef.value?.open()
+    loginError.value = '请先配置并测试服务器连接'
+    return
+  }
   await formRef.value.validate()
   if (!form.agreed) {
     ElMessage.warning('请先同意用户隐私政策')

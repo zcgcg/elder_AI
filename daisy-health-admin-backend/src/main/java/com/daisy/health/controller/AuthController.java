@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestController
@@ -18,6 +19,15 @@ public class AuthController {
 
     public AuthController(AdminDataService dataService) {
         this.dataService = dataService;
+    }
+
+    @GetMapping("/ping")
+    public ApiResponse<Map<String, Object>> ping() {
+        Map<String, Object> status = new LinkedHashMap<String, Object>();
+        status.put("service", "daisy-health");
+        status.put("status", "UP");
+        status.put("apiVersion", "v1");
+        return ApiResponse.success(status);
     }
 
     @PostMapping("/login")

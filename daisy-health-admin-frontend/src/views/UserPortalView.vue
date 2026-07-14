@@ -498,6 +498,7 @@ import {
   updateElderlyDevice,
   updateElderlyProfile
 } from '../api/http'
+import { openExternalUrl } from '../native/app.js'
 
 const DataTable = {
   components: { PagedList },
@@ -989,7 +990,7 @@ function formatDuration(seconds) {
 }
 
 function openVideo(url) {
-  window.open(url, '_blank', 'noopener,noreferrer')
+  openExternalUrl(assetUrl(url))
 }
 
 function openArticle(item) {
