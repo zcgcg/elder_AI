@@ -33,9 +33,10 @@
               autocomplete="username"
               autofocus
               placeholder=""
+              @input="loginError = ''"
             >
               <template #suffix>
-                <el-icon class="input-clear" @click.stop="form.phone = ''"><CircleCloseFilled /></el-icon>
+                <el-icon class="input-clear" @click.stop="form.phone = ''; loginError = ''"><CircleCloseFilled /></el-icon>
               </template>
             </el-input>
           </el-form-item>
@@ -46,7 +47,9 @@
               type="password"
               autocomplete="current-password"
               placeholder="请输入密码"
+              @input="loginError = ''"
             />
+            <p v-if="loginError" class="login-error" role="alert">{{ loginError }}</p>
           </el-form-item>
           <div class="agreement-row">
             <el-checkbox v-model="form.agreed">
@@ -69,12 +72,14 @@ import { ElMessage } from 'element-plus'
 import { CircleCloseFilled } from '@element-plus/icons-vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { loginFailureMessage } from '../utils/loginFeedback'
 import loginPicture from '../../assets/login_picture.png'
 
 const router = useRouter()
 const auth = useAuthStore()
 const formRef = ref()
 const loading = ref(false)
+const loginError = ref('')
 const form = reactive({ phone: '', password: '', agreed: true })
 const rules = {
   phone: [{ required: true, message: '请输入账号', trigger: 'blur' }],
@@ -82,6 +87,7 @@ const rules = {
 }
 
 async function submit() {
+  loginError.value = ''
   await formRef.value.validate()
   if (!form.agreed) {
     ElMessage.warning('请先同意用户隐私政策')
@@ -92,7 +98,7 @@ async function submit() {
     await auth.signIn(form)
     router.push(auth.homePath)
   } catch (error) {
-    ElMessage.error('登录失败，请确认后端服务已启动')
+    loginError.value = loginFailureMessage(error)
   } finally {
     loading.value = false
   }
@@ -213,6 +219,14 @@ async function submit() {
 .login-form :deep(.el-form-item__error) {
   padding-top: 8px;
   color: #ee6b6b;
+}
+
+.login-error {
+  width: 100%;
+  margin: 8px 0 0;
+  color: #ee6b6b;
+  font-size: 12px;
+  line-height: 1;
 }
 
 .login-input :deep(.el-input__wrapper) {
