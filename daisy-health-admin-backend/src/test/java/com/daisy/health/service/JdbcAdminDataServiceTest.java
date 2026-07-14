@@ -22,8 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -253,6 +255,47 @@ class JdbcAdminDataServiceTest {
         assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
                 .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
                 .anyMatch(sql -> sql.startsWith("update activity set enrolled = (select count(*) as enrolled")));
+    }
+
+    @Test
+    void standaloneTransactionOrderCreationIsRejectedToPreserveOneToOnePairing() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        JdbcAdminDataService service = service(jdbcTemplate);
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createResource("orders", record("productId", 7L, "buyerId", 10001L))
+        );
+
+        assertEquals("请通过履约工单创建交易订单", error.getMessage());
+        verify(jdbcTemplate, never()).update(startsWith("insert into `service_order`"), any(Object[].class));
+    }
+
+    @Test
+    void deletingAWorkOrderDeletesItsWholeTransactionPair() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.queryForList(startsWith("select order_id as orderId from work_order"), eq(9L)))
+                .thenReturn(Collections.singletonList(record("orderId", 31L)));
+        JdbcAdminDataService service = service(jdbcTemplate);
+
+        service.deleteResource("workOrders", 9L);
+
+        verify(jdbcTemplate).update("delete from review where order_id = ?", 31L);
+        verify(jdbcTemplate).update("delete from after_sale where order_id = ?", 31L);
+        verify(jdbcTemplate).update("delete from work_order where order_id = ?", 31L);
+        verify(jdbcTemplate).update("delete from service_order where id = ?", 31L);
+    }
+
+    @Test
+    void completingAWorkOrderSynchronizesItsTransactionOrder() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.queryForList(startsWith("select order_id as orderId from work_order"), eq(9L)))
+                .thenReturn(Collections.singletonList(record("orderId", 31L)));
+        JdbcAdminDataService service = service(jdbcTemplate);
+
+        service.updateResource("workOrders", 9L, record("status", "已完成"));
+
+        verify(jdbcTemplate).update("update service_order set status = ? where id = ?", "completed", 31L);
     }
 
     @Test

@@ -255,6 +255,21 @@ class JdbcPortalDataServiceTest {
     }
 
     @Test
+    void servicePersonnelCompletionSynchronizesTheTransactionOrder() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(JwtAuthFilter.USER_ATTRIBUTE, new AuthenticatedUser(199L, "service", "13900020001"));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        when(jdbcTemplate.queryForList(startsWith("select legacy_personnel_id"), eq(199L)))
+                .thenReturn(Collections.singletonList(record("legacy_personnel_id", 5L)));
+        when(jdbcTemplate.queryForList(contains("where w.id = ? and w.personnel_id = ? limit 1"), eq(12L), eq(5L)))
+                .thenReturn(Collections.singletonList(record("id", 12L, "orderId", 31L, "status", "pending")));
+
+        service.updateServiceWorkOrderStatus(12L, record("status", "completed"));
+
+        verify(jdbcTemplate).update("update service_order set status = ? where id = ?", "completed", 31L);
+    }
+
+    @Test
     void blankMessageIsRejectedBeforeInsert() {
         IllegalArgumentException error = assertThrows(
                 IllegalArgumentException.class,

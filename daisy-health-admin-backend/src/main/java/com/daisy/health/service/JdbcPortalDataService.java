@@ -576,7 +576,7 @@ public class JdbcPortalDataService implements PortalDataService {
     @Override
     public Map<String, Object> updateServiceWorkOrderStatus(Long id, Map<String, Object> payload) {
         long personnelId = currentLegacyPersonnelId();
-        ownedWorkOrder(id, personnelId);
+        Map<String, Object> owned = ownedWorkOrder(id, personnelId);
         String status = stringValue(payload == null ? null : payload.get("status")).trim();
         if (!SERVICE_STATUSES.contains(status)) {
             throw new IllegalArgumentException("不支持该工单状态");
@@ -586,6 +586,11 @@ public class JdbcPortalDataService implements PortalDataService {
         } else {
             jdbcTemplate.update("update work_order set status = ? where id = ? and personnel_id = ?", status, id, personnelId);
         }
+        jdbcTemplate.update(
+                "update service_order set status = ? where id = ?",
+                OrderStatusMapping.fromWorkOrder(status),
+                ((Number) owned.get("orderId")).longValue()
+        );
         return serviceWorkOrder(id);
     }
 
@@ -598,7 +603,7 @@ public class JdbcPortalDataService implements PortalDataService {
     }
 
     private String workOrderSelect() {
-        return "select w.id, w.order_no as orderNo, w.product_id as productId, w.service_item as serviceItem, w.amount, w.status, w.cancel_reason as cancelReason, " +
+        return "select w.id, w.order_id as orderId, w.order_no as orderNo, w.product_id as productId, w.service_item as serviceItem, w.amount, w.status, w.cancel_reason as cancelReason, " +
                 "date_format(w.dispatch_time, '%Y-%m-%d %H:%i') as dispatchTime, date_format(w.service_time, '%Y-%m-%d %H:%i') as serviceTime, " +
                 "date_format(w.complete_time, '%Y-%m-%d %H:%i') as completeTime, u.real_name as customerName, u.phone as customerPhone, u.address as customerAddress, " +
                 "p.id as personnelId, p.name as personnelName, p.phone as personnelPhone, " +

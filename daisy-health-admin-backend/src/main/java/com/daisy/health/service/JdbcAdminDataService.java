@@ -626,18 +626,7 @@ public class JdbcAdminDataService implements AdminDataService {
                     "updater", "系统管理员"
             ));
         } else if ("orders".equals(name)) {
-            Map<String, Object> product = catalogItem(payload);
-            long productId = ((Number) product.get("id")).longValue();
-            long buyerId = userId(payload, "buyerId", firstId("user"));
-            id = insert("service_order", record(
-                    "order_no", text(payload, "orderNo", "OD" + System.currentTimeMillis()),
-                    "product_id", productId,
-                    "product_name", product.get("name"),
-                    "amount", product.get("price"),
-                    "buyer_id", buyerId,
-                    "status", orderStatus(text(payload, "status", "待接单")),
-                    "service_type", product.get("category")
-            ));
+            throw new IllegalArgumentException("请通过履约工单创建交易订单");
         } else if ("appointments".equals(name)) {
             id = createCatalogWorkOrder(payload);
         } else if ("workOrders".equals(name)) {
@@ -753,6 +742,7 @@ public class JdbcAdminDataService implements AdminDataService {
             if (payload.containsKey("status")) values.put("status", orderStatus(text(payload, "status", "待接单")));
             updateById("service_order", id, values);
         } else if ("workOrders".equals(name) || "appointments".equals(name)) {
+            Long orderId = payload.containsKey("status") ? linkedOrderId(name, id) : null;
             if (payload.containsKey("productId")) {
                 Map<String, Object> product = catalogItem(payload);
                 values.put("product_id", product.get("id"));
@@ -765,6 +755,9 @@ public class JdbcAdminDataService implements AdminDataService {
             putIfPresent(values, "service_time", payload, "serviceTime");
             putIfPresent(values, "complete_time", payload, "completeTime");
             updateById("work_order", id, values);
+            if (orderId != null) {
+                syncServiceOrderStatus(orderId, String.valueOf(values.get("status")));
+            }
         } else if ("afterSales".equals(name)) {
             if (hasUserRef(payload, "applicantId")) values.put("applicant_id", userId(payload, "applicantId", firstId("user")));
             putIfPresent(values, "reason", payload, "reason");
@@ -847,6 +840,15 @@ public class JdbcAdminDataService implements AdminDataService {
     @Override
     public Map<String, Object> deleteResource(String name, Long id) {
         Long activityId = "activityEnrolls".equals(name) ? enrollmentActivityId(id) : null;
+        if ("orders".equals(name) || "workOrders".equals(name) || "appointments".equals(name)) {
+            Long orderId = linkedOrderId(name, id);
+            jdbcTemplate.update("delete from review where order_id = ?", orderId);
+            jdbcTemplate.update("delete from after_sale where order_id = ?", orderId);
+            jdbcTemplate.update("delete from work_order where order_id = ?", orderId);
+            jdbcTemplate.update("delete from service_order where id = ?", orderId);
+            accepted("deleteResource:" + name + ":" + id);
+            return record("accepted", true, "id", id, "resource", name);
+        }
         if ("staffs".equals(name)) {
             jdbcTemplate.update("delete from admin_profile where account_id = ?", id);
             jdbcTemplate.update("delete from account where id = ? and role_type = 'staff'", id);
@@ -858,6 +860,32 @@ public class JdbcAdminDataService implements AdminDataService {
         }
         accepted("deleteResource:" + name + ":" + id);
         return record("accepted", true, "id", id, "resource", name);
+    }
+
+    private Long linkedOrderId(String resourceName, Long resourceId) {
+        if ("orders".equals(resourceName)) {
+            return resourceId;
+        }
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "select order_id as orderId from work_order where id = ? limit 1",
+                resourceId
+        );
+        if (rows.isEmpty()) {
+            throw new IllegalArgumentException("工单不存在");
+        }
+        Long orderId = parseLong(rows.get(0).get("orderId"));
+        if (orderId == null) {
+            throw new IllegalArgumentException("工单未关联交易订单");
+        }
+        return orderId;
+    }
+
+    private void syncServiceOrderStatus(Long orderId, String workOrderStatus) {
+        jdbcTemplate.update(
+                "update service_order set status = ? where id = ?",
+                OrderStatusMapping.fromWorkOrder(workOrderStatus),
+                orderId
+        );
     }
 
     @Override
