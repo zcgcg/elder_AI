@@ -204,6 +204,8 @@ body,
 }
 
 .mobile-nav {
+  display: flex;
+  flex-direction: column;
   min-height: 100%;
   padding: 18px 14px 28px;
   background: #ffffff;
@@ -277,6 +279,21 @@ body,
 .mobile-nav-children button.active {
   background: var(--brand);
   color: #ffffff;
+  font-weight: 700;
+}
+
+.mobile-nav-footer {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  padding: 18px 0 0;
+  background: #ffffff;
+}
+
+.mobile-nav-footer .mobile-logout-button {
+  width: 100%;
+  min-height: 46px;
+  margin: 0;
   font-weight: 700;
 }
 

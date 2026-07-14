@@ -84,6 +84,18 @@
           </button>
         </div>
       </section>
+      <div class="mobile-nav-footer">
+        <el-button
+          class="mobile-logout-button"
+          type="danger"
+          plain
+          :loading="loggingOut"
+          @click="logout"
+        >
+          <el-icon><SwitchButton /></el-icon>
+          退出登录
+        </el-button>
+      </div>
     </nav>
   </el-drawer>
 
@@ -129,7 +141,7 @@
 import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { Menu } from '@element-plus/icons-vue'
+import { Menu, SwitchButton } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import AvatarPicker from '../components/AvatarPicker.vue'
 import PasswordChangeDialog from '../components/PasswordChangeDialog.vue'

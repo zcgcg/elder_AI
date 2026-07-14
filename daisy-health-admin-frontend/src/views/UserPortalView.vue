@@ -14,9 +14,9 @@
       <div class="portal-header-actions">
         <el-button type="primary" plain @click="openMessageDialog">给管理员留言</el-button>
         <el-button @click="passwordVisible = true">修改密码</el-button>
-        <el-button :loading="loggingOut" @click="logout">
+        <el-button class="mobile-logout-button" type="danger" plain :loading="loggingOut" @click="logout">
           <el-icon><SwitchButton /></el-icon>
-          退出
+          退出登录
         </el-button>
       </div>
     </header>
@@ -1363,6 +1363,12 @@ onMounted(loadData)
   .portal-header-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+  .portal-header-actions .mobile-logout-button {
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    font-weight: 700;
   }
   .portal-identity {
     gap: 8px;
