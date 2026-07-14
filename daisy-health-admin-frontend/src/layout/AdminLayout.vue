@@ -44,6 +44,7 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item @click="openProfile">个人资料</el-dropdown-item>
+                <el-dropdown-item @click="passwordVisible = true">修改密码</el-dropdown-item>
                 <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -121,6 +122,7 @@
       <el-button type="primary" :loading="profileSaving" @click="saveProfile">保存</el-button>
     </template>
   </el-dialog>
+  <password-change-dialog v-model="passwordVisible" />
 </template>
 
 <script setup>
@@ -130,12 +132,14 @@ import { useAuthStore } from '../stores/auth'
 import { Menu } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import AvatarPicker from '../components/AvatarPicker.vue'
+import PasswordChangeDialog from '../components/PasswordChangeDialog.vue'
 import { assetUrl } from '../api/http'
 
 const router = useRouter()
 const route = useRoute()
 const auth = useAuthStore()
 const profileVisible = ref(false)
+const passwordVisible = ref(false)
 const mobileNavOpen = ref(false)
 const profileSaving = ref(false)
 const avatarPickerRef = ref(null)
@@ -149,7 +153,7 @@ const menuGroups = [
   { key: 'operations', label: '运营', icon: 'Star', children: [{ label: '动态管理', path: '/operations/posts' }, { label: '话题管理', path: '/operations/topics' }, { label: '轮播图管理', path: '/operations/banners' }, { label: '活动管理', path: '/operations/activities' }, { label: '活动报名', path: '/operations/activityEnrolls' }, { label: '食谱管理', path: '/operations/recipes' }, { label: '健康资讯', path: '/operations/articles' }, { label: '疾病宝典', path: '/operations/diseases' }, { label: '养老机构', path: '/operations/institutions' }, { label: '健康讲堂', path: '/operations/videos' }, { label: '食物管理', path: '/operations/foods' }, { label: '测评管理', path: '/operations/assessments' }] },
   { key: 'trade', label: '交易', icon: 'Wallet', children: [{ label: '订单管理', path: '/trade/orders' }, { label: '售后管理', path: '/trade/after-sales' }, { label: '评价管理', path: '/trade/reviews' }] },
   { key: 'analytics', module: 'analytics', label: '数据', icon: 'TrendCharts', children: [{ label: '数据分析', path: '/analytics' }] },
-  { key: 'system', label: '系统', icon: 'Setting', children: [{ label: '员工管理', path: '/system/staffs' }, { label: '角色管理', path: '/system/roles' }, { label: '操作日志', path: '/system/logs' }] }
+  { key: 'system', label: '系统', icon: 'Setting', children: [{ label: '员工管理', path: '/system/staffs' }, { label: '角色管理', path: '/system/roles' }, { label: '操作日志', path: '/system/logs' }, { label: '密码设置', path: '/system/settings', module: 'settings' }] }
 ]
 const visibleMenuGroups = computed(() => menuGroups
   .map((group) => ({

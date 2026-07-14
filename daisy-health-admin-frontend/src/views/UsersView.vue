@@ -8,6 +8,16 @@
     <div class="toolbar">
       <el-button type="primary" :icon="Plus" @click="openCreate">新增用户</el-button>
       <el-button :icon="PriceTag" @click="openTagManager">标签管理</el-button>
+      <el-select
+        v-model="selectedTag"
+        class="user-tag-filter"
+        filterable
+        clearable
+        placeholder="按标签搜索用户"
+        @change="load"
+      >
+        <el-option v-for="tag in tags" :key="tag.id" :label="tag.name" :value="tag.name" />
+      </el-select>
     </div>
 
     <div v-if="viewMode === '卡片'" class="user-card-grid">
@@ -154,6 +164,7 @@ const editingId = ref(null)
 const selectedUser = ref(null)
 const selectedTagIds = ref([])
 const tagEditingId = ref(null)
+const selectedTag = ref('')
 const avatarPickerRef = ref(null)
 const newUser = reactive({
   nickname: '',
@@ -179,7 +190,7 @@ async function loadTags() {
 async function load() {
   error.value = ''
   try {
-    const data = await getUsers()
+    const data = await getUsers({ tag: selectedTag.value || undefined })
     rows.value = normalizeRows(data.list || data)
   } catch (exception) {
     rows.value = []
@@ -319,3 +330,17 @@ onMounted(async () => {
   await loadTags()
 })
 </script>
+
+<style scoped>
+.user-tag-filter {
+  width: 220px;
+  margin-left: auto;
+}
+
+@media (max-width: 640px) {
+  .user-tag-filter {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+</style>

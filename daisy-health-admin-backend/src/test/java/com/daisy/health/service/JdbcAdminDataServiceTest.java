@@ -1,13 +1,18 @@
 package com.daisy.health.service;
 
+import com.daisy.health.common.AuthenticatedUser;
+import com.daisy.health.common.JwtAuthFilter;
 import com.daisy.health.common.JwtService;
 import com.daisy.health.common.PermissionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -19,9 +24,123 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.startsWith;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class JdbcAdminDataServiceTest {
+    @Test
+    void resettingAUserPasswordAlwaysUsesTheFixedDefault() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        when(passwordEncoder.encode("753951")).thenReturn("fixed-default-hash");
+        when(jdbcTemplate.update(
+                startsWith("update account a join elderly_profile"),
+                eq("fixed-default-hash"),
+                eq(10001L)
+        )).thenReturn(1);
+        JdbcAdminDataService service = new JdbcAdminDataService(
+                jdbcTemplate,
+                passwordEncoder,
+                mock(JwtService.class),
+                mock(PermissionService.class),
+                new ObjectMapper()
+        );
+
+        Map<String, Object> result = service.resetUserPassword(10001L);
+
+        assertEquals(true, result.get("reset"));
+        verify(passwordEncoder).encode("753951");
+    }
+
+    @Test
+    void resettingAServicePersonnelPasswordAlwaysUsesTheFixedDefault() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        when(passwordEncoder.encode("753951")).thenReturn("fixed-default-hash");
+        when(jdbcTemplate.update(
+                startsWith("update account a join service_profile"),
+                eq("fixed-default-hash"),
+                eq(2L)
+        )).thenReturn(1);
+        JdbcAdminDataService service = new JdbcAdminDataService(
+                jdbcTemplate,
+                passwordEncoder,
+                mock(JwtService.class),
+                mock(PermissionService.class),
+                new ObjectMapper()
+        );
+
+        Map<String, Object> result = service.resetPersonnelPassword(2L);
+
+        assertEquals(true, result.get("reset"));
+        verify(passwordEncoder).encode("753951");
+    }
+
+    @Test
+    void authenticatedAccountCanChangeItsOwnPassword() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        when(jdbcTemplate.queryForList(startsWith("select password_hash as passwordHash"), eq(1L)))
+                .thenReturn(Collections.singletonList(record("passwordHash", "stored-hash")));
+        when(passwordEncoder.matches("753951", "stored-hash")).thenReturn(true);
+        when(passwordEncoder.encode("654321")).thenReturn("new-hash");
+        JdbcAdminDataService service = new JdbcAdminDataService(
+                jdbcTemplate,
+                passwordEncoder,
+                mock(JwtService.class),
+                mock(PermissionService.class),
+                new ObjectMapper()
+        );
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(JwtAuthFilter.USER_ATTRIBUTE, new AuthenticatedUser(1L, "staff", "13402832834"));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        try {
+            Map<String, Object> result = service.updatePassword(record(
+                    "currentPassword", "753951",
+                    "newPassword", "654321",
+                    "confirmPassword", "654321"
+            ));
+
+            assertEquals(true, result.get("changed"));
+            verify(jdbcTemplate).update("update account set password_hash = ?, updated_at = now() where id = ?", "new-hash", 1L);
+            verify(jdbcTemplate).update("update staff set password_hash = ? where id = ?", "new-hash", 1L);
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
+    }
+
+    @Test
+    void changingPasswordRejectsAnIncorrectCurrentPassword() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);
+        when(jdbcTemplate.queryForList(startsWith("select password_hash as passwordHash"), eq(10001L)))
+                .thenReturn(Collections.singletonList(record("passwordHash", "stored-hash")));
+        when(passwordEncoder.matches("wrong-password", "stored-hash")).thenReturn(false);
+        JdbcAdminDataService service = new JdbcAdminDataService(
+                jdbcTemplate,
+                passwordEncoder,
+                mock(JwtService.class),
+                mock(PermissionService.class),
+                new ObjectMapper()
+        );
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setAttribute(JwtAuthFilter.USER_ATTRIBUTE, new AuthenticatedUser(10001L, "elderly", "13800010001"));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+
+        try {
+            IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.updatePassword(record(
+                    "currentPassword", "wrong-password",
+                    "newPassword", "654321",
+                    "confirmPassword", "654321"
+            )));
+
+            assertEquals("当前密码不正确", error.getMessage());
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+        }
+    }
+
     @Test
     void userDetailLoadsIndependentHealthRecordsInsteadOfMergingTypesUnderOneId() {
         JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);

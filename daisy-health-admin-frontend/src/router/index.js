@@ -11,6 +11,7 @@ import AnalyticsView from '../views/AnalyticsView.vue'
 import UserPortalView from '../views/UserPortalView.vue'
 import ServicePortalView from '../views/ServicePortalView.vue'
 import MessageManagementView from '../views/MessageManagementView.vue'
+import PasswordSettingsView from '../views/PasswordSettingsView.vue'
 
 const routes = [
   { path: '/login', component: LoginView },
@@ -40,7 +41,8 @@ const routes = [
       { path: 'analytics', component: AnalyticsView, meta: { title: '数据分析' } },
       { path: 'system/staffs', component: GenericListView, meta: { title: '员工管理', resource: 'staffs' } },
       { path: 'system/roles', component: GenericListView, meta: { title: '角色管理', resource: 'roles' } },
-      { path: 'system/logs', component: GenericListView, meta: { title: '操作日志', resource: 'logs' } }
+      { path: 'system/logs', component: GenericListView, meta: { title: '操作日志', resource: 'logs' } },
+      { path: 'system/settings', component: PasswordSettingsView, meta: { title: '密码设置' } }
     ]
   }
 ]
@@ -92,6 +94,7 @@ function moduleForPath(path) {
   if (path.startsWith('/operations')) return 'operations'
   if (path.startsWith('/trade')) return 'trade'
   if (path.startsWith('/analytics')) return 'analytics'
+  if (path.startsWith('/system/settings')) return 'settings'
   if (path.startsWith('/system')) return 'system'
   return null
 }
@@ -105,7 +108,8 @@ function firstAccessiblePath(auth) {
     { path: '/operations/posts', module: 'operations' },
     { path: '/trade/orders', module: 'trade' },
     { path: '/analytics', module: 'analytics' },
-    { path: '/system/staffs', module: 'system' }
+    { path: '/system/staffs', module: 'system' },
+    { path: '/system/settings', module: 'settings' }
   ]
   return candidates.find((item) => auth.canAccess(item.module, 'view'))?.path || ''
 }

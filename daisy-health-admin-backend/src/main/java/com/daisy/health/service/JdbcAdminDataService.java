@@ -40,6 +40,7 @@ import java.util.UUID;
 @Transactional
 public class JdbcAdminDataService implements AdminDataService {
     private static final List<String> MEMBER_LEVEL_NAMES = Arrays.asList("普通", "银卡", "金卡");
+    private static final String RESET_PASSWORD = "753951";
 
     private final JdbcTemplate jdbcTemplate;
     private final PasswordEncoder passwordEncoder;
@@ -135,6 +136,75 @@ public class JdbcAdminDataService implements AdminDataService {
         syncAdminAccount(id);
         accepted("updateProfile:" + id);
         return profile();
+    }
+
+    @Override
+    public Map<String, Object> updatePassword(Map<String, Object> payload) {
+        AuthenticatedUser current = currentUser();
+        if (current == null) {
+            throw new SecurityException("未登录或登录已失效");
+        }
+        String currentPassword = text(payload, "currentPassword", "");
+        String newPassword = text(payload, "newPassword", "");
+        String confirmPassword = text(payload, "confirmPassword", "");
+        if (currentPassword.length() == 0 || newPassword.length() == 0 || confirmPassword.length() == 0) {
+            throw new IllegalArgumentException("当前密码、新密码和确认密码均不能为空");
+        }
+        if (newPassword.length() < 6) {
+            throw new IllegalArgumentException("新密码至少需要6位");
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            throw new IllegalArgumentException("两次输入的新密码不一致");
+        }
+        List<Map<String, Object>> accounts = jdbcTemplate.queryForList(
+                "select password_hash as passwordHash from account where id = ? and status = 1 limit 1",
+                current.getAccountId()
+        );
+        if (accounts.isEmpty()) {
+            throw new IllegalArgumentException("账号不存在或已停用");
+        }
+        String storedPassword = stringValue(accounts.get(0).get("passwordHash"));
+        if (!currentPassword.equals(storedPassword) && !passwordEncoder.matches(currentPassword, storedPassword)) {
+            throw new IllegalArgumentException("当前密码不正确");
+        }
+        String encoded = passwordEncoder.encode(newPassword);
+        jdbcTemplate.update("update account set password_hash = ?, updated_at = now() where id = ?", encoded, current.getAccountId());
+        if ("staff".equals(current.getRoleType())) {
+            jdbcTemplate.update("update staff set password_hash = ? where id = ?", encoded, current.getAccountId());
+        }
+        return record("changed", true);
+    }
+
+    @Override
+    public Map<String, Object> resetUserPassword(Long userId) {
+        String encoded = passwordEncoder.encode(RESET_PASSWORD);
+        int updated = jdbcTemplate.update(
+                "update account a join elderly_profile p on p.account_id = a.id " +
+                        "set a.password_hash = ?, a.updated_at = now() " +
+                        "where p.legacy_user_id = ? and a.role_type = 'elderly'",
+                encoded,
+                userId
+        );
+        if (updated != 1) {
+            throw new IllegalArgumentException("用户账号不存在");
+        }
+        return record("reset", true, "id", userId);
+    }
+
+    @Override
+    public Map<String, Object> resetPersonnelPassword(Long personnelId) {
+        String encoded = passwordEncoder.encode(RESET_PASSWORD);
+        int updated = jdbcTemplate.update(
+                "update account a join service_profile p on p.account_id = a.id " +
+                        "set a.password_hash = ?, a.updated_at = now() " +
+                        "where p.legacy_personnel_id = ? and a.role_type = 'service'",
+                encoded,
+                personnelId
+        );
+        if (updated != 1) {
+            throw new IllegalArgumentException("服务人员账号不存在");
+        }
+        return record("reset", true, "id", personnelId);
     }
 
     @Override
@@ -594,7 +664,7 @@ public class JdbcAdminDataService implements AdminDataService {
                     "staff_no", text(payload, "staffNo", "S" + uniqueDigits(4)),
                     "name", text(payload, "name", ""),
                     "phone", text(payload, "phone", "137" + uniqueDigits(8)),
-                    "password_hash", passwordEncoder.encode(text(payload, "password", "admin123")),
+                    "password_hash", passwordEncoder.encode(text(payload, "password", RESET_PASSWORD)),
                     "role_id", longValue(payload, "roleId", firstId("role")),
                     "remark", text(payload, "remark", "后台新增员工"),
                     "status", statusCode(text(payload, "status", "启用")),
@@ -756,7 +826,7 @@ public class JdbcAdminDataService implements AdminDataService {
         }
         if ("staffs".equals(name)) {
             if (payload.containsKey("password")) {
-                jdbcTemplate.update("update staff set password_hash = ? where id = ?", passwordEncoder.encode(text(payload, "password", "admin123")), id);
+                jdbcTemplate.update("update staff set password_hash = ? where id = ?", passwordEncoder.encode(text(payload, "password", RESET_PASSWORD)), id);
             }
             syncAdminAccount(id);
         }

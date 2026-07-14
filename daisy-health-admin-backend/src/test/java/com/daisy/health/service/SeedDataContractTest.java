@@ -12,7 +12,8 @@ class SeedDataContractTest {
     @Test
     void documentedPrimaryServiceTestAccountIsRestoredBeforeAccountMirroring() throws Exception {
         ClassPathResource resource = new ClassPathResource("data.sql");
-        String sql = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+        String sql = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8)
+                .replace("\r\n", "\n");
         int restore = sql.indexOf("update service_personnel\nset phone = '13900020001'");
         int mirror = sql.indexOf("select 200000 + id, phone, '753951', 'service'");
 

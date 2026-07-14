@@ -104,7 +104,9 @@ public class PermissionService {
         if ("personnel".equals(segment) || "audits".equals(segment) || "work-orders".equals(segment)) return "service";
         if ("products".equals(segment) || "product-categories".equals(segment) || "service-items".equals(segment)) return "products";
         if ("orders".equals(segment) || "after-sales".equals(segment) || "reviews".equals(segment)) return "trade";
-        if ("staffs".equals(segment) || "roles".equals(segment) || "logs".equals(segment) || "agreements".equals(segment)) return "system";
+        if ("settings".equals(segment)) return "settings";
+        if ("staffs".equals(segment) || "roles".equals(segment) || "logs".equals(segment)
+                || "agreements".equals(segment)) return "system";
         return "operations";
     }
 }

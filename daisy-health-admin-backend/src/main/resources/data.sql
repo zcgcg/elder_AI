@@ -4,9 +4,9 @@ insert ignore into role(id, name, description, permissions, created_at) values
 (3, '客服专员', '工单、订单、售后处理', '{"workOrders":["view","edit"],"orders":["view"],"afterSales":["view","edit"]}', now());
 
 insert ignore into staff(id, staff_no, name, phone, password_hash, role_id, remark, status, updater, created_at) values
-(1, 'S0001', '系统管理员', '13800000000', 'admin123', 1, '初始化管理员', 1, '系统', now()),
-(2, 'S0002', '运营专员', '13800000001', 'admin123', 2, '内容运营', 1, '系统', now()),
-(3, 'S0003', '客服专员', '13800000002', 'admin123', 3, '客户服务', 1, '系统', now());
+(1, 'S0001', '系统管理员', '13800000000', '753951', 1, '初始化管理员', 1, '系统', now()),
+(2, 'S0002', '运营专员', '13800000001', '753951', 2, '内容运营', 1, '系统', now()),
+(3, 'S0003', '客服专员', '13800000002', '753951', 3, '客户服务', 1, '系统', now());
 
 insert ignore into `user`(id, nickname, real_name, gender, birthday, phone, id_card, address, bio, height, weight, ethnicity, education, blood_type, rh_negative, chronic_disease, sleep_quality, smoking_freq, drinking_freq, exercise_freq, diet_preference, created_at, last_login_time, last_buy_time, status) values
 (10001, '兰姨', '王秀兰', 2, '1952-03-12', '13800010001', '310101195203120021', '上海市浦东新区', '重点关怀用户', 158.0, 58.4, '汉族', '高中', 'A', 0, '高血压', '良好', '不吸烟', '偶尔', '每周3次', '清淡', date_sub(now(), interval 6 day), now(), date_sub(now(), interval 2 day), 1),
@@ -335,13 +335,13 @@ insert ignore into role(id, name, description, permissions, created_at) values
 (107, '健康顾问', '用户健康资料维护', '{"users":["view","edit"]}', now());
 
 insert ignore into staff(id, staff_no, name, phone, password_hash, role_id, remark, avatar_url, status, updater, created_at) values
-(101, 'S0101', '周运营', '13800000101', 'admin123', 101, '运营主管账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0101', 1, '系统', now()),
-(102, 'S0102', '吴商品', '13800000102', 'admin123', 102, '商品主管账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0102', 1, '系统', now()),
-(103, 'S0103', '郑服务', '13800000103', 'admin123', 103, '服务主管账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0103', 1, '系统', now()),
-(104, 'S0104', '王数据', '13800000104', 'admin123', 104, '数据分析账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0104', 1, '系统', now()),
-(105, 'S0105', '冯财务', '13800000105', 'admin123', 105, '财务账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0105', 1, '系统', now()),
-(106, 'S0106', '陈编辑', '13800000106', 'admin123', 106, '内容编辑账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0106', 1, '系统', now()),
-(107, 'S0107', '杨顾问', '13800000107', 'admin123', 107, '健康顾问账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0107', 1, '系统', now());
+(101, 'S0101', '周运营', '13800000101', '753951', 101, '运营主管账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0101', 1, '系统', now()),
+(102, 'S0102', '吴商品', '13800000102', '753951', 102, '商品主管账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0102', 1, '系统', now()),
+(103, 'S0103', '郑服务', '13800000103', '753951', 103, '服务主管账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0103', 1, '系统', now()),
+(104, 'S0104', '王数据', '13800000104', '753951', 104, '数据分析账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0104', 1, '系统', now()),
+(105, 'S0105', '冯财务', '13800000105', '753951', 105, '财务账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0105', 1, '系统', now()),
+(106, 'S0106', '陈编辑', '13800000106', '753951', 106, '内容编辑账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0106', 1, '系统', now()),
+(107, 'S0107', '杨顾问', '13800000107', '753951', 107, '健康顾问账号', 'https://api.dicebear.com/7.x/initials/svg?seed=S0107', 1, '系统', now());
 
 insert ignore into service_personnel(id, name, phone, service_type, area, join_time, status, audit_status, created_at) values
 (101, '何洁', '13900020101', '家政护理', '普陀区', date_sub(now(), interval 13 day), 1, '已通过', date_sub(now(), interval 13 day)),
@@ -616,20 +616,18 @@ update user_tag t set user_count = (select count(*) from user_tag_rel r where r.
 
 update staff
 set phone = '13402832834',
-    password_hash = '753951',
     role_id = 1,
     status = 1
 where id = 1;
 
 update role set permissions = '{"*":["*"]}' where id = 1;
-update role set permissions = '{"dashboard":["view","edit"],"users":["view","edit","delete"],"service":["view","edit"],"products":["view","edit"],"trade":["view","edit"],"operations":["view","edit"],"analytics":["view"],"system":["view"]}' where id = 2;
+update role set permissions = '{"dashboard":["view","edit"],"users":["view","edit","delete"],"service":["view","edit"],"products":["view","edit"],"trade":["view","edit"],"operations":["view","edit"],"analytics":["view"],"system":["view"],"settings":["view","edit"]}' where id = 2;
 update role set permissions = '{"dashboard":["view"],"users":["view"],"service":["view","edit"],"trade":["view","edit"],"products":["view"],"operations":["view"],"analytics":["view"]}' where id = 3;
 
 insert into account(id, phone, password_hash, role_type, nickname, avatar_url, status, created_at, updated_at)
 select id, phone, password_hash, 'staff', name, avatar_url, status, created_at, updated_at from staff
 on duplicate key update
   phone = values(phone),
-  password_hash = values(password_hash),
   nickname = values(nickname),
   avatar_url = values(avatar_url),
   status = values(status),
@@ -648,7 +646,6 @@ insert into account(id, phone, password_hash, role_type, nickname, avatar_url, s
 select id, phone, '753951', 'elderly', nickname, avatar_url, status, last_login_time, created_at, updated_at from `user`
 on duplicate key update
   phone = values(phone),
-  password_hash = values(password_hash),
   nickname = values(nickname),
   avatar_url = values(avatar_url),
   status = values(status),
@@ -687,7 +684,6 @@ insert into account(id, phone, password_hash, role_type, nickname, avatar_url, s
 select 200000 + id, phone, '753951', 'service', name, avatar_url, status, created_at, created_at from service_personnel
 on duplicate key update
   phone = values(phone),
-  password_hash = values(password_hash),
   role_type = values(role_type),
   nickname = values(nickname),
   avatar_url = values(avatar_url),

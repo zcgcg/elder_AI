@@ -13,6 +13,7 @@
       </div>
       <div class="portal-header-actions">
         <el-button type="primary" plain @click="openMessageDialog">给管理员留言</el-button>
+        <el-button @click="passwordVisible = true">修改密码</el-button>
         <el-button @click="logout">
           <el-icon><SwitchButton /></el-icon>
           退出
@@ -395,6 +396,7 @@
         <el-button type="primary" :loading="messageSaving" @click="submitMessage">提交留言</el-button>
       </template>
     </el-dialog>
+    <password-change-dialog v-model="passwordVisible" />
   </main>
 </template>
 
@@ -404,6 +406,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import AvatarPicker from '../components/AvatarPicker.vue'
+import PasswordChangeDialog from '../components/PasswordChangeDialog.vue'
 import { createHealthChartOption } from '../utils/healthChart'
 import { useResponsiveColumns } from '../utils/viewport'
 import { splitUserActivities } from '../utils/activity'
@@ -454,6 +457,7 @@ const profileColumns = useResponsiveColumns(3)
 const detailColumns = useResponsiveColumns(2)
 const activeTab = ref('profile')
 const error = ref('')
+const passwordVisible = ref(false)
 const profile = ref({})
 const healthData = ref([])
 const userHealthChart = ref(null)

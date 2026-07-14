@@ -49,6 +49,24 @@ public class MockDataService implements AdminDataService {
         );
     }
 
+    public Map<String, Object> updatePassword(Map<String, Object> payload) {
+        String currentPassword = stringValue(payload == null ? null : payload.get("currentPassword"));
+        String newPassword = stringValue(payload == null ? null : payload.get("newPassword"));
+        String confirmPassword = stringValue(payload == null ? null : payload.get("confirmPassword"));
+        if (currentPassword.length() == 0 || newPassword.length() < 6 || !newPassword.equals(confirmPassword)) {
+            throw new IllegalArgumentException("密码信息不完整或不符合要求");
+        }
+        return record("changed", true);
+    }
+
+    public Map<String, Object> resetUserPassword(Long userId) {
+        return record("reset", true, "id", userId);
+    }
+
+    public Map<String, Object> resetPersonnelPassword(Long personnelId) {
+        return record("reset", true, "id", personnelId);
+    }
+
     public Map<String, Object> dashboard() {
         return record(
                 "metrics", list(

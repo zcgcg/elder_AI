@@ -12,6 +12,12 @@ public interface AdminDataService {
 
     Map<String, Object> updateProfile(Map<String, Object> payload);
 
+    Map<String, Object> updatePassword(Map<String, Object> payload);
+
+    Map<String, Object> resetUserPassword(Long userId);
+
+    Map<String, Object> resetPersonnelPassword(Long personnelId);
+
     Map<String, Object> dashboard();
 
     List<Map<String, Object>> appointments(ResourceQuery query);

@@ -41,8 +41,8 @@ public class AuthController {
     }
 
     @PutMapping("/password")
-    public ApiResponse<Map<String, Object>> updatePassword() {
-        return ApiResponse.success(dataService.accepted("updatePassword"));
+    public ApiResponse<Map<String, Object>> updatePassword(@RequestBody Map<String, Object> payload) {
+        return ApiResponse.success(dataService.updatePassword(payload));
     }
 }
 

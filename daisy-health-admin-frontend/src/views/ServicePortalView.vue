@@ -5,10 +5,13 @@
         <p>服务人员端</p>
         <h1>{{ profile.realName || auth.user?.name || '我的工单' }}</h1>
       </div>
-      <el-button @click="logout">
-        <el-icon><SwitchButton /></el-icon>
-        退出
-      </el-button>
+      <div class="portal-header-actions">
+        <el-button @click="passwordVisible = true">修改密码</el-button>
+        <el-button @click="logout">
+          <el-icon><SwitchButton /></el-icon>
+          退出
+        </el-button>
+      </div>
     </header>
 
     <el-alert v-if="error" :title="error" type="error" show-icon />
@@ -71,6 +74,7 @@
         <el-button :disabled="selectedOrder.status === 'completed' || selectedOrder.status === 'cancelled'" type="danger" plain @click="changeStatus('cancelled')">取消工单</el-button>
       </template>
     </el-dialog>
+    <password-change-dialog v-model="passwordVisible" />
   </main>
 </template>
 
@@ -81,6 +85,7 @@ import { ElMessage } from 'element-plus'
 import { useAuthStore } from '../stores/auth'
 import { getServiceProfile, getServiceWorkOrder, getServiceWorkOrders, updateServiceWorkOrderStatus } from '../api/http'
 import { useResponsiveColumns } from '../utils/viewport'
+import PasswordChangeDialog from '../components/PasswordChangeDialog.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -91,6 +96,7 @@ const workOrders = ref([])
 const selectedOrder = ref({})
 const detailVisible = ref(false)
 const statusFilter = ref('all')
+const passwordVisible = ref(false)
 
 const statusOptions = [
   { label: '全部', value: 'all' },
@@ -165,6 +171,11 @@ onMounted(loadData)
 .portal-header h1 {
   margin: 0;
   font-size: 30px;
+}
+
+.portal-header-actions {
+  display: flex;
+  gap: 10px;
 }
 
 .summary-grid {
