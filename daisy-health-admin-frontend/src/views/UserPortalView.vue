@@ -14,7 +14,7 @@
       <div class="portal-header-actions">
         <el-button type="primary" plain @click="openMessageDialog">给管理员留言</el-button>
         <el-button @click="passwordVisible = true">修改密码</el-button>
-        <el-button @click="logout">
+        <el-button :loading="loggingOut" @click="logout">
           <el-icon><SwitchButton /></el-icon>
           退出
         </el-button>
@@ -521,6 +521,7 @@ const router = useRouter()
 const auth = useAuthStore()
 const profileColumns = useResponsiveColumns(3)
 const detailColumns = useResponsiveColumns(2)
+const loggingOut = ref(false)
 const activeTab = ref('profile')
 const error = ref('')
 const passwordVisible = ref(false)
@@ -996,9 +997,15 @@ function openArticle(item) {
   articleDialogVisible.value = true
 }
 
-function logout() {
-  auth.signOut()
-  router.push('/login')
+async function logout() {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  try {
+    await auth.signOut()
+    await router.replace('/login')
+  } finally {
+    loggingOut.value = false
+  }
 }
 
 watch(activeTab, async (tab) => {

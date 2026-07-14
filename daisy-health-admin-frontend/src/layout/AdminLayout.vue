@@ -45,7 +45,7 @@
               <el-dropdown-menu>
                 <el-dropdown-item @click="openProfile">个人资料</el-dropdown-item>
                 <el-dropdown-item @click="passwordVisible = true">修改密码</el-dropdown-item>
-                <el-dropdown-item divided @click="logout">退出登录</el-dropdown-item>
+                <el-dropdown-item divided :disabled="loggingOut" @click="logout">{{ loggingOut ? '正在退出…' : '退出登录' }}</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -141,6 +141,7 @@ const auth = useAuthStore()
 const profileVisible = ref(false)
 const passwordVisible = ref(false)
 const mobileNavOpen = ref(false)
+const loggingOut = ref(false)
 const profileSaving = ref(false)
 const avatarPickerRef = ref(null)
 const profileForm = reactive({ id: '', name: '', staffNo: '', phone: '', avatarUrl: '', role: '', remark: '' })
@@ -223,9 +224,15 @@ async function saveProfile() {
   }
 }
 
-function logout() {
-  auth.signOut()
-  router.push('/login')
+async function logout() {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  try {
+    await auth.signOut()
+    await router.replace('/login')
+  } finally {
+    loggingOut.value = false
+  }
 }
 
 onMounted(() => {

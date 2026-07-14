@@ -59,7 +59,7 @@ router.beforeEach(async (to) => {
     try {
       await auth.loadProfile()
     } catch (error) {
-      auth.signOut()
+      auth.clearSession()
       return '/login'
     }
   }
@@ -75,7 +75,7 @@ router.beforeEach(async (to) => {
   if (module && auth.permissions && !auth.canAccess(module, 'view')) {
     const fallback = firstAccessiblePath(auth)
     if (!fallback) {
-      auth.signOut()
+      auth.clearSession()
       return '/login'
     }
     if (to.path !== fallback) {

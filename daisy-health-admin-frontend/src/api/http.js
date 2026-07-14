@@ -36,6 +36,7 @@ function apiError(message, code, status) {
 }
 
 export const login = (payload) => service.post('/auth/login', payload)
+export const logout = () => service.post('/auth/logout')
 export const profile = () => service.get('/auth/profile')
 export const updateProfile = (payload) => service.put('/auth/profile', payload)
 export const updatePassword = (payload) => service.put('/auth/password', payload)

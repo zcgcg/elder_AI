@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { login, profile, updateProfile } from '../api/http'
+import { login, logout as logoutRequest, profile, updateProfile } from '../api/http.js'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -51,7 +51,21 @@ export const useAuthStore = defineStore('auth', {
       this.user = { ...this.user, avatarUrl }
       persist(this.token, this.user, this.permissions)
     },
-    signOut() {
+    async signOut() {
+      let remoteAccepted = false
+      try {
+        if (this.token) {
+          await logoutRequest()
+          remoteAccepted = true
+        }
+      } catch (error) {
+        remoteAccepted = false
+      } finally {
+        this.clearSession()
+      }
+      return remoteAccepted
+    },
+    clearSession() {
       this.token = ''
       this.user = null
       this.permissions = null

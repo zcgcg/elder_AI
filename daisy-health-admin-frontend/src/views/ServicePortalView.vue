@@ -7,7 +7,7 @@
       </div>
       <div class="portal-header-actions">
         <el-button @click="passwordVisible = true">修改密码</el-button>
-        <el-button @click="logout">
+        <el-button :loading="loggingOut" @click="logout">
           <el-icon><SwitchButton /></el-icon>
           退出
         </el-button>
@@ -93,6 +93,7 @@ import PagedList from '../components/PagedList.vue'
 const router = useRouter()
 const auth = useAuthStore()
 const detailColumns = useResponsiveColumns(2)
+const loggingOut = ref(false)
 const error = ref('')
 const profile = ref({})
 const workOrders = ref([])
@@ -144,9 +145,15 @@ function statusTone(status) {
   return { pending: 'warning', service_in: 'primary', completed: 'success', cancelled: 'info' }[status] || ''
 }
 
-function logout() {
-  auth.signOut()
-  router.push('/login')
+async function logout() {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  try {
+    await auth.signOut()
+    await router.replace('/login')
+  } finally {
+    loggingOut.value = false
+  }
 }
 
 onMounted(loadData)
