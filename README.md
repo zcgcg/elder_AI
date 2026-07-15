@@ -254,7 +254,8 @@ Axios
 ```text
 Java 8
 Spring Boot 2.7.18
-MyBatis starter
+Spring JDBC（当前核心数据访问方式）
+MyBatis starter（保留扩展与渐进迁移入口）
 MySQL Connector/J
 Knife4j
 Spring Data Redis 依赖已保留，但当前业务没有强依赖 Redis
