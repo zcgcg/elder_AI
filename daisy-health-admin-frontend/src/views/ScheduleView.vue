@@ -1,7 +1,7 @@
 <template>
   <section>
     <div class="page-heading">
-      <div><h1>预约看板</h1><p>{{ filters.date }} · 全天服务安排（加载 {{ dateWindowLabel }}）</p></div>
+      <div><h1>预约看板</h1><p>{{ filters.date }} · 06:00–22:00 服务安排</p></div>
       <div class="filters compact">
         <el-date-picker v-model="filters.date" type="date" value-format="YYYY-MM-DD" :clearable="false" placeholder="选择日期" @change="load" />
         <el-button type="primary" :icon="Plus" @click="openCreate">新建预约</el-button>
@@ -15,7 +15,7 @@
       <div class="timeline-wrapper">
         <div class="time-labels">
           <div v-for="hour in hours" :key="hour" class="time-label">
-            <time>{{ hour }}:00</time>
+            <time>{{ formatHour(hour) }}:00</time>
           </div>
         </div>
         <div class="appointment-area">
@@ -26,7 +26,10 @@
             class="appointment-card"
             :style="cardStyle(item)"
           >
-            <strong>{{ item.serviceName }}</strong>
+            <div class="appointment-card-title">
+              <strong>{{ item.serviceName }}</strong>
+              <el-button link type="primary" size="small" @click="openDetail(item)">详情</el-button>
+            </div>
             <span>{{ item.timeRange }} · {{ item.userName }}</span>
             <div class="appointment-card-footer">
               <el-dropdown trigger="click" @command="(status) => changeStatus(item, status)">
@@ -35,10 +38,7 @@
                 </el-tag>
                 <template #dropdown>
                   <el-dropdown-menu>
-                    <el-dropdown-item command="pending">待服务</el-dropdown-item>
-                    <el-dropdown-item command="service_in">服务中</el-dropdown-item>
-                    <el-dropdown-item command="completed">已完成</el-dropdown-item>
-                    <el-dropdown-item command="cancelled">已取消</el-dropdown-item>
+                    <el-dropdown-item v-for="status in appointmentStatusOptions" :key="status.value" :command="status.value">{{ status.label }}</el-dropdown-item>
                   </el-dropdown-menu>
                 </template>
               </el-dropdown>
@@ -92,6 +92,63 @@
         <el-button type="primary" :loading="saving" @click="submitCreate">保存</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="detailVisible" title="预约/订单详情" width="680px">
+      <el-descriptions v-if="selectedAppointment" :column="2" border class="appointment-detail-summary">
+        <el-descriptions-item label="工单编号">{{ selectedAppointment.orderNo || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="订单编号">{{ selectedAppointment.serviceOrderNo || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="派单时间">{{ selectedAppointment.dispatchTime || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="完成时间">{{ selectedAppointment.completeTime || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="客户电话">{{ selectedAppointment.customerPhone || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="服务人员电话">{{ selectedAppointment.personnelPhone || '-' }}</el-descriptions-item>
+      </el-descriptions>
+      <el-form :model="detailForm" label-width="96px">
+        <el-form-item label="商品服务" required>
+          <el-select v-model="detailForm.productId" filterable placeholder="请选择商品服务" @change="syncDetailAmount">
+            <el-option
+              v-for="item in catalogOptions"
+              :key="item.id"
+              :label="`${item.name} · ¥${item.price} · ${serviceDurationMinutes(item)}分钟`"
+              :value="String(item.id)"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="客户" required>
+          <el-select v-model="detailForm.userRef" filterable placeholder="请选择客户">
+            <el-option
+              v-for="user in userOptions"
+              :key="user.id"
+              :label="`${user.realName || user.nickname} · ${user.phone || user.id}`"
+              :value="String(user.id)"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="服务人员" required>
+          <el-select v-model="detailForm.personnelId" filterable placeholder="请选择服务人员">
+            <el-option
+              v-for="person in personnelOptions"
+              :key="person.id"
+              :label="`${person.name} · ${person.serviceType} · ${person.phone}`"
+              :value="String(person.id)"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="服务时间" required>
+          <el-date-picker v-model="detailForm.serviceTime" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" placeholder="请选择服务开始时间" />
+        </el-form-item>
+        <el-form-item label="服务时长"><span>{{ detailDuration }} 分钟（随商品服务同步）</span></el-form-item>
+        <el-form-item label="金额"><el-input-number v-model="detailForm.amount" :min="0" controls-position="right" disabled /></el-form-item>
+        <el-form-item label="完成情况">
+          <el-select v-model="detailForm.status">
+            <el-option v-for="status in appointmentStatusOptions" :key="status.value" :label="status.label" :value="status.value" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="detailVisible = false">取消</el-button>
+        <el-button type="primary" :loading="detailSaving" @click="submitDetail">保存并同步</el-button>
+      </template>
+    </el-dialog>
   </section>
 </template>
 
@@ -102,39 +159,47 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createAppointment, deleteAppointment, getAppointments, getResource, getUsers, updateAppointment } from '../api/http'
 import { sevenDayWindow } from '../utils/query'
 import { eligiblePersonnel } from '../utils/personnel'
-import { appointmentRangeMinutes, serviceDurationMinutes } from '../utils/serviceDuration'
+import { clipAppointmentRange, serviceDurationMinutes } from '../utils/serviceDuration'
 import PagedList from '../components/PagedList.vue'
 
 const initialWindow = sevenDayWindow()
 const filters = reactive({ date: initialWindow.startDate })
-const hours = Array.from({ length: 24 }, (_, index) => index)
+const START_HOUR = 6
+const END_HOUR = 22
+const hours = Array.from({ length: END_HOUR - START_HOUR }, (_, index) => START_HOUR + index)
 const dialogVisible = ref(false)
 const saving = ref(false)
 const form = reactive({ productId: '', userRef: '', personnelId: '', date: initialWindow.startDate, startTime: '09:00:00', amount: 0 })
+const detailVisible = ref(false)
+const detailSaving = ref(false)
+const selectedAppointment = ref(null)
+const detailForm = reactive({ productId: '', userRef: '', personnelId: '', serviceTime: '', amount: 0, status: 'pending' })
+const appointmentStatusOptions = [
+  { value: 'pending', label: '待服务', tagType: 'warning' },
+  { value: 'service_in', label: '服务中', tagType: 'primary' },
+  { value: 'completed', label: '已完成', tagType: 'success' },
+  { value: 'cancelled', label: '已取消', tagType: 'info' }
+]
 const userOptions = ref([])
 const catalogOptions = ref([])
 const personnelOptions = ref([])
 const appointments = ref([])
 const error = ref('')
 const activeWindow = computed(() => sevenDayWindow(new Date(`${filters.date}T00:00:00`)))
-const dateWindowLabel = computed(() => `${activeWindow.value.startDate} 至 ${activeWindow.value.endDate}`)
 const filtered = computed(() => appointments.value.filter((item) => item.serviceDate === filters.date))
-const selectedDuration = computed(() => serviceDurationMinutes(catalogOptions.value.find((item) => String(item.id) === String(form.productId))))
+const selectedDuration = computed(() => serviceDurationMinutes(findCatalogItem(form.productId)))
+const detailDuration = computed(() => serviceDurationMinutes(findCatalogItem(detailForm.productId)))
 
 const ROW_HEIGHT = 84
-const START_HOUR = 0
-const END_HOUR = 24
 
 const laidOut = computed(() => {
   const baseMinutes = START_HOUR * 60
-  const maxMinutes = END_HOUR * 60
   const items = filtered.value
     .map((item) => {
-      const parsed = appointmentRangeMinutes(item)
+      const parsed = clipAppointmentRange(item, START_HOUR, END_HOUR)
       if (!parsed) return null
-      const start = Math.max(parsed.startMinutes, baseMinutes)
-      const end = Math.min(parsed.endMinutes, maxMinutes)
-      if (end <= start) return null
+      const start = parsed.startMinutes
+      const end = parsed.endMinutes
       return {
         ...item,
         _start: start,
@@ -175,10 +240,19 @@ function cardStyle(item) {
 }
 
 function tagType(status) {
-  return { 已完成: 'success', 服务中: 'primary', 待服务: 'warning', 已取消: 'info' }[status] || 'info'
+  return findStatus(status)?.tagType || 'info'
 }
 function statusLabel(status) {
-  return { pending: '待服务', service_in: '服务中', completed: '已完成', cancelled: '已取消' }[status] || status
+  return findStatus(status)?.label || status
+}
+function statusValue(status) {
+  return findStatus(status)?.value || status
+}
+function findStatus(status) {
+  return appointmentStatusOptions.find((option) => option.value === status || option.label === status)
+}
+function formatHour(hour) {
+  return String(hour).padStart(2, '0')
 }
 function openCreate() {
   const first = catalogOptions.value[0]
@@ -186,8 +260,13 @@ function openCreate() {
   dialogVisible.value = true
 }
 function syncAmount(productId) {
-  const selected = catalogOptions.value.find((item) => String(item.id) === String(productId))
-  form.amount = Number(selected?.price || 0)
+  syncProductAmount(form, productId)
+}
+function findCatalogItem(productId) {
+  return catalogOptions.value.find((item) => String(item.id) === String(productId))
+}
+function syncProductAmount(target, productId) {
+  target.amount = Number(findCatalogItem(productId)?.price || 0)
 }
 async function load() {
   error.value = ''
@@ -213,6 +292,21 @@ async function loadCatalog() {
   } catch (error) {
     catalogOptions.value = []
   }
+}
+function openDetail(item) {
+  selectedAppointment.value = item
+  Object.assign(detailForm, {
+    productId: String(item.productId || ''),
+    userRef: String(item.customerId || ''),
+    personnelId: String(item.personnelId || ''),
+    serviceTime: item.serviceTime || '',
+    amount: Number(item.amount || 0),
+    status: statusValue(item.status)
+  })
+  detailVisible.value = true
+}
+function syncDetailAmount(productId) {
+  syncProductAmount(detailForm, productId)
 }
 async function loadPersonnel() {
   try {
@@ -249,6 +343,29 @@ async function submitCreate() {
     saving.value = false
   }
 }
+async function submitDetail() {
+  if (!detailForm.productId || !detailForm.userRef || !detailForm.personnelId || !detailForm.serviceTime) {
+    ElMessage.warning('请完整填写商品服务、客户、服务人员和服务时间')
+    return
+  }
+  detailSaving.value = true
+  try {
+    await updateAppointment(selectedAppointment.value.id, {
+      productId: detailForm.productId,
+      userRef: detailForm.userRef,
+      personnelId: detailForm.personnelId,
+      serviceTime: detailForm.serviceTime,
+      status: statusLabel(detailForm.status)
+    })
+    ElMessage.success('预约、工单和订单已同步')
+    detailVisible.value = false
+    await load()
+  } catch (error) {
+    ElMessage.error(error.message || '预约同步失败')
+  } finally {
+    detailSaving.value = false
+  }
+}
 async function removeAppointment(item) {
   try {
     await ElMessageBox.confirm(`确认删除预约「${item.serviceName}」？`, '删除确认', { type: 'warning' })
@@ -281,5 +398,27 @@ onMounted(async () => {
 .status-dropdown-tag .el-icon--right {
   margin-left: 4px;
   font-size: 12px;
+}
+.appointment-card-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 22px;
+}
+.appointment-card {
+  padding: 5px 10px;
+}
+.appointment-card-title strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.appointment-card-title .el-button {
+  flex: none;
+}
+.appointment-detail-summary {
+  margin-bottom: 18px;
 }
 </style>

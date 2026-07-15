@@ -12,3 +12,12 @@ export function paginate(rows, page, pageSize = PAGE_SIZE) {
   const start = (current - 1) * pageSize
   return list.slice(start, start + pageSize)
 }
+
+export function hasSameItemOrder(previous, next) {
+  if (!Array.isArray(previous) || !Array.isArray(next) || previous.length !== next.length) return false
+  return previous.every((item, index) => itemIdentity(item) === itemIdentity(next[index]))
+}
+
+function itemIdentity(item) {
+  return item && typeof item === 'object' && item.id != null ? item.id : item
+}

@@ -236,12 +236,18 @@ public class JdbcAdminDataService implements AdminDataService {
             throw new IllegalArgumentException("预约看板最多查询连续 7 天");
         }
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select w.id, date_format(w.service_time, '%Y-%m-%d') as serviceDate, date_format(w.service_time, '%H:%i') as startTime, " +
+                "select w.id, w.order_no as orderNo, w.order_id as orderId, o.order_no as serviceOrderNo, " +
+                        "date_format(w.service_time, '%Y-%m-%d') as serviceDate, date_format(w.service_time, '%H:%i') as startTime, " +
+                        "date_format(w.service_time, '%Y-%m-%d %H:%i:%s') as serviceTime, date_format(w.complete_time, '%Y-%m-%d %H:%i:%s') as completeTime, " +
+                        "date_format(w.dispatch_time, '%Y-%m-%d %H:%i:%s') as dispatchTime, " +
                         "coalesce(nullif(w.service_duration, 0), 60) as durationMinutes, w.product_id as productId, p.category, hour(w.service_time) as hour, w.service_item as serviceName, w.amount, " +
                         "concat(date_format(w.service_time, '%H:%i'), '-', date_format(date_add(w.service_time, interval coalesce(nullif(w.service_duration, 0), 60) minute), '%H:%i')) as timeRange, " +
-                        "u.real_name as userName, " +
+                        "u.id as customerId, u.real_name as userName, u.phone as customerPhone, " +
+                        "sp.id as personnelId, sp.name as personnelName, sp.phone as personnelPhone, " +
                         "case w.status when 'pending' then '待服务' when 'service_in' then '服务中' when 'completed' then '已完成' when 'cancelled' then '已取消' else w.status end as status " +
-                        "from work_order w left join `user` u on w.customer_id = u.id left join product p on w.product_id = p.id " +
+                        "from work_order w left join service_order o on w.order_id = o.id " +
+                        "left join `user` u on w.customer_id = u.id left join product p on w.product_id = p.id " +
+                        "left join service_personnel sp on w.personnel_id = sp.id " +
                         "where date(w.service_time) between ? and ? order by w.service_time",
                 start,
                 end
@@ -743,21 +749,34 @@ public class JdbcAdminDataService implements AdminDataService {
             if (payload.containsKey("status")) values.put("status", orderStatus(text(payload, "status", "待接单")));
             updateById("service_order", id, values);
         } else if ("workOrders".equals(name) || "appointments".equals(name)) {
-            Long orderId = payload.containsKey("status") ? linkedOrderId(name, id) : null;
+            boolean syncOrderDetails = payload.containsKey("productId") || hasUserRef(payload, "customerId");
+            Long orderId = (syncOrderDetails || payload.containsKey("status")) ? linkedOrderId(name, id) : null;
+            Map<String, Object> orderValues = new LinkedHashMap<String, Object>();
             if (payload.containsKey("productId")) {
                 Map<String, Object> product = catalogItem(payload);
                 values.put("product_id", product.get("id"));
                 values.put("service_item", product.get("name"));
                 values.put("amount", product.get("price"));
                 values.put("service_duration", ServiceDurationPolicy.minutes(product.get("duration")));
+                orderValues.put("product_id", product.get("id"));
+                orderValues.put("product_name", product.get("name"));
+                orderValues.put("amount", product.get("price"));
+                orderValues.put("service_type", product.get("category"));
             }
-            if (hasUserRef(payload, "customerId")) values.put("customer_id", userId(payload, "customerId", firstId("user")));
+            if (hasUserRef(payload, "customerId")) {
+                long customerId = userId(payload, "customerId", firstId("user"));
+                values.put("customer_id", customerId);
+                orderValues.put("buyer_id", customerId);
+            }
             if (payload.containsKey("personnelId")) values.put("personnel_id", selectedPersonnelId(payload));
             if (payload.containsKey("status")) values.put("status", workOrderStatus(text(payload, "status", "待服务")));
             putIfPresent(values, "service_time", payload, "serviceTime");
             putIfPresent(values, "complete_time", payload, "completeTime");
             updateById("work_order", id, values);
-            if (orderId != null) {
+            if (!orderValues.isEmpty()) {
+                updateById("service_order", orderId, orderValues);
+            }
+            if (orderId != null && payload.containsKey("status")) {
                 syncServiceOrderStatus(orderId, String.valueOf(values.get("status")));
             }
         } else if ("afterSales".equals(name)) {

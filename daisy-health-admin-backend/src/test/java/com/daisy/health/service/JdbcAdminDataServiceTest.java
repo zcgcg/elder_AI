@@ -40,7 +40,7 @@ class JdbcAdminDataServiceTest {
         assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
                 .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
                 .anyMatch(sql -> sql.contains("coalesce(nullif(w.service_duration, 0), 60) minute")
-                        && !sql.contains("w.complete_time")));
+                        && !sql.contains("timestampdiff(minute, w.service_time, w.complete_time)")));
     }
 
     @Test
@@ -327,6 +327,34 @@ class JdbcAdminDataServiceTest {
         service.updateResource("workOrders", 9L, record("status", "已完成"));
 
         verify(jdbcTemplate).update("update service_order set status = ? where id = ?", "completed", 31L);
+    }
+
+    @Test
+    void editingAnAppointmentSynchronizesItsTransactionOrderDetails() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.queryForList(startsWith("select order_id as orderId from work_order"), eq(9L)))
+                .thenReturn(Collections.singletonList(record("orderId", 31L)));
+        when(jdbcTemplate.queryForList(startsWith("select id, name, category, price"), eq(7L)))
+                .thenReturn(Collections.singletonList(record(
+                        "id", 7L, "name", "助浴护理", "category", "家政护理", "price", 199, "duration", 90
+                )));
+        when(jdbcTemplate.queryForList(startsWith("select id from `user`")))
+                .thenReturn(Collections.singletonList(record("id", 10001L)));
+        JdbcAdminDataService service = service(jdbcTemplate);
+
+        service.updateResource("appointments", 9L, record(
+                "productId", 7L,
+                "customerId", 10002L
+        ));
+
+        assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
+                .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
+                .anyMatch(sql -> sql.startsWith("update `service_order` set")
+                        && sql.contains("`product_id`")
+                        && sql.contains("`product_name`")
+                        && sql.contains("`amount`")
+                        && sql.contains("`buyer_id`")
+                        && sql.contains("`service_type`")));
     }
 
     @Test

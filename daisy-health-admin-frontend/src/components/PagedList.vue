@@ -15,7 +15,7 @@
 
 <script setup>
 import { computed, ref, watch } from 'vue'
-import { PAGE_SIZE, normalizePage, paginate } from '../utils/pagination'
+import { PAGE_SIZE, hasSameItemOrder, normalizePage, paginate } from '../utils/pagination'
 
 const props = defineProps({
   items: { type: Array, default: () => [] },
@@ -25,7 +25,9 @@ const props = defineProps({
 const currentPage = ref(1)
 const pagedItems = computed(() => paginate(props.items, currentPage.value, props.pageSize))
 
-watch(() => props.items, () => { currentPage.value = 1 })
+watch(() => props.items, (items, previous) => {
+  if (!hasSameItemOrder(previous, items)) currentPage.value = 1
+})
 watch(() => props.items.length, (total) => {
   currentPage.value = normalizePage(currentPage.value, total, props.pageSize)
 })

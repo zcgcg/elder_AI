@@ -106,8 +106,16 @@ public class MockDataService implements AdminDataService {
             throw new IllegalArgumentException("预约看板最多查询连续 7 天");
         }
         List<Map<String, Object>> rows = list(
-                record("id", 1, "serviceDate", start.toString(), "productId", 4, "hour", 9, "serviceName", "助浴护理", "timeRange", "09:00-10:30", "userName", "王秀兰", "status", "待服务"),
-                record("id", 2, "serviceDate", start.plusDays(1).toString(), "productId", 2, "hour", 10, "serviceName", "肩颈康复", "timeRange", "10:00-11:00", "userName", "陈建国", "status", "服务中")
+                record("id", 1, "orderNo", "WO20260706001", "serviceOrderNo", "OD20260706001", "serviceDate", start.toString(),
+                        "serviceTime", start + " 09:00:00", "startTime", "09:00", "durationMinutes", 90, "productId", 1, "hour", 9,
+                        "serviceName", "2小时日常清洁", "amount", 129, "timeRange", "09:00-10:30", "customerId", 10001,
+                        "userName", "王秀兰", "customerPhone", "13800010001", "personnelId", 1, "personnelName", "张敏",
+                        "personnelPhone", "13900020001", "dispatchTime", start + " 08:30:00", "status", "待服务"),
+                record("id", 2, "orderNo", "WO20260706002", "serviceOrderNo", "OD20260706002", "serviceDate", start.plusDays(1).toString(),
+                        "serviceTime", start.plusDays(1) + " 10:00:00", "startTime", "10:00", "durationMinutes", 60, "productId", 2, "hour", 10,
+                        "serviceName", "脑中风康复训练", "amount", 299, "timeRange", "10:00-11:00", "customerId", 10002,
+                        "userName", "陈建国", "customerPhone", "13800010002", "personnelId", 2, "personnelName", "李华",
+                        "personnelPhone", "13900020002", "dispatchTime", start.plusDays(1) + " 09:30:00", "status", "服务中")
         );
         return query.filter(rows);
     }
