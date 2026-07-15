@@ -236,8 +236,9 @@ public class JdbcAdminDataService implements AdminDataService {
             throw new IllegalArgumentException("预约看板最多查询连续 7 天");
         }
         List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select w.id, date_format(w.service_time, '%Y-%m-%d') as serviceDate, w.product_id as productId, p.category, hour(w.service_time) as hour, w.service_item as serviceName, w.amount, " +
-                        "concat(date_format(w.service_time, '%H:%i'), '-', date_format(coalesce(w.complete_time, date_add(w.service_time, interval 1 hour)), '%H:%i')) as timeRange, " +
+                "select w.id, date_format(w.service_time, '%Y-%m-%d') as serviceDate, date_format(w.service_time, '%H:%i') as startTime, " +
+                        "coalesce(nullif(w.service_duration, 0), 60) as durationMinutes, w.product_id as productId, p.category, hour(w.service_time) as hour, w.service_item as serviceName, w.amount, " +
+                        "concat(date_format(w.service_time, '%H:%i'), '-', date_format(date_add(w.service_time, interval coalesce(nullif(w.service_duration, 0), 60) minute), '%H:%i')) as timeRange, " +
                         "u.real_name as userName, " +
                         "case w.status when 'pending' then '待服务' when 'service_in' then '服务中' when 'completed' then '已完成' when 'cancelled' then '已取消' else w.status end as status " +
                         "from work_order w left join `user` u on w.customer_id = u.id left join product p on w.product_id = p.id " +
@@ -748,6 +749,7 @@ public class JdbcAdminDataService implements AdminDataService {
                 values.put("product_id", product.get("id"));
                 values.put("service_item", product.get("name"));
                 values.put("amount", product.get("price"));
+                values.put("service_duration", ServiceDurationPolicy.minutes(product.get("duration")));
             }
             if (hasUserRef(payload, "customerId")) values.put("customer_id", userId(payload, "customerId", firstId("user")));
             if (payload.containsKey("personnelId")) values.put("personnel_id", selectedPersonnelId(payload));
@@ -1380,6 +1382,7 @@ public class JdbcAdminDataService implements AdminDataService {
     }
 
     private Number createCatalogWorkOrder(Map<String, Object> payload) {
+        Timestamp serviceTime = requiredServiceTime(payload);
         AuthenticatedUser creator = currentUser();
         Map<String, Object> product = catalogItem(payload);
         long productId = ((Number) product.get("id")).longValue();
@@ -1406,8 +1409,9 @@ public class JdbcAdminDataService implements AdminDataService {
                 "created_by_role", creator == null ? "staff" : creator.getRoleType(),
                 "status", workOrderStatus(text(payload, "status", "待服务")),
                 "dispatch_time", Timestamp.valueOf(LocalDateTime.now()),
-                "service_time", nullIfBlank(text(payload, "serviceTime", "")),
-                "complete_time", nullIfBlank(text(payload, "completeTime", "")),
+                "service_time", serviceTime,
+                "service_duration", ServiceDurationPolicy.minutes(product.get("duration")),
+                "complete_time", null,
                 "cancel_reason", null
         ));
     }
@@ -1418,13 +1422,25 @@ public class JdbcAdminDataService implements AdminDataService {
             throw new IllegalArgumentException("请选择商品服务");
         }
         Map<String, Object> product = firstRow(
-                "select id, name, category, price from product where id = ? and status = 1 limit 1",
+                "select id, name, category, price, duration from product where id = ? and status = 1 limit 1",
                 productId
         );
         if (product.isEmpty()) {
             throw new IllegalArgumentException("所选商品服务不存在或已下架");
         }
         return product;
+    }
+
+    private Timestamp requiredServiceTime(Map<String, Object> payload) {
+        String value = text(payload, "serviceTime", "");
+        if (value.length() == 0) {
+            throw new IllegalArgumentException("请选择服务时间");
+        }
+        try {
+            return Timestamp.valueOf(value);
+        } catch (IllegalArgumentException error) {
+            throw new IllegalArgumentException("服务时间格式不正确");
+        }
     }
 
     private Long selectedPersonnelId(Map<String, Object> payload) {

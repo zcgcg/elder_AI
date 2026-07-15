@@ -1,9 +1,9 @@
 <template>
   <section>
     <div class="page-heading">
-      <div><h1>预约看板</h1><p>{{ filters.date }} · 9:00-18:00 服务安排（保留 {{ dateWindowLabel }}）</p></div>
+      <div><h1>预约看板</h1><p>{{ filters.date }} · 全天服务安排（加载 {{ dateWindowLabel }}）</p></div>
       <div class="filters compact">
-        <el-date-picker v-model="filters.date" type="date" value-format="YYYY-MM-DD" :clearable="false" :disabled-date="disabledDate" placeholder="选择日期" />
+        <el-date-picker v-model="filters.date" type="date" value-format="YYYY-MM-DD" :clearable="false" placeholder="选择日期" @change="load" />
         <el-button type="primary" :icon="Plus" @click="openCreate">新建预约</el-button>
       </div>
     </div>
@@ -57,7 +57,7 @@
             <el-option
               v-for="item in catalogOptions"
               :key="item.id"
-              :label="`${item.name} · ¥${item.price}`"
+              :label="`${item.name} · ¥${item.price} · ${serviceDurationMinutes(item)}分钟`"
               :value="String(item.id)"
             />
           </el-select>
@@ -82,9 +82,9 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="预约日期"><el-date-picker v-model="form.date" type="date" value-format="YYYY-MM-DD" :clearable="false" :disabled-date="disabledDate" /></el-form-item>
+        <el-form-item label="预约日期"><el-date-picker v-model="form.date" type="date" value-format="YYYY-MM-DD" :clearable="false" /></el-form-item>
         <el-form-item label="开始时间"><el-time-picker v-model="form.startTime" value-format="HH:mm:ss" placeholder="开始时间" /></el-form-item>
-        <el-form-item label="结束时间"><el-time-picker v-model="form.endTime" value-format="HH:mm:ss" placeholder="结束时间" /></el-form-item>
+        <el-form-item label="服务时长"><span>{{ selectedDuration }} 分钟（结束时间自动计算）</span></el-form-item>
         <el-form-item label="金额"><el-input-number v-model="form.amount" :min="0" controls-position="right" disabled /></el-form-item>
       </el-form>
       <template #footer>
@@ -100,44 +100,37 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { Plus, ArrowDown } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { createAppointment, deleteAppointment, getAppointments, getResource, getUsers, updateAppointment } from '../api/http'
-import { isOutsideWindow, sevenDayWindow } from '../utils/query'
+import { sevenDayWindow } from '../utils/query'
 import { eligiblePersonnel } from '../utils/personnel'
+import { appointmentRangeMinutes, serviceDurationMinutes } from '../utils/serviceDuration'
 import PagedList from '../components/PagedList.vue'
 
-const dateWindow = sevenDayWindow()
-const filters = reactive({ date: dateWindow.startDate })
-const hours = Array.from({ length: 10 }, (_, index) => index + 9)
+const initialWindow = sevenDayWindow()
+const filters = reactive({ date: initialWindow.startDate })
+const hours = Array.from({ length: 24 }, (_, index) => index)
 const dialogVisible = ref(false)
 const saving = ref(false)
-const form = reactive({ productId: '', userRef: '', personnelId: '', date: dateWindow.startDate, startTime: '09:00:00', endTime: '10:00:00', amount: 0 })
+const form = reactive({ productId: '', userRef: '', personnelId: '', date: initialWindow.startDate, startTime: '09:00:00', amount: 0 })
 const userOptions = ref([])
 const catalogOptions = ref([])
 const personnelOptions = ref([])
 const appointments = ref([])
 const error = ref('')
-const dateWindowLabel = `${dateWindow.startDate} 至 ${dateWindow.endDate}`
+const activeWindow = computed(() => sevenDayWindow(new Date(`${filters.date}T00:00:00`)))
+const dateWindowLabel = computed(() => `${activeWindow.value.startDate} 至 ${activeWindow.value.endDate}`)
 const filtered = computed(() => appointments.value.filter((item) => item.serviceDate === filters.date))
+const selectedDuration = computed(() => serviceDurationMinutes(catalogOptions.value.find((item) => String(item.id) === String(form.productId))))
 
 const ROW_HEIGHT = 84
-const START_HOUR = 9
-const END_HOUR = 19
-
-function parseTimeRange(timeRange) {
-  if (!timeRange || typeof timeRange !== 'string') return null
-  const parts = timeRange.split('-')
-  if (parts.length !== 2) return null
-  const [sh, sm] = parts[0].split(':').map(Number)
-  const [eh, em] = parts[1].split(':').map(Number)
-  if ([sh, sm, eh, em].some(isNaN)) return null
-  return { startMinutes: sh * 60 + sm, endMinutes: eh * 60 + em }
-}
+const START_HOUR = 0
+const END_HOUR = 24
 
 const laidOut = computed(() => {
   const baseMinutes = START_HOUR * 60
   const maxMinutes = END_HOUR * 60
   const items = filtered.value
     .map((item) => {
-      const parsed = parseTimeRange(item.timeRange)
+      const parsed = appointmentRangeMinutes(item)
       if (!parsed) return null
       const start = Math.max(parsed.startMinutes, baseMinutes)
       const end = Math.min(parsed.endMinutes, maxMinutes)
@@ -189,11 +182,8 @@ function statusLabel(status) {
 }
 function openCreate() {
   const first = catalogOptions.value[0]
-  Object.assign(form, { productId: first?.id ? String(first.id) : '', userRef: userOptions.value[0]?.id ? String(userOptions.value[0].id) : '', personnelId: '', date: filters.date, startTime: '09:00:00', endTime: '10:00:00', amount: Number(first?.price || 0) })
+  Object.assign(form, { productId: first?.id ? String(first.id) : '', userRef: userOptions.value[0]?.id ? String(userOptions.value[0].id) : '', personnelId: '', date: filters.date, startTime: '09:00:00', amount: Number(first?.price || 0) })
   dialogVisible.value = true
-}
-function disabledDate(date) {
-  return isOutsideWindow(date, dateWindow)
 }
 function syncAmount(productId) {
   const selected = catalogOptions.value.find((item) => String(item.id) === String(productId))
@@ -202,7 +192,7 @@ function syncAmount(productId) {
 async function load() {
   error.value = ''
   try {
-    appointments.value = await getAppointments(dateWindow)
+    appointments.value = await getAppointments(activeWindow.value)
   } catch (exception) {
     appointments.value = []
     error.value = exception.message || '预约数据加载失败，请检查后端和数据库连接'
@@ -247,11 +237,11 @@ async function submitCreate() {
       productId: form.productId,
       userRef: form.userRef,
       personnelId: form.personnelId,
-      serviceTime: `${form.date} ${form.startTime}`,
-      completeTime: `${form.date} ${form.endTime}`
+      serviceTime: `${form.date} ${form.startTime}`
     })
-    ElMessage.success('预约已创建')
+    ElMessage.success('预约及对应工单已创建')
     dialogVisible.value = false
+    filters.date = form.date
     await load()
   } catch (error) {
     ElMessage.error('创建失败，请确认后端和数据库已启动')

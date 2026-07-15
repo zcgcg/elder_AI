@@ -31,6 +31,37 @@ import static org.mockito.Mockito.when;
 
 class JdbcAdminDataServiceTest {
     @Test
+    void appointmentBoardUsesTheWorkOrderDurationSnapshotInsteadOfCompletionTime() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        JdbcAdminDataService service = service(jdbcTemplate);
+
+        service.appointments(new ResourceQuery());
+
+        assertTrue(org.mockito.Mockito.mockingDetails(jdbcTemplate).getInvocations().stream()
+                .map(invocation -> String.valueOf(invocation.getRawArguments()[0]))
+                .anyMatch(sql -> sql.contains("coalesce(nullif(w.service_duration, 0), 60) minute")
+                        && !sql.contains("w.complete_time")));
+    }
+
+    @Test
+    void adminWorkOrderRequiresAServiceTimeBeforeWritingItsOrderPair() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        JdbcAdminDataService service = service(jdbcTemplate);
+
+        IllegalArgumentException error = assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createResource("workOrders", record(
+                        "productId", 7L,
+                        "customerId", 10001L,
+                        "personnelId", 2L
+                ))
+        );
+
+        assertEquals("请选择服务时间", error.getMessage());
+        verify(jdbcTemplate, never()).update(any(org.springframework.jdbc.core.PreparedStatementCreator.class), any(org.springframework.jdbc.support.KeyHolder.class));
+    }
+
+    @Test
     void resettingAUserPasswordAlwaysUsesTheFixedDefault() {
         JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
         PasswordEncoder passwordEncoder = mock(PasswordEncoder.class);

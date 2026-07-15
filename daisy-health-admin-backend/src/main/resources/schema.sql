@@ -157,6 +157,7 @@ create table if not exists work_order (
   status varchar(20) not null,
   dispatch_time datetime not null default current_timestamp,
   service_time datetime null,
+  service_duration int not null default 60,
   complete_time datetime null,
   cancel_reason varchar(200) null,
   created_at datetime not null default current_timestamp
@@ -168,6 +169,15 @@ set @add_work_order_product_id = if(
   'select 1'
 );
 prepare stmt from @add_work_order_product_id;
+execute stmt;
+deallocate prepare stmt;
+
+set @add_work_order_service_duration = if(
+  (select count(*) from information_schema.columns where table_schema = database() and table_name = 'work_order' and column_name = 'service_duration') = 0,
+  'alter table work_order add column service_duration int not null default 60 after service_time',
+  'select 1'
+);
+prepare stmt from @add_work_order_service_duration;
 execute stmt;
 deallocate prepare stmt;
 

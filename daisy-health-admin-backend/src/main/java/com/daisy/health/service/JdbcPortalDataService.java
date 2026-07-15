@@ -320,7 +320,7 @@ public class JdbcPortalDataService implements PortalDataService {
         long userId = currentLegacyUserId();
         long productId = requiredLong(payload, "productId", "请选择商品服务");
         Map<String, Object> product = one(
-                "select id, name, category, price from product where id = ? and status = 1 limit 1",
+                "select id, name, category, price, duration from product where id = ? and status = 1 limit 1",
                 productId
         );
         if (product.isEmpty()) {
@@ -348,10 +348,11 @@ public class JdbcPortalDataService implements PortalDataService {
 
         String workOrderNo = uniqueNo("WO");
         String serviceTime = stringValue(payload == null ? null : payload.get("serviceTime")).trim();
+        long serviceDuration = ServiceDurationPolicy.minutes(product.get("duration"));
         jdbcTemplate.update(
-                "insert into work_order(order_no, order_id, product_id, service_item, amount, personnel_id, customer_id, created_by_account_id, created_by_role, status, dispatch_time, service_time, complete_time, cancel_reason) " +
-                        "values(?, ?, ?, ?, ?, ?, ?, ?, 'elderly', 'pending', now(), nullif(?, ''), null, null)",
-                workOrderNo, orderId, productId, product.get("name"), product.get("price"), personnelId, userId, current.getAccountId(), serviceTime
+                "insert into work_order(order_no, order_id, product_id, service_item, amount, personnel_id, customer_id, created_by_account_id, created_by_role, status, dispatch_time, service_time, service_duration, complete_time, cancel_reason) " +
+                        "values(?, ?, ?, ?, ?, ?, ?, ?, 'elderly', 'pending', now(), nullif(?, ''), ?, null, null)",
+                workOrderNo, orderId, productId, product.get("name"), product.get("price"), personnelId, userId, current.getAccountId(), serviceTime, serviceDuration
         );
 
         Map<String, Object> created = one(

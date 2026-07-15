@@ -104,7 +104,7 @@
         <el-form-item v-for="field in currentSection.fields" :key="field.prop" :label="field.label" :required="field.required">
           <el-input-number v-if="field.type === 'number'" v-model="sectionForm[field.prop]" :min="0" controls-position="right" :disabled="field.readonly" />
           <el-select v-else-if="field.type === 'product'" v-model="sectionForm[field.prop]" filterable placeholder="请选择商品服务" @change="syncSectionProductAmount">
-            <el-option v-for="item in productOptions" :key="item.id" :label="`${item.name} · ¥${item.price}`" :value="String(item.id)" />
+            <el-option v-for="item in productOptions" :key="item.id" :label="`${item.name} · ¥${item.price} · ${serviceDurationMinutes(item)}分钟`" :value="String(item.id)" />
           </el-select>
           <el-select v-else-if="field.type === 'personnel'" v-model="sectionForm[field.prop]" filterable placeholder="请选择服务人员">
             <el-option v-for="item in personnelOptions" :key="item.id" :label="`${item.name} · ${item.serviceType} · ${item.phone}`" :value="String(item.id)" />
@@ -114,6 +114,7 @@
           </el-select>
           <el-date-picker v-else-if="field.type === 'date'" v-model="sectionForm[field.prop]" type="date" value-format="YYYY-MM-DD" />
           <el-time-picker v-else-if="field.type === 'time'" v-model="sectionForm[field.prop]" value-format="HH:mm:ss" />
+          <el-date-picker v-else-if="field.type === 'datetime'" v-model="sectionForm[field.prop]" type="datetime" value-format="YYYY-MM-DD HH:mm:ss" :placeholder="field.placeholder || '请选择时间'" />
           <div v-else-if="field.type === 'upload'" class="upload-field">
             <div v-if="sectionForm[field.prop]" class="upload-file-row">
               <span>{{ fileNameFromUrl(sectionForm[field.prop]) }}</span>
@@ -151,6 +152,7 @@ import { createHealthChartOption } from '../utils/healthChart'
 import { useResponsiveColumns } from '../utils/viewport'
 import { PAGE_SIZE, normalizePage, paginate } from '../utils/pagination'
 import { localizeValue } from '../utils/localizeValue'
+import { serviceDurationMinutes } from '../utils/serviceDuration'
 
 const EditableTable = defineComponent({
   props: { section: String, rows: Array, columns: Array },
@@ -275,9 +277,9 @@ const sectionMap = {
   workOrders: {
     title: '服务记录',
     resource: 'workOrders',
-    defaults: () => ({ userRef: String(user.value.id), productId: productOptions.value[0]?.id ? String(productOptions.value[0].id) : '', personnelId: '', amount: Number(productOptions.value[0]?.price || 0), status: '待服务', serviceTime: '', completeTime: '' }),
+    defaults: () => ({ userRef: String(user.value.id), productId: productOptions.value[0]?.id ? String(productOptions.value[0].id) : '', personnelId: '', amount: Number(productOptions.value[0]?.price || 0), status: '待服务', serviceTime: '' }),
     columns: [{ prop: 'orderNo', label: '工单编号', width: 160 }, { prop: 'serviceItem', label: '服务项目' }, { prop: 'personnelName', label: '服务人员' }, { prop: 'amount', label: '金额' }, { prop: 'status', label: '状态' }],
-    fields: [{ prop: 'productId', label: '商品服务', type: 'product', required: true }, { prop: 'personnelId', label: '服务人员', type: 'personnel', required: true }, { prop: 'amount', label: '金额', type: 'number', readonly: true }, { prop: 'status', label: '状态', type: 'select', options: ['待服务', '服务中', '已完成', '已取消'] }, { prop: 'serviceTime', label: '服务时间' }, { prop: 'completeTime', label: '结束时间' }]
+    fields: [{ prop: 'productId', label: '商品服务', type: 'product', required: true }, { prop: 'personnelId', label: '服务人员', type: 'personnel', required: true }, { prop: 'amount', label: '金额', type: 'number', readonly: true }, { prop: 'status', label: '状态', type: 'select', options: ['待服务', '服务中', '已完成', '已取消'] }, { prop: 'serviceTime', label: '服务时间', type: 'datetime', required: true, placeholder: '请选择服务开始时间' }]
   }
 }
 

@@ -298,7 +298,7 @@ const createFieldMap = {
     { prop: 'amount', label: '金额', type: 'number', readonly: true },
     { prop: 'userRef', label: '客户', type: 'user', required: true },
     { prop: 'personnelId', label: '服务人员', type: 'personnel', required: true },
-    { prop: 'serviceTime', label: '服务时间', placeholder: 'YYYY-MM-DD HH:mm:ss' },
+    { prop: 'serviceTime', label: '服务时间', type: 'datetime', required: true, placeholder: '请选择服务开始时间' },
     { prop: 'status', label: '状态', type: 'select', options: ['待服务', '服务中', '已完成', '已取消'] }
   ],
   products: [

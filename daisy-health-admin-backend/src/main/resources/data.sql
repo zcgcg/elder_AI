@@ -717,6 +717,18 @@ join product p on p.name = w.service_item
 set w.product_id = p.id
 where w.product_id is null;
 
+-- 工单保存创建时的服务时长快照，避免以后修改商品时长影响历史预约。
+update work_order w
+left join product p on p.id = w.product_id
+set w.service_duration = coalesce(nullif(p.duration, 0), 60)
+where not exists (
+  select 1 from data_migration m
+  where m.migration_key = '20260715_snapshot_work_order_service_duration'
+);
+
+insert ignore into data_migration(migration_key)
+values ('20260715_snapshot_work_order_service_duration');
+
 update work_order w
 set w.created_by_account_id = null,
     w.created_by_role = null
