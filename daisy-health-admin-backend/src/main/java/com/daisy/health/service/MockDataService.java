@@ -231,15 +231,58 @@ public class MockDataService implements AdminDataService {
     }
 
     public Map<String, Object> createResource(String name, Map<String, Object> payload) {
+        validateMockResourceMutation(name, null, payload);
         return record("accepted", true, "id", 99999, "resource", name);
     }
 
     public Map<String, Object> updateResource(String name, Long id, Map<String, Object> payload) {
+        validateMockResourceMutation(name, id, payload);
         return record("accepted", true, "id", id, "resource", name, "action", "update");
     }
 
     public Map<String, Object> deleteResource(String name, Long id) {
+        if ("productCategories".equals(name)) fixedCategoryMutation();
         return record("accepted", true, "id", id, "resource", name, "action", "delete");
+    }
+
+    private void validateMockResourceMutation(String name, Long id, Map<String, Object> payload) {
+        if ("productCategories".equals(name)) fixedCategoryMutation();
+        if (payload == null) return;
+        if ("products".equals(name) && payload.containsKey("category")) {
+            ServiceCategory.requireValid(payload.get("category"));
+        }
+        if (("personnel".equals(name) || "audits".equals(name)) && payload.containsKey("serviceType")) {
+            ServiceCategory.requireValid(payload.get("serviceType"));
+        }
+        if (!("workOrders".equals(name) || "appointments".equals(name))
+                || (!payload.containsKey("productId") && !payload.containsKey("personnelId"))) return;
+
+        Map<String, Object> existing = id == null ? null : findById(resources().get("workOrders"), id);
+        Object productId = payload.containsKey("productId") ? payload.get("productId") : value(existing, "productId");
+        Object personnelId = payload.containsKey("personnelId") ? payload.get("personnelId") : value(existing, "personnelId");
+        Map<String, Object> product = findById(resources().get("products"), productId);
+        Map<String, Object> personnel = findById(resources().get("personnel"), personnelId);
+        if (product == null) throw new IllegalArgumentException("所选商品服务不存在或已下架");
+        if (personnel == null) throw new IllegalArgumentException("所选服务人员不存在或不可接单");
+        if (!String.valueOf(product.get("category")).equals(String.valueOf(personnel.get("serviceType")))) {
+            throw new IllegalArgumentException("所选服务人员的服务类型与商品服务分类不匹配");
+        }
+    }
+
+    private void fixedCategoryMutation() {
+        throw new IllegalArgumentException("服务分类为系统固定四类，不能新增、修改或删除");
+    }
+
+    private Object value(Map<String, Object> row, String key) {
+        return row == null ? null : row.get(key);
+    }
+
+    private Map<String, Object> findById(List<Map<String, Object>> rows, Object id) {
+        if (rows == null || id == null) return null;
+        for (Map<String, Object> row : rows) {
+            if (String.valueOf(id).equals(String.valueOf(row.get("id")))) return row;
+        }
+        return null;
     }
 
     public Map<String, Object> analyticsOverview(ResourceQuery query) {
@@ -286,8 +329,8 @@ public class MockDataService implements AdminDataService {
         ));
         data.put("audits", list(record("id", 1, "name", "周丽", "serviceType", "上门体检", "auditStatus", "待审核", "phone", "138****8123", "updatedAt", "2026-07-06 09:10")));
         data.put("workOrders", list(
-                record("id", 1, "orderNo", "WO20260706001", "serviceItem", "助浴护理", "personnelId", 1, "personnelName", "张敏", "customerId", 10001, "customer", "王秀兰", "status", "待服务", "updatedAt", "2026-07-06 11:00"),
-                record("id", 2, "orderNo", "WO20260706002", "serviceItem", "肩颈康复", "personnelId", 2, "personnelName", "李华", "customerId", 10002, "customer", "陈建国", "status", "服务中", "updatedAt", "2026-07-06 12:00")
+                record("id", 1, "orderNo", "WO20260706001", "productId", 1, "serviceItem", "助浴护理", "personnelId", 1, "personnelName", "张敏", "customerId", 10001, "customer", "王秀兰", "status", "待服务", "updatedAt", "2026-07-06 11:00"),
+                record("id", 2, "orderNo", "WO20260706002", "productId", 2, "serviceItem", "肩颈康复", "personnelId", 2, "personnelName", "李华", "customerId", 10002, "customer", "陈建国", "status", "服务中", "updatedAt", "2026-07-06 12:00")
         ));
         data.put("products", list(
                 record("id", 1, "name", "2小时日常清洁", "category", "家政护理", "price", 129, "status", "上架", "updatedAt", "2026-07-03 17:00"),

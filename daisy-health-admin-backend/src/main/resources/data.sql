@@ -260,10 +260,14 @@ insert ignore into points_rule(id, action_type, description, points, growth, dai
 (2, 'order', '完成订单', 100, 120, null, 1),
 (3, 'review', '发布评价', 20, 20, 3, 1);
 
-insert ignore into product_category(id, name, code, description, sort_order, status) values
+-- 分类目录没有外键引用，先清空再重建可同时消除旧 ID、名称和编码冲突。
+delete from product_category;
+
+insert into product_category(id, name, code, description, sort_order, status) values
 (1, '家政护理', 'HK', '居家照护、清洁、助浴', 1, 1),
 (2, '康复理疗', 'RH', '康复训练与理疗服务', 2, 1),
-(3, '上门体检', 'EX', '居家健康检测服务', 3, 1);
+(3, '上门体检', 'EX', '居家健康检测服务', 3, 1),
+(4, '其他', 'OT', '其他综合商品与服务', 4, 1);
 
 insert ignore into service_item(id, product_id, name, description, duration, price, status) values
 (1, 4, '助浴前评估', '上门前基础身体状态评估', 15, 0.00, 1),
@@ -461,15 +465,6 @@ insert ignore into points_rule(id, action_type, description, points, growth, dai
 
 delete from member_level where name not in ('普通', '银卡', '金卡');
 delete from points_rule where action_type not in ('signin', 'order', 'review');
-
-insert ignore into product_category(id, name, code, description, sort_order, status) values
-(101, '助浴护理', 'HK-BATH', '助浴和清洁护理', 4, 1),
-(102, '陪诊陪护', 'HK-CARE', '陪诊和陪护服务', 5, 1),
-(103, '日常保洁', 'HK-CLEAN', '居家保洁服务', 6, 1),
-(104, '术后康复', 'RH-POST', '术后康复训练', 7, 1),
-(105, '肩颈理疗', 'RH-NECK', '肩颈理疗项目', 8, 1),
-(106, '慢病体检', 'EX-CHRONIC', '慢病随访体检', 9, 1),
-(107, '专项体检', 'EX-SPECIAL', '专项健康检查', 10, 1);
 
 insert ignore into service_item(id, product_id, name, description, duration, price, status) values
 (101, 5, '陪诊前沟通', '确认就诊信息与注意事项', 20, 0.00, 1),
@@ -706,6 +701,32 @@ on duplicate key update
   price = values(price),
   status = values(status),
   updater = values(updater);
+
+-- 将历史商品服务自行归入固定四类；无法可靠识别的内容统一放入“其他”。
+update product
+set category = case
+  when concat(name, ' ', coalesce(description, '')) regexp '康复|理疗|训练|按摩|肩颈|肌力' then '康复理疗'
+  when concat(name, ' ', coalesce(description, '')) regexp '体检|检测|随访|血压|血糖|健康检查' then '上门体检'
+  when concat(name, ' ', coalesce(description, '')) regexp '清洁|保洁|家政|护理|助浴|助餐|陪护|陪诊|用药提醒|安全检查' then '家政护理'
+  else '其他'
+end
+where category is null
+   or category not in ('家政护理', '康复理疗', '上门体检', '其他');
+
+update service_personnel
+set service_type = '其他'
+where service_type is null
+   or service_type not in ('家政护理', '康复理疗', '上门体检', '其他');
+
+update service_profile sp
+join service_personnel personnel on personnel.id = sp.legacy_personnel_id
+set sp.service_type = personnel.service_type
+where sp.service_type <> personnel.service_type or sp.service_type is null;
+
+update service_order o
+join product p on p.id = o.product_id
+set o.service_type = p.category
+where o.service_type <> p.category or o.service_type is null;
 
 update work_order w
 join service_order o on o.id = w.order_id

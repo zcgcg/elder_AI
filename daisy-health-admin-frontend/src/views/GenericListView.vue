@@ -39,8 +39,8 @@
       <el-table-column label="操作" width="190" align="right">
         <template #default="{ row }">
           <el-button link type="primary" @click="openDetail(row)">详情</el-button>
-          <el-button link @click="openEdit(row)">编辑</el-button>
-          <el-button link type="danger" @click="removeRow(row)">删除</el-button>
+          <el-button v-if="resource !== 'productCategories'" link @click="openEdit(row)">编辑</el-button>
+          <el-button v-if="resource !== 'productCategories'" link type="danger" @click="removeRow(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -90,7 +90,7 @@
             :disabled="readonly"
           >
             <el-option
-              v-for="person in personnelOptions"
+              v-for="person in assignablePersonnelOptions"
               :key="person.id"
               :label="`${person.name} · ${person.serviceType} · ${person.phone}`"
               :value="String(person.id)"
@@ -159,6 +159,7 @@ import { openExternalUrl } from '../native/app.js'
 import { toQueryParams } from '../utils/query'
 import { isListSearchEnabled, listSearchStatuses } from '../utils/listSearch'
 import { eligiblePersonnel } from '../utils/personnel'
+import { SERVICE_CATEGORIES, personnelByProduct } from '../utils/serviceCategory'
 import { localizeValue } from '../utils/localizeValue'
 import PagedList from '../components/PagedList.vue'
 
@@ -182,13 +183,17 @@ const descriptor = computed(() => descriptors[resource.value] || '列表浏览�
 const columns = computed(() => columnMap[resource.value] || defaultColumns)
 const createFields = computed(() => createFieldMap[resource.value] || createFieldMap.posts)
 const canCreate = computed(() => {
-  if (['audits', 'logs', 'orders'].includes(resource.value)) return false
+  if (['audits', 'logs', 'orders', 'productCategories'].includes(resource.value)) return false
   if (resource.value === 'memberLevels') return hasAvailableOption('name')
   if (resource.value === 'pointsRules') return hasAvailableOption('actionType')
   return true
 })
 const searchEnabled = computed(() => isListSearchEnabled(resource.value))
 const filterStatuses = computed(() => listSearchStatuses(resource.value))
+const assignablePersonnelOptions = computed(() => {
+  if (resource.value !== 'workOrders') return personnelOptions.value
+  return personnelByProduct(personnelOptions.value, productOptions.value, form.productId)
+})
 
 const descriptors = {
   personnel: '服务人员生命周期、负责区域与启用状态管理',
@@ -211,7 +216,7 @@ const descriptors = {
   userPoints: '用户积分、等级与成长值管理',
   memberLevels: '会员等级和成长值区间配置',
   pointsRules: '签到、订单、评价等积分和成长值规则',
-  productCategories: '家政护理、康复理疗、上门体检分类管理',
+  productCategories: '家政护理、康复理疗、上门体检、其他四类服务管理',
   serviceItems: '商品下属服务项目、时长与价格维护',
   banners: '首页和活动位轮播图配置',
   topics: '生活圈话题与动态数量维护',
@@ -289,7 +294,7 @@ const createFieldMap = {
   personnel: [
     { prop: 'name', label: '姓名', required: true, placeholder: '服务人员姓名' },
     { prop: 'phone', label: '手机号', placeholder: '不填则自动生成' },
-    { prop: 'serviceType', label: '服务类型', type: 'select', options: ['家政护理', '康复理疗', '上门体检'] },
+    { prop: 'serviceType', label: '服务类型', type: 'select', options: SERVICE_CATEGORIES },
     { prop: 'area', label: '负责区域', placeholder: '如：浦东新区' },
     { prop: 'auditStatus', label: '审核状态', type: 'select', options: ['待审核', '已通过', '已驳回'] }
   ],
@@ -305,7 +310,7 @@ const createFieldMap = {
     { prop: 'name', label: '商品服务名称', required: true, placeholder: '如：助餐陪诊服务' },
     { prop: 'code', label: '编码', placeholder: '不填则自动生成' },
     { prop: 'itemType', label: '类型', type: 'select', options: ['服务', '商品'] },
-    { prop: 'category', label: '分类', type: 'select', options: ['家政护理', '康复理疗', '上门体检'] },
+    { prop: 'category', label: '分类', type: 'select', options: SERVICE_CATEGORIES },
     { prop: 'description', label: '说明', type: 'textarea', placeholder: '商品或服务说明' },
     { prop: 'duration', label: '时长分钟', type: 'number' },
     { prop: 'price', label: '价格', type: 'number' },
@@ -577,6 +582,10 @@ function handleProductChange(field, value) {
   if (field.prop !== 'productId' || !['workOrders', 'orders'].includes(resource.value)) return
   const selected = productOptions.value.find((item) => String(item.id) === String(value))
   form.amount = selected ? Number(selected.price || 0) : 0
+  if (resource.value === 'workOrders'
+    && !assignablePersonnelOptions.value.some((person) => String(person.id) === String(form.personnelId))) {
+    form.personnelId = ''
+  }
 }
 function userRefFromRow(row) {
   const name = row.userName || row.customer || row.buyer || row.applicant || row.user

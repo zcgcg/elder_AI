@@ -326,13 +326,10 @@ public class JdbcPortalDataService implements PortalDataService {
         if (product.isEmpty()) {
             throw new IllegalArgumentException("所选商品服务不存在或已下架");
         }
-        long personnelId = requiredLong(payload, "personnelId", "请选择服务人员");
-        if (jdbcTemplate.queryForList(
-                "select id from service_personnel where id = ? and status = 1 and audit_status = '已通过' limit 1",
-                personnelId
-        ).isEmpty()) {
-            throw new IllegalArgumentException("所选服务人员不存在或不可接单");
-        }
+        Long requestedPersonnelId = requiredLong(payload, "personnelId", "请选择服务人员");
+        long personnelId = ServiceAssignmentPolicy.requireAssignable(
+                jdbcTemplate, requestedPersonnelId, product.get("category")
+        );
 
         String serviceOrderNo = uniqueNo("OD");
         jdbcTemplate.update(

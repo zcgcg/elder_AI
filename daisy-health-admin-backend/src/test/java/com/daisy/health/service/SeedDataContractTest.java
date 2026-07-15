@@ -48,4 +48,24 @@ class SeedDataContractTest {
         assertTrue(sql.contains("sha2("), "migration identifiers must avoid collisions with historical numbers");
         assertTrue(sql.contains("uk_work_order_order_id"), "the one-to-one relation must be enforced by a unique index");
     }
+
+    @Test
+    void startupKeepsExactlyFourServiceCategoriesAndMigratesLegacyAssignments() throws Exception {
+        ClassPathResource resource = new ClassPathResource("data.sql");
+        String sql = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8)
+                .replace("\r\n", "\n")
+                .toLowerCase();
+
+        int cleanup = sql.indexOf("delete from product_category;");
+        int fixedSeed = sql.indexOf("insert into product_category(id, name, code, description, sort_order, status)");
+        assertTrue(cleanup >= 0 && cleanup < fixedSeed,
+                "the unreferenced lookup table must be cleared before fixed ids, names and codes are rebuilt");
+        assertTrue(sql.contains("(4, '其他', 'ot'"), "the fourth fixed service category must be rebuilt");
+        assertTrue(sql.contains("update product\nset category = case"), "legacy products must be classified on startup");
+        assertTrue(sql.contains("else '其他'\nend"), "unknown legacy services must fall back to 其他");
+        assertTrue(sql.contains("update service_personnel\nset service_type = '其他'"),
+                "legacy personnel types outside the fixed categories must be normalized");
+        assertTrue(sql.contains("update service_order o\njoin product p on p.id = o.product_id\nset o.service_type = p.category"),
+                "existing orders must use their product category");
+    }
 }

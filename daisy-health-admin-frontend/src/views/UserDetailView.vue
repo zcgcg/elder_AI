@@ -107,7 +107,7 @@
             <el-option v-for="item in productOptions" :key="item.id" :label="`${item.name} · ¥${item.price} · ${serviceDurationMinutes(item)}分钟`" :value="String(item.id)" />
           </el-select>
           <el-select v-else-if="field.type === 'personnel'" v-model="sectionForm[field.prop]" filterable placeholder="请选择服务人员">
-            <el-option v-for="item in personnelOptions" :key="item.id" :label="`${item.name} · ${item.serviceType} · ${item.phone}`" :value="String(item.id)" />
+            <el-option v-for="item in sectionPersonnelOptions" :key="item.id" :label="`${item.name} · ${item.serviceType} · ${item.phone}`" :value="String(item.id)" />
           </el-select>
           <el-select v-else-if="field.type === 'select'" v-model="sectionForm[field.prop]" placeholder="请选择">
             <el-option v-for="option in field.options" :key="selectOptionValue(option)" :label="selectOptionLabel(option)" :value="selectOptionValue(option)" />
@@ -153,6 +153,8 @@ import { useResponsiveColumns } from '../utils/viewport'
 import { PAGE_SIZE, normalizePage, paginate } from '../utils/pagination'
 import { localizeValue } from '../utils/localizeValue'
 import { serviceDurationMinutes } from '../utils/serviceDuration'
+import { eligiblePersonnel } from '../utils/personnel'
+import { personnelByProduct } from '../utils/serviceCategory'
 
 const EditableTable = defineComponent({
   props: { section: String, rows: Array, columns: Array },
@@ -284,6 +286,7 @@ const sectionMap = {
 }
 
 const currentSection = computed(() => sectionMap[editingSection.value] || { title: '', fields: [], resource: '' })
+const sectionPersonnelOptions = computed(() => personnelByProduct(personnelOptions.value, productOptions.value, sectionForm.productId))
 const selectOptionValue = (option) => typeof option === 'object' ? option.value : option
 const selectOptionLabel = (option) => typeof option === 'object' ? option.label : option
 const sectionDialogTitle = computed(() => `${editingId.value ? '编辑' : '新增'}${currentSection.value.title}`)
@@ -333,6 +336,9 @@ function openSectionEdit(section, row) {
 function syncSectionProductAmount(productId) {
   const selected = productOptions.value.find((item) => String(item.id) === String(productId))
   sectionForm.amount = Number(selected?.price || 0)
+  if (!sectionPersonnelOptions.value.some((person) => String(person.id) === String(sectionForm.personnelId))) {
+    sectionForm.personnelId = ''
+  }
 }
 async function loadUser() {
   user.value = await getUser(route.params.id)
@@ -350,7 +356,7 @@ async function loadProductOptions() {
 async function loadPersonnelOptions() {
   try {
     const data = await getResource('personnel')
-    personnelOptions.value = (data.list || data || []).filter((item) => item.status === '启用' && item.auditStatus === '已通过')
+    personnelOptions.value = eligiblePersonnel(data.list || data || [])
   } catch (error) {
     personnelOptions.value = []
   }

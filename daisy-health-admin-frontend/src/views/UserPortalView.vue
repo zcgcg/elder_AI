@@ -197,7 +197,10 @@
         </paged-list>
       </el-tab-pane>
       <el-tab-pane label="商品服务" name="catalog">
-        <paged-list :items="catalogItems" v-slot="{ items }">
+        <el-tabs v-model="catalogCategory" class="catalog-category-tabs">
+          <el-tab-pane v-for="category in SERVICE_CATEGORIES" :key="category" :label="category" :name="category" />
+        </el-tabs>
+        <paged-list :items="visibleCatalogItems" v-slot="{ items }">
         <section class="catalog-grid">
           <article v-for="item in items" :key="item.id" class="catalog-card">
             <div>
@@ -212,6 +215,7 @@
               <el-button type="primary" @click="openWorkOrder(item)">创建工单</el-button>
             </footer>
           </article>
+          <el-empty v-if="!visibleCatalogItems.length" :description="`暂无${catalogCategory}服务`" />
         </section>
         </paged-list>
       </el-tab-pane>
@@ -401,7 +405,7 @@
         </el-form-item>
         <el-form-item label="服务人员" required>
           <el-select v-model="workOrderForm.personnelId" filterable placeholder="请选择服务人员">
-            <el-option v-for="item in personnelOptions" :key="item.id" :label="`${item.name}${item.serviceType ? ` · ${item.serviceType}` : ''}`" :value="String(item.id)" />
+            <el-option v-for="item in workOrderPersonnelOptions" :key="item.id" :label="`${item.name}${item.serviceType ? ` · ${item.serviceType}` : ''}`" :value="String(item.id)" />
           </el-select>
         </el-form-item>
         <el-form-item label="金额"><el-input-number v-model="workOrderForm.amount" :min="0" disabled /></el-form-item>
@@ -458,6 +462,7 @@ import { createHealthChartOption } from '../utils/healthChart'
 import { useResponsiveColumns } from '../utils/viewport'
 import { splitUserActivities } from '../utils/activity'
 import { localizeValue } from '../utils/localizeValue'
+import { SERVICE_CATEGORIES, catalogItemsByCategory, personnelByProduct } from '../utils/serviceCategory'
 import { useAuthStore } from '../stores/auth'
 import {
   assetUrl,
@@ -524,7 +529,10 @@ const orders = ref([])
 const coupons = ref([])
 const points = ref({})
 const catalogItems = ref([])
+const catalogCategory = ref(SERVICE_CATEGORIES[0])
 const personnelOptions = ref([])
+const visibleCatalogItems = computed(() => catalogItemsByCategory(catalogItems.value, catalogCategory.value))
+const workOrderPersonnelOptions = computed(() => personnelByProduct(personnelOptions.value, catalogItems.value, workOrderForm.productId))
 const workOrders = ref([])
 const reviews = ref([])
 const activities = ref([])
@@ -697,6 +705,9 @@ function openWorkOrder(item) {
 function syncWorkOrderAmount(productId) {
   const selected = catalogItems.value.find((item) => String(item.id) === String(productId))
   workOrderForm.amount = Number(selected?.price || 0)
+  if (!workOrderPersonnelOptions.value.some((person) => String(person.id) === String(workOrderForm.personnelId))) {
+    workOrderForm.personnelId = ''
+  }
 }
 
 async function submitWorkOrder() {

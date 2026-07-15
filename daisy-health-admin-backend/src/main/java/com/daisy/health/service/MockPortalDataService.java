@@ -90,12 +90,18 @@ public class MockPortalDataService implements PortalDataService {
 
     @Override
     public List<Map<String, Object>> elderlyCatalogItems() {
-        return list(record("id", 1, "name", "助浴护理", "itemType", "服务", "category", "家政护理", "price", 199));
+        return list(
+                record("id", 1, "name", "助浴护理", "itemType", "服务", "category", "家政护理", "price", 199),
+                record("id", 2, "name", "肩颈康复", "itemType", "服务", "category", "康复理疗", "price", 299)
+        );
     }
 
     @Override
     public List<Map<String, Object>> elderlyPersonnel() {
-        return list(record("id", 1L, "name", "张敏", "serviceType", "家政护理", "area", "浦东新区", "rating", 4.8));
+        return list(
+                record("id", 1L, "name", "张敏", "serviceType", "家政护理", "area", "浦东新区", "rating", 4.8),
+                record("id", 2L, "name", "李华", "serviceType", "康复理疗", "area", "徐汇区", "rating", 4.9)
+        );
     }
 
     @Override
@@ -105,7 +111,25 @@ public class MockPortalDataService implements PortalDataService {
 
     @Override
     public Map<String, Object> createElderlyWorkOrder(Map<String, Object> payload) {
-        return record("id", 2, "orderNo", "WO20260710001", "productId", payload.get("productId"), "personnelId", payload.get("personnelId"), "personnelName", "张敏", "serviceItem", "助浴护理", "amount", 199, "status", "待服务", "dispatchTime", "2026-07-10 10:00");
+        Map<String, Object> product = findById(elderlyCatalogItems(), payload == null ? null : payload.get("productId"));
+        Map<String, Object> personnel = findById(elderlyPersonnel(), payload == null ? null : payload.get("personnelId"));
+        if (product == null) throw new IllegalArgumentException("所选商品服务不存在或已下架");
+        if (personnel == null) throw new IllegalArgumentException("所选服务人员不存在或不可接单");
+        if (!String.valueOf(product.get("category")).equals(String.valueOf(personnel.get("serviceType")))) {
+            throw new IllegalArgumentException("所选服务人员的服务类型与商品服务分类不匹配");
+        }
+        return record("id", 2, "orderNo", "WO20260710001", "productId", payload.get("productId"),
+                "personnelId", payload.get("personnelId"), "personnelName", personnel.get("name"),
+                "serviceItem", product.get("name"), "amount", product.get("price"),
+                "status", "待服务", "dispatchTime", "2026-07-10 10:00");
+    }
+
+    private Map<String, Object> findById(List<Map<String, Object>> rows, Object id) {
+        if (id == null) return null;
+        for (Map<String, Object> row : rows) {
+            if (String.valueOf(id).equals(String.valueOf(row.get("id")))) return row;
+        }
+        return null;
     }
 
     @Override
@@ -202,9 +226,10 @@ public class MockPortalDataService implements PortalDataService {
         return map;
     }
 
-    private List<Map<String, Object>> list(Map<String, Object> row) {
+    @SafeVarargs
+    private final List<Map<String, Object>> list(Map<String, Object>... values) {
         List<Map<String, Object>> rows = new ArrayList<Map<String, Object>>();
-        rows.add(row);
+        for (Map<String, Object> value : values) rows.add(value);
         return rows;
     }
 }

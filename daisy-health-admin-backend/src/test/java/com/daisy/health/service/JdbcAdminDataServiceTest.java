@@ -31,6 +31,83 @@ import static org.mockito.Mockito.when;
 
 class JdbcAdminDataServiceTest {
     @Test
+    void productAndPersonnelWritesRejectCategoriesOutsideTheFourServiceCategories() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        JdbcAdminDataService service = service(jdbcTemplate);
+
+        IllegalArgumentException productError = assertThrows(IllegalArgumentException.class, () -> service.createResource(
+                "products", record("name", "未知服务", "category", "自定义分类")
+        ));
+        IllegalArgumentException personnelError = assertThrows(IllegalArgumentException.class, () -> service.createResource(
+                "personnel", record("name", "测试人员", "serviceType", "自定义分类")
+        ));
+
+        assertEquals("服务分类只能是家政护理、康复理疗、上门体检或其他", productError.getMessage());
+        assertEquals("服务分类只能是家政护理、康复理疗、上门体检或其他", personnelError.getMessage());
+        verify(jdbcTemplate, never()).update(any(org.springframework.jdbc.core.PreparedStatementCreator.class), any(org.springframework.jdbc.support.KeyHolder.class));
+    }
+
+    @Test
+    void fixedServiceCategoriesCannotBeCreatedEditedOrDeletedThroughCrud() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        JdbcAdminDataService service = service(jdbcTemplate);
+
+        assertEquals("服务分类为系统固定四类，不能新增、修改或删除", assertThrows(
+                IllegalArgumentException.class,
+                () -> service.createResource("productCategories", record("name", "第五类"))
+        ).getMessage());
+        assertEquals("服务分类为系统固定四类，不能新增、修改或删除", assertThrows(
+                IllegalArgumentException.class,
+                () -> service.updateResource("productCategories", 1L, record("name", "改名"))
+        ).getMessage());
+        assertEquals("服务分类为系统固定四类，不能新增、修改或删除", assertThrows(
+                IllegalArgumentException.class,
+                () -> service.deleteResource("productCategories", 1L)
+        ).getMessage());
+
+        verify(jdbcTemplate, never()).update(startsWith("delete from `product_category`"), any(Object[].class));
+    }
+
+    @Test
+    void adminCannotAssignAWorkOrderToPersonnelFromAnotherServiceCategory() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.queryForList(startsWith("select id, name, category, price"), eq(7L)))
+                .thenReturn(Collections.singletonList(record(
+                        "id", 7L, "name", "肩周炎理疗", "category", "康复理疗", "price", 259, "duration", 60
+                )));
+        when(jdbcTemplate.queryForList(startsWith("select id, service_type as serviceType from service_personnel"), eq(1L)))
+                .thenReturn(Collections.singletonList(record("id", 1L, "serviceType", "家政护理")));
+        when(jdbcTemplate.queryForList(startsWith("select id from `user`")))
+                .thenReturn(Collections.singletonList(record("id", 10001L)));
+        JdbcAdminDataService service = service(jdbcTemplate);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.createResource(
+                "workOrders",
+                record("productId", 7L, "customerId", 10001L, "personnelId", 1L, "serviceTime", "2026-07-18 09:00:00")
+        ));
+
+        assertEquals("所选服务人员的服务类型与商品服务分类不匹配", error.getMessage());
+        verify(jdbcTemplate, never()).update(any(org.springframework.jdbc.core.PreparedStatementCreator.class), any(org.springframework.jdbc.support.KeyHolder.class));
+    }
+
+    @Test
+    void editingAWorkOrderCannotSwitchToPersonnelFromAnotherServiceCategory() {
+        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
+        when(jdbcTemplate.queryForList(startsWith("select p.category from work_order"), eq(9L)))
+                .thenReturn(Collections.singletonList(record("category", "康复理疗")));
+        when(jdbcTemplate.queryForList(startsWith("select id, service_type as serviceType from service_personnel"), eq(1L)))
+                .thenReturn(Collections.singletonList(record("id", 1L, "serviceType", "家政护理")));
+        JdbcAdminDataService service = service(jdbcTemplate);
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.updateResource(
+                "workOrders", 9L, record("personnelId", 1L)
+        ));
+
+        assertEquals("所选服务人员的服务类型与商品服务分类不匹配", error.getMessage());
+        verify(jdbcTemplate, never()).update(startsWith("update `work_order`"), any(Object[].class));
+    }
+
+    @Test
     void appointmentBoardUsesTheWorkOrderDurationSnapshotInsteadOfCompletionTime() {
         JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
         JdbcAdminDataService service = service(jdbcTemplate);
@@ -340,10 +417,13 @@ class JdbcAdminDataServiceTest {
                 )));
         when(jdbcTemplate.queryForList(startsWith("select id from `user`")))
                 .thenReturn(Collections.singletonList(record("id", 10001L)));
+        when(jdbcTemplate.queryForList(startsWith("select id, service_type as serviceType from service_personnel"), eq(1L)))
+                .thenReturn(Collections.singletonList(record("id", 1L, "serviceType", "家政护理")));
         JdbcAdminDataService service = service(jdbcTemplate);
 
         service.updateResource("appointments", 9L, record(
                 "productId", 7L,
+                "personnelId", 1L,
                 "customerId", 10002L
         ));
 

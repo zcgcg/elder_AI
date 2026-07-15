@@ -606,13 +606,14 @@ public class JdbcAdminDataService implements AdminDataService {
     @Override
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> createResource(String name, Map<String, Object> payload) {
+        rejectFixedServiceCategoryMutation(name);
         Number id;
         if ("personnel".equals(name)) {
             require(payload, "name", "服务人员姓名不能为空");
             id = insert("service_personnel", record(
                     "name", text(payload, "name", ""),
                     "phone", text(payload, "phone", "139" + uniqueDigits(8)),
-                    "service_type", text(payload, "serviceType", "家政护理"),
+                    "service_type", ServiceCategory.requireValid(text(payload, "serviceType", "家政护理")),
                     "area", text(payload, "area", "浦东新区"),
                     "join_time", null,
                     "status", statusCode(text(payload, "status", "启用")),
@@ -620,7 +621,7 @@ public class JdbcAdminDataService implements AdminDataService {
             ));
         } else if ("products".equals(name)) {
             require(payload, "name", "商品服务名称不能为空");
-            String category = text(payload, "category", "家政护理");
+            String category = ServiceCategory.requireValid(text(payload, "category", "家政护理"));
             id = insert("product", record(
                     "name", text(payload, "name", ""),
                     "code", text(payload, "code", "P-" + System.currentTimeMillis()),
@@ -711,6 +712,7 @@ public class JdbcAdminDataService implements AdminDataService {
     @Override
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public Map<String, Object> updateResource(String name, Long id, Map<String, Object> payload) {
+        rejectFixedServiceCategoryMutation(name);
         if (payload == null) {
             payload = new LinkedHashMap<String, Object>();
         }
@@ -721,7 +723,9 @@ public class JdbcAdminDataService implements AdminDataService {
         if ("personnel".equals(name) || "audits".equals(name)) {
             putIfPresent(values, "name", payload, "name");
             putIfPresent(values, "phone", payload, "phone");
-            putIfPresent(values, "service_type", payload, "serviceType");
+            if (payload.containsKey("serviceType")) {
+                values.put("service_type", ServiceCategory.requireValid(payload.get("serviceType")));
+            }
             putIfPresent(values, "area", payload, "area");
             if (payload.containsKey("status")) values.put("status", statusCode(text(payload, "status", "启用")));
             putIfPresent(values, "audit_status", payload, "auditStatus");
@@ -730,7 +734,9 @@ public class JdbcAdminDataService implements AdminDataService {
             putIfPresent(values, "name", payload, "name");
             putIfPresent(values, "code", payload, "code");
             if (payload.containsKey("itemType")) values.put("item_type", catalogItemType(text(payload, "itemType", "服务")));
-            putIfPresent(values, "category", payload, "category");
+            if (payload.containsKey("category")) {
+                values.put("category", ServiceCategory.requireValid(payload.get("category")));
+            }
             putIfPresent(values, "description", payload, "description");
             if (payload.containsKey("duration")) values.put("duration", nullableLong(payload, "duration"));
             if (payload.containsKey("price")) values.put("price", decimal(payload, "price", BigDecimal.valueOf(99)));
@@ -752,23 +758,36 @@ public class JdbcAdminDataService implements AdminDataService {
             boolean syncOrderDetails = payload.containsKey("productId") || hasUserRef(payload, "customerId");
             Long orderId = (syncOrderDetails || payload.containsKey("status")) ? linkedOrderId(name, id) : null;
             Map<String, Object> orderValues = new LinkedHashMap<String, Object>();
+            Map<String, Object> selectedProduct = Collections.emptyMap();
             if (payload.containsKey("productId")) {
-                Map<String, Object> product = catalogItem(payload);
-                values.put("product_id", product.get("id"));
-                values.put("service_item", product.get("name"));
-                values.put("amount", product.get("price"));
-                values.put("service_duration", ServiceDurationPolicy.minutes(product.get("duration")));
-                orderValues.put("product_id", product.get("id"));
-                orderValues.put("product_name", product.get("name"));
-                orderValues.put("amount", product.get("price"));
-                orderValues.put("service_type", product.get("category"));
+                selectedProduct = catalogItem(payload);
+                values.put("product_id", selectedProduct.get("id"));
+                values.put("service_item", selectedProduct.get("name"));
+                values.put("amount", selectedProduct.get("price"));
+                values.put("service_duration", ServiceDurationPolicy.minutes(selectedProduct.get("duration")));
+                orderValues.put("product_id", selectedProduct.get("id"));
+                orderValues.put("product_name", selectedProduct.get("name"));
+                orderValues.put("amount", selectedProduct.get("price"));
+                orderValues.put("service_type", selectedProduct.get("category"));
             }
             if (hasUserRef(payload, "customerId")) {
                 long customerId = userId(payload, "customerId", firstId("user"));
                 values.put("customer_id", customerId);
                 orderValues.put("buyer_id", customerId);
             }
-            if (payload.containsKey("personnelId")) values.put("personnel_id", selectedPersonnelId(payload));
+            if (payload.containsKey("productId") || payload.containsKey("personnelId")) {
+                Object category = payload.containsKey("productId")
+                        ? selectedProduct.get("category")
+                        : firstRow(
+                                "select p.category from work_order w join product p on p.id = w.product_id where w.id = ? limit 1",
+                                id
+                        ).get("category");
+                Long personnelId = payload.containsKey("personnelId")
+                        ? parseLong(payload.get("personnelId"))
+                        : parseLong(firstRow("select personnel_id as personnelId from work_order where id = ? limit 1", id).get("personnelId"));
+                long assignablePersonnelId = ServiceAssignmentPolicy.requireAssignable(jdbcTemplate, personnelId, category);
+                if (payload.containsKey("personnelId")) values.put("personnel_id", assignablePersonnelId);
+            }
             if (payload.containsKey("status")) values.put("status", workOrderStatus(text(payload, "status", "待服务")));
             putIfPresent(values, "service_time", payload, "serviceTime");
             putIfPresent(values, "complete_time", payload, "completeTime");
@@ -860,6 +879,7 @@ public class JdbcAdminDataService implements AdminDataService {
 
     @Override
     public Map<String, Object> deleteResource(String name, Long id) {
+        rejectFixedServiceCategoryMutation(name);
         Long activityId = "activityEnrolls".equals(name) ? enrollmentActivityId(id) : null;
         if ("orders".equals(name) || "workOrders".equals(name) || "appointments".equals(name)) {
             Long orderId = linkedOrderId(name, id);
@@ -899,6 +919,12 @@ public class JdbcAdminDataService implements AdminDataService {
             throw new IllegalArgumentException("工单未关联交易订单");
         }
         return orderId;
+    }
+
+    private void rejectFixedServiceCategoryMutation(String resourceName) {
+        if ("productCategories".equals(resourceName)) {
+            throw new IllegalArgumentException("服务分类为系统固定四类，不能新增、修改或删除");
+        }
     }
 
     private void syncServiceOrderStatus(Long orderId, String workOrderStatus) {
@@ -1406,7 +1432,7 @@ public class JdbcAdminDataService implements AdminDataService {
         Map<String, Object> product = catalogItem(payload);
         long productId = ((Number) product.get("id")).longValue();
         long customerId = userId(payload, "customerId", firstId("user"));
-        long personnelId = selectedPersonnelId(payload);
+        long personnelId = selectedPersonnelId(payload, product.get("category"));
         Number orderId = insert("service_order", record(
                 "order_no", uniqueBusinessNo("OD"),
                 "product_id", productId,
@@ -1462,15 +1488,9 @@ public class JdbcAdminDataService implements AdminDataService {
         }
     }
 
-    private Long selectedPersonnelId(Map<String, Object> payload) {
+    private Long selectedPersonnelId(Map<String, Object> payload, Object productCategory) {
         Long requested = parseLong(payload == null ? null : payload.get("personnelId"));
-        if (requested == null || requested <= 0) throw new IllegalArgumentException("请选择服务人员");
-        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
-                "select id from service_personnel where id = ? and status = 1 and audit_status = '已通过' limit 1",
-                requested
-        );
-        if (rows.isEmpty()) throw new IllegalArgumentException("所选服务人员不存在或不可接单");
-        return requested;
+        return ServiceAssignmentPolicy.requireAssignable(jdbcTemplate, requested, productCategory);
     }
 
     private String uniqueBusinessNo(String prefix) {

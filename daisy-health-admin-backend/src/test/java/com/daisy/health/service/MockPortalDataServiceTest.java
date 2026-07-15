@@ -26,4 +26,21 @@ class MockPortalDataServiceTest {
         assertThrows(IllegalArgumentException.class, () -> service.enrollElderlyActivity(999L));
         assertEquals(false, service.elderlyActivities().get(0).get("joined"));
     }
+
+    @Test
+    void mockElderlyWorkOrdersRejectPersonnelFromAnotherProductCategory() {
+        MockPortalDataService service = new MockPortalDataService();
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.createElderlyWorkOrder(
+                record("productId", 1L, "personnelId", 2L)
+        ));
+
+        assertEquals("所选服务人员的服务类型与商品服务分类不匹配", error.getMessage());
+    }
+
+    private Map<String, Object> record(Object... values) {
+        Map<String, Object> result = new java.util.LinkedHashMap<String, Object>();
+        for (int i = 0; i < values.length; i += 2) result.put(String.valueOf(values[i]), values[i + 1]);
+        return result;
+    }
 }

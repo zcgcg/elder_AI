@@ -75,7 +75,7 @@
         <el-form-item label="服务人员" required>
           <el-select v-model="form.personnelId" filterable clearable placeholder="请输入姓名选择服务人员">
             <el-option
-              v-for="person in personnelOptions"
+              v-for="person in createPersonnelOptions"
               :key="person.id"
               :label="`${person.name} · ${person.serviceType} · ${person.phone}`"
               :value="String(person.id)"
@@ -126,7 +126,7 @@
         <el-form-item label="服务人员" required>
           <el-select v-model="detailForm.personnelId" filterable placeholder="请选择服务人员">
             <el-option
-              v-for="person in personnelOptions"
+              v-for="person in detailPersonnelOptions"
               :key="person.id"
               :label="`${person.name} · ${person.serviceType} · ${person.phone}`"
               :value="String(person.id)"
@@ -159,6 +159,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { createAppointment, deleteAppointment, getAppointments, getResource, getUsers, updateAppointment } from '../api/http'
 import { sevenDayWindow } from '../utils/query'
 import { eligiblePersonnel } from '../utils/personnel'
+import { personnelByProduct } from '../utils/serviceCategory'
 import { clipAppointmentRange, serviceDurationMinutes } from '../utils/serviceDuration'
 import PagedList from '../components/PagedList.vue'
 
@@ -189,6 +190,8 @@ const activeWindow = computed(() => sevenDayWindow(new Date(`${filters.date}T00:
 const filtered = computed(() => appointments.value.filter((item) => item.serviceDate === filters.date))
 const selectedDuration = computed(() => serviceDurationMinutes(findCatalogItem(form.productId)))
 const detailDuration = computed(() => serviceDurationMinutes(findCatalogItem(detailForm.productId)))
+const createPersonnelOptions = computed(() => personnelByProduct(personnelOptions.value, catalogOptions.value, form.productId))
+const detailPersonnelOptions = computed(() => personnelByProduct(personnelOptions.value, catalogOptions.value, detailForm.productId))
 
 const ROW_HEIGHT = 84
 
@@ -267,6 +270,8 @@ function findCatalogItem(productId) {
 }
 function syncProductAmount(target, productId) {
   target.amount = Number(findCatalogItem(productId)?.price || 0)
+  const allowed = personnelByProduct(personnelOptions.value, catalogOptions.value, productId)
+  if (!allowed.some((person) => String(person.id) === String(target.personnelId))) target.personnelId = ''
 }
 async function load() {
   error.value = ''

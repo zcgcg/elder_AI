@@ -159,6 +159,23 @@ class JdbcPortalDataServiceTest {
     }
 
     @Test
+    void elderlyCannotAssignAWorkOrderToPersonnelFromAnotherServiceCategory() {
+        when(jdbcTemplate.queryForList(startsWith("select id, name, category, price"), eq(7L)))
+                .thenReturn(Collections.singletonList(record(
+                        "id", 7L, "name", "肩周炎理疗", "category", "康复理疗", "price", 259, "duration", 60
+                )));
+        when(jdbcTemplate.queryForList(startsWith("select id, service_type as serviceType from service_personnel"), eq(1L)))
+                .thenReturn(Collections.singletonList(record("id", 1L, "serviceType", "家政护理")));
+
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class, () -> service.createElderlyWorkOrder(
+                record("productId", 7L, "personnelId", 1L, "serviceTime", "2026-07-18 09:00:00")
+        ));
+
+        assertEquals("所选服务人员的服务类型与商品服务分类不匹配", error.getMessage());
+        verify(jdbcTemplate, never()).update(startsWith("insert into service_order"), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void completedOwnedServiceCanBeReviewedOnce() {
         when(jdbcTemplate.queryForList(startsWith("select o.id, o.product_id as productId"), eq(31L), eq(7L)))
                 .thenReturn(Collections.singletonList(record("id", 31L, "productId", 9L, "productName", "助浴护理")));
