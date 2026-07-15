@@ -11,12 +11,15 @@ import AnalyticsView from '../views/AnalyticsView.vue'
 import UserPortalView from '../views/UserPortalView.vue'
 import ServicePortalView from '../views/ServicePortalView.vue'
 import MessageManagementView from '../views/MessageManagementView.vue'
+import AiChatView from '../views/AiChatView.vue'
 import PasswordSettingsView from '../views/PasswordSettingsView.vue'
 import { isNativeApp, serverConfig } from '../config/runtime.js'
+import { portalRouteDecision } from '../utils/portalRouteDecision.js'
 
 const routes = [
   { path: '/login', component: LoginView },
   { path: '/portal/user', component: UserPortalView },
+  { path: '/portal/user/ai-chat', component: AiChatView },
   { path: '/portal/service', component: ServicePortalView },
   {
     path: '/',
@@ -69,13 +72,8 @@ router.beforeEach(async (to) => {
     }
   }
   if (to.path === '/login' && auth.isAuthenticated) return auth.homePath
-  if (auth.user?.roleType === 'elderly') {
-    return to.path === '/portal/user' ? true : '/portal/user'
-  }
-  if (auth.user?.roleType === 'service') {
-    return to.path === '/portal/service' ? true : '/portal/service'
-  }
-  if (to.path.startsWith('/portal/')) return '/dashboard'
+  const portalDecision = portalRouteDecision(auth.user?.roleType, to.path)
+  if (portalDecision !== null) return portalDecision
   const module = moduleForPath(to.path)
   if (module && auth.permissions && !auth.canAccess(module, 'view')) {
     const fallback = firstAccessiblePath(auth)

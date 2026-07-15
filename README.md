@@ -309,6 +309,33 @@ http://127.0.0.1:5173
 
 当前登录入口是后台管理端：`http://127.0.0.1:5173`。
 
+## AI 智能客服配置
+
+老人用户端首页提供“AI 智能客服”入口。真实 AI 对话使用 OpenAI 兼容的非流式 `chat/completions` 接口，并由 Spring Boot 后端调用；前端和 Android App 不接触 API Key。
+
+请在启动后端的同一个 PowerShell 窗口中设置以下环境变量：
+
+```powershell
+$env:DAISY_AI_API_URL = "https://你的服务商地址/v1/chat/completions"
+$env:DAISY_AI_API_KEY = "在服务商控制台创建的真实密钥"
+$env:DAISY_AI_MODEL = "服务商支持的模型名称"
+
+cd D:\agent_project\elder_AI\daisy-health-admin-backend
+mvn spring-boot:run
+```
+
+`DAISY_AI_API_URL` 必须是完整的聊天补全接口地址，而不是控制台首页或仅包含域名的地址。环境变量只对当前 PowerShell 进程及其启动的后端进程生效；关闭窗口后需要重新设置。
+
+后端配置占位位于：
+
+```text
+daisy-health-admin-backend/src/main/resources/application.yml
+```
+
+该文件只引用 `DAISY_AI_API_URL`、`DAISY_AI_API_KEY` 和 `DAISY_AI_MODEL`，不要把真实 API Key 写入 `application.yml`、README、Vue 源码、Android 配置、数据库或任何 Git 跟踪文件。项目已忽略 `.env`、`application-local.yml` 和常见密钥文件，但推荐始终使用环境变量，并定期在服务商控制台轮换密钥。
+
+聊天记录保存在 MySQL 的 `ai_chat_message` 表中，只能由当前登录老人账号读取；页面只显示最近 7 天，后端每 5 分钟自动清理过期记录。`mock` 模式只提供内存中的示例回答，进程重启后记录会消失，也不会调用外部 AI。
+
 无数据库临时演示模式：
 
 ```bat

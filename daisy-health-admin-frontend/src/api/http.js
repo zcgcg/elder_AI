@@ -126,6 +126,8 @@ export const enrollElderlyActivity = (id) => service.post(`/elderly/activities/$
 export const cancelElderlyActivity = (id) => service.put(`/elderly/activities/${id}/cancel-enrollment`)
 export const getElderlyMessages = () => service.get('/elderly/messages')
 export const createElderlyMessage = (payload) => service.post('/elderly/messages', payload)
+export const getAiChatMessages = () => service.get('/elderly/ai-chat/messages')
+export const sendAiChatMessage = (payload) => service.post('/elderly/ai-chat/messages', payload, { timeout: 35000 })
 export const getMessages = () => service.get('/messages')
 export const updateMessageStatus = (id, status) => service.put(`/messages/${id}`, { status })
 export const getElderlyHealthArticles = () => service.get('/elderly/health-articles')

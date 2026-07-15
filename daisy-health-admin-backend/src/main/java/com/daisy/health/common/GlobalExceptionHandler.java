@@ -1,5 +1,6 @@
 package com.daisy.health.common;
 
+import com.daisy.health.ai.AiServiceUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -29,6 +30,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ApiResponse<Void> handleUploadTooLarge(MaxUploadSizeExceededException ex) {
         return ApiResponse.error(1005, "上传文件超过系统限制（最大 20MB）");
+    }
+
+    @ExceptionHandler(AiServiceUnavailableException.class)
+    public ApiResponse<Void> handleAiUnavailable(AiServiceUnavailableException ex) {
+        return ApiResponse.error(5001, AiServiceUnavailableException.PUBLIC_MESSAGE);
     }
 
     @ExceptionHandler(Exception.class)

@@ -22,6 +22,19 @@ daisy:
   security:
     jwt-secret: ${DAISY_JWT_SECRET:daisy-health-local-dev-secret-please-change-32}
     jwt-expiration-ms: ${DAISY_JWT_EXPIRATION_MS:28800000}
+  ai:
+    api-url: ${DAISY_AI_API_URL:}
+    api-key: ${DAISY_AI_API_KEY:}
+    model: ${DAISY_AI_MODEL:}
+    connect-timeout-ms: ${DAISY_AI_CONNECT_TIMEOUT_MS:5000}
+    read-timeout-ms: ${DAISY_AI_READ_TIMEOUT_MS:30000}
+    max-tokens: ${DAISY_AI_MAX_TOKENS:800}
+    max-response-chars: ${DAISY_AI_MAX_RESPONSE_CHARS:4000}
+    cleanup-delay-ms: ${DAISY_AI_CLEANUP_DELAY_MS:300000}
+
+logging:
+  level:
+    org.springframework.web.client.RestTemplate: INFO
 
 ---
 spring:

@@ -44,6 +44,12 @@
         <strong>{{ workOrders.length }}</strong>
         <small>只显示本人工单</small>
       </article>
+      <button type="button" class="summary-card ai-assistant-card" @click="goToAiChat">
+        <el-icon><Service /></el-icon>
+        <span>AI 智能客服</span>
+        <strong>立即咨询</strong>
+        <small>项目帮助与健康记录解读</small>
+      </button>
     </section>
 
     <el-tabs v-model="activeTab" class="portal-tabs">
@@ -420,24 +426,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="messageVisible" title="给管理员留言" width="620px">
-      <el-form label-position="top">
-        <el-form-item label="留言内容" required>
-          <el-input v-model="messageContent" type="textarea" :rows="5" maxlength="500" show-word-limit placeholder="请描述需要管理员协助处理的事项" />
-        </el-form-item>
-      </el-form>
-      <section v-if="messages.length" class="message-history">
-        <h3>最近留言</h3>
-        <article v-for="item in messages.slice(0, 5)" :key="item.id">
-          <div><span>{{ item.createdAt }}</span><el-tag size="small" :type="messageStatusTone(item.status)">{{ item.status }}</el-tag></div>
-          <p>{{ item.content }}</p>
-        </article>
-      </section>
-      <template #footer>
-        <el-button @click="messageVisible = false">关闭</el-button>
-        <el-button type="primary" :loading="messageSaving" @click="submitMessage">提交留言</el-button>
-      </template>
-    </el-dialog>
+    <admin-message-dialog v-model="messageVisible" />
     <el-dialog v-model="reviewVisible" title="评价服务" width="560px">
       <el-form label-position="top">
         <el-form-item label="服务项目"><strong>{{ reviewForm.serviceItem }}</strong></el-form-item>
@@ -462,6 +451,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import AvatarPicker from '../components/AvatarPicker.vue'
+import AdminMessageDialog from '../components/AdminMessageDialog.vue'
 import PasswordChangeDialog from '../components/PasswordChangeDialog.vue'
 import PagedList from '../components/PagedList.vue'
 import { createHealthChartOption } from '../utils/healthChart'
@@ -473,7 +463,6 @@ import {
   assetUrl,
   cancelElderlyActivity,
   cancelElderlyWorkOrder,
-  createElderlyMessage,
   createElderlyReview,
   createElderlyWorkOrder,
   enrollElderlyActivity,
@@ -485,7 +474,6 @@ import {
   getElderlyHealthArticles,
   getElderlyHealthVideos,
   getElderlyMedications,
-  getElderlyMessages,
   getElderlyOrders,
   getElderlyReviews,
   getElderlyPersonnel,
@@ -539,7 +527,6 @@ const catalogItems = ref([])
 const personnelOptions = ref([])
 const workOrders = ref([])
 const reviews = ref([])
-const messages = ref([])
 const activities = ref([])
 const activityGroups = computed(() => splitUserActivities(activities.value))
 const myActivities = computed(() => activityGroups.value.mine)
@@ -561,8 +548,6 @@ const rescheduleVisible = ref(false)
 const rescheduleSaving = ref(false)
 const rescheduleForm = reactive({ id: null, orderNo: '', date: '', time: '09:00:00' })
 const messageVisible = ref(false)
-const messageSaving = ref(false)
-const messageContent = ref('')
 const reviewVisible = ref(false)
 const reviewSaving = ref(false)
 const reviewForm = reactive({ orderId: null, serviceItem: '', personnelName: '', rating: 5, content: '' })
@@ -634,7 +619,7 @@ function statusTone(status) {
 
 async function loadData() {
   try {
-    const [profileData, health, medicationData, deviceData, reportData, orderData, reviewData, couponData, pointData, catalogData, workOrderData, activityData, articleData, videoData, personnelData, messageData] = await Promise.all([
+    const [profileData, health, medicationData, deviceData, reportData, orderData, reviewData, couponData, pointData, catalogData, workOrderData, activityData, articleData, videoData, personnelData] = await Promise.all([
       getElderlyProfile(),
       getElderlyHealthData(),
       getElderlyMedications(),
@@ -649,8 +634,7 @@ async function loadData() {
       getElderlyActivities(),
       getElderlyHealthArticles(),
       getElderlyHealthVideos(),
-      getElderlyPersonnel(),
-      getElderlyMessages()
+      getElderlyPersonnel()
     ])
     profile.value = profileData
     healthData.value = health
@@ -667,7 +651,6 @@ async function loadData() {
     healthArticles.value = articleData
     healthVideos.value = videoData
     personnelOptions.value = personnelData
-    messages.value = messageData
     if (activeTab.value === 'health') {
       await nextTick()
       drawUserHealthChart()
@@ -937,31 +920,11 @@ async function submitReschedule() {
 }
 
 function openMessageDialog() {
-  messageContent.value = ''
   messageVisible.value = true
 }
 
-async function submitMessage() {
-  const content = messageContent.value.trim()
-  if (!content) {
-    ElMessage.warning('请输入留言内容')
-    return
-  }
-  messageSaving.value = true
-  try {
-    await createElderlyMessage({ content })
-    messages.value = await getElderlyMessages()
-    messageContent.value = ''
-    ElMessage.success('留言已提交，管理员将在后台处理')
-  } catch (err) {
-    ElMessage.error(err.message || '留言提交失败')
-  } finally {
-    messageSaving.value = false
-  }
-}
-
-function messageStatusTone(status) {
-  return { '待处理': 'warning', '处理中': 'primary', '已解决': 'success' }[status] || 'info'
+function goToAiChat() {
+  router.push('/portal/user/ai-chat')
 }
 
 function openActivity(item) {
@@ -1061,7 +1024,7 @@ onMounted(loadData)
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
   margin-bottom: 18px;
 }
@@ -1069,8 +1032,10 @@ onMounted(loadData)
 .summary-card {
   min-height: 124px;
   padding: 20px;
+  border: 0;
   border-radius: 8px;
   color: #fff;
+  text-align: left;
 }
 
 .summary-card span,
@@ -1088,6 +1053,30 @@ onMounted(loadData)
 .coral { background: #e56a54; }
 .blue { background: #3578c8; }
 .purple { background: #7657b6; }
+
+.ai-assistant-card {
+  cursor: pointer;
+  font: inherit;
+  background: linear-gradient(135deg, #16a789, #58d9b6);
+  box-shadow: 0 9px 24px rgb(22 167 137 / 20%);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.ai-assistant-card:hover,
+.ai-assistant-card:focus-visible {
+  outline: 3px solid rgb(22 167 137 / 20%);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgb(22 167 137 / 28%);
+}
+
+.ai-assistant-card > .el-icon {
+  float: right;
+  font-size: 34px;
+}
+
+.ai-assistant-card strong {
+  font-size: 25px;
+}
 
 .portal-tabs {
   padding: 18px;
@@ -1271,30 +1260,6 @@ onMounted(loadData)
 .muted-action {
   color: #9aa7ad;
   font-size: 13px;
-}
-
-.message-history {
-  max-height: 280px;
-  overflow: auto;
-  border-top: 1px solid #e2eaee;
-}
-
-.message-history article {
-  padding: 12px 0;
-  border-bottom: 1px solid #edf1f2;
-}
-
-.message-history article > div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  color: #788991;
-}
-
-.message-history p {
-  margin: 8px 0 0;
-  white-space: pre-wrap;
-  line-height: 1.6;
 }
 
 .catalog-card {

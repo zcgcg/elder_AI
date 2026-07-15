@@ -537,6 +537,16 @@ create table if not exists elderly_message (
   index idx_elderly_message_status(status)
 ) default charset = utf8mb4;
 
+create table if not exists ai_chat_message (
+  id bigint primary key auto_increment,
+  account_id bigint not null,
+  role varchar(16) not null,
+  content text not null,
+  created_at datetime not null default current_timestamp,
+  constraint chk_ai_chat_role check (role in ('user', 'assistant')),
+  index idx_ai_chat_account_time (account_id, created_at, id)
+) default charset = utf8mb4;
+
 create table if not exists topic (
   id bigint primary key auto_increment,
   name varchar(50) not null unique,

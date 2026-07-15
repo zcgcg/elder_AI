@@ -12,3 +12,10 @@ daisy-health-admin-backend/uploads/
 *.war
 .DS_Store
 .trae/
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.yaml
+*.secret
+*.secrets
